@@ -1,0 +1,10 @@
+name: checkv
+channels:
+  - conda-forge
+  - bioconda
+  - defaults
+dependencies:
+  - checkv>=1.0.0
+  - pandas
+  - numpy
+  - seqkit

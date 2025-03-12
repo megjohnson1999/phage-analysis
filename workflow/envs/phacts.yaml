@@ -1,0 +1,12 @@
+name: phacts
+channels:
+  - conda-forge
+  - bioconda
+  - defaults
+dependencies:
+  - python>=3.7
+  - pandas
+  - numpy
+  - biopython
+  - scikit-learn
+  - prodigal

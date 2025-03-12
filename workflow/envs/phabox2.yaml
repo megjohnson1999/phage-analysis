@@ -1,0 +1,11 @@
+name: phabox2
+channels:
+  - conda-forge
+  - bioconda
+  - defaults
+dependencies:
+  - phabox>=2.0.0
+  - pandas
+  - numpy
+  - biopython
+  - seqkit

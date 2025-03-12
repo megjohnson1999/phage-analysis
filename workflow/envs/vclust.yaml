@@ -1,0 +1,13 @@
+name: vclust
+channels:
+  - conda-forge
+  - bioconda
+  - defaults
+dependencies:
+  - cd-hit
+  - blast
+  - python>=3.8
+  - pandas
+  - numpy
+  - seqkit
+  - biopython

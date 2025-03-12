@@ -1,0 +1,11 @@
+name: vcontact3
+channels:
+  - conda-forge
+  - bioconda
+  - defaults
+dependencies:
+  - vcontact3
+  - pandas
+  - numpy
+  - biopython
+  - prodigal

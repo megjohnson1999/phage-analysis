@@ -1,0 +1,10 @@
+name: jaeger
+channels:
+  - conda-forge
+  - bioconda
+  - defaults
+dependencies:
+  - jaeger
+  - pandas
+  - numpy
+  - biopython
