@@ -1,0 +1,76 @@
+# Phage Analysis Pipeline Configuration
+
+# Base directories
+base_dir: "/path/to/your/project"  # Change to your actual base directory
+output_dir: "/path/to/your/project/outputs"  # Change to your actual output directory
+
+# Input files/directories
+assembly_file: "/path/to/assembly.fasta"  # Path to the FLYE assembly
+reads_dir: "/path/to/reads"  # Directory containing sequencing reads
+
+# Pipeline configuration
+do_clustering: true  # Set to false to skip clustering
+
+# Tool parameters
+mmseqs2:
+  db: "UniRef50"
+  threads: 16
+
+jaeger:
+  threads: 8
+
+genomad:
+  threads: 16
+
+checkv:
+  threads: 16
+
+phold:
+  threads: 16
+
+vclust:
+  min_length: 10000
+  identity: 95
+  coverage: 85
+
+# Resources
+resources:
+  prediction:
+    mem_mb: 32000
+    threads: 16
+    time: "24:00:00"
+  
+  clustering:
+    mem_mb: 16000
+    threads: 8
+    time: "6:00:00"
+  
+  iphop:
+    mem_mb: 64000
+    threads: 8
+    time: "24:00:00"
+  
+  phacts:
+    mem_mb: 8000
+    threads: 4
+    time: "6:00:00"
+  
+  genomic_info:
+    mem_mb: 32000
+    threads: 16
+    time: "24:00:00"
+
+# Conda environments
+conda_envs:
+  reneo: "envs/reneo.yaml"
+  mmseqs2: "envs/mmseqs2.yaml"
+  jaeger: "envs/jaeger.yaml"
+  genomad: "envs/genomad.yaml"
+  phold: "envs/phold.yaml"
+  checkv: "envs/checkv.yaml"
+  r: "envs/r.yaml"
+  vclust: "envs/vclust.yaml"
+  iphop: "envs/iphop.yaml"
+  phacts: "envs/phacts.yaml"
+  phabox2: "envs/phabox2.yaml"
+  vcontact3: "envs/vcontact3.yaml"
