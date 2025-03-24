@@ -26,15 +26,14 @@ rule split_phage_sequences:
         find {output.split_dir} -name "*.fasta" > {output.split_list}
         """
 
-# 2. Run iPhop for host prediction on each split file
-rule iphop_host_prediction:
+# 2a. Run iPhop for host prediction on a single split file
+rule iphop_single_prediction:
     input:
-        split_list = f"{config['output_dir']}/03_split_seqs/split_file_list.txt"
+        phage_file = f"{config['output_dir']}/03_split_seqs/{{sample}}.fasta"
     output:
-        results_dir = directory(f"{config['output_dir']}/03_iphop_results"),
-        predictions = f"{config['output_dir']}/03_iphop_results/iphop_predictions_compiled.tsv"
+        prediction = f"{config['output_dir']}/03_iphop_results/tmp/{{sample}}/host_prediction_to_genus.csv"
     log:
-        f"{config['output_dir']}/logs/iphop_host_prediction.log"
+        f"{config['output_dir']}/logs/iphop_prediction/{{sample}}.log"
     conda:
         config["conda_envs"]["iphop"]
     resources:
@@ -44,28 +43,40 @@ rule iphop_host_prediction:
     shell:
         """
         # Create output directory
-        mkdir -p {output.results_dir}/tmp
+        mkdir -p $(dirname {output.prediction})
         
-        # Process each split file
-        while read phage_file; do
-            filename=$(basename "$phage_file")
-            outdir="{output.results_dir}/tmp/$(basename "$filename" .fasta)"
-            
-            echo "Processing $filename" >> {log}
-            
-            # Run iPhop
-            iphop predict --fa_file "$phage_file" \
-                --out_dir "$outdir" \
-                --num_threads {resources.threads} >> {log} 2>&1
-        done < {input.split_list}
+        # Run iPhop
+        iphop predict --fa_file {input.phage_file} \
+            --out_dir $(dirname {output.prediction}) \
+            --num_threads {resources.threads} > {log} 2>&1
+        """
+
+# 2b. Aggregate iPhop results
+rule iphop_aggregate_results:
+    input:
+        # Dynamic input based on the split files
+        lambda wildcards: expand(
+            f"{config['output_dir']}/03_iphop_results/tmp/{{sample}}/host_prediction_to_genus.csv",
+            sample=[os.path.splitext(os.path.basename(f))[0] 
+                   for f in glob.glob(f"{config['output_dir']}/03_split_seqs/*.fasta")]
+        )
+    output:
+        results_dir = directory(f"{config['output_dir']}/03_iphop_results"),
+        predictions = f"{config['output_dir']}/03_iphop_results/iphop_predictions_compiled.tsv"
+    log:
+        f"{config['output_dir']}/logs/iphop_aggregate_results.log"
+    shell:
+        """
+        # Ensure results directory exists
+        mkdir -p {output.results_dir}
         
         # Compile results
-        echo "Compiling results" >> {log}
-        head -n 1 $(find {output.results_dir}/tmp -name "host_prediction_to_genus.csv" | head -n 1) > {output.predictions}.tmp
-        find {output.results_dir}/tmp -name "host_prediction_to_genus.csv" | xargs cat | grep -v "query" >> {output.predictions}.tmp
+        echo "Compiling results" > {log}
+        head -n 1 {input[0]} > {output.predictions}.tmp
+        cat {input} | grep -v "query" >> {output.predictions}.tmp
         
         # Convert to TSV
-        tr ',' '\\t' < {output.predictions}.tmp > {output.predictions}
+        tr ',' '\t' < {output.predictions}.tmp > {output.predictions}
         rm {output.predictions}.tmp
         """
 
@@ -122,15 +133,14 @@ rule split_protein_files:
         find {output.split_dir} -name "*.faa" > {output.split_list}
         """
 
-# 5. Run PHACTS for lifestyle prediction
-rule phacts_lifestyle_prediction:
+# 5a. Run PHACTS for lifestyle prediction on a single protein file
+rule phacts_single_prediction:
     input:
-        split_list = f"{config['output_dir']}/03_split_proteins/split_protein_list.txt"
+        protein_file = f"{config['output_dir']}/03_split_proteins/{{sample}}.faa"
     output:
-        results_dir = directory(f"{config['output_dir']}/03_phacts_results"),
-        predictions = f"{config['output_dir']}/03_phacts_results/phacts_predictions_compiled.tsv"
+        result = f"{config['output_dir']}/03_phacts_results/tmp/{{sample}}.phacts.out"
     log:
-        f"{config['output_dir']}/logs/phacts_lifestyle_prediction.log"
+        f"{config['output_dir']}/logs/phacts_prediction/{{sample}}.log"
     conda:
         config["conda_envs"]["phacts"]
     resources:
@@ -140,23 +150,35 @@ rule phacts_lifestyle_prediction:
     shell:
         """
         # Create output directory
-        mkdir -p {output.results_dir}/tmp
+        mkdir -p $(dirname {output.result})
         
-        # Process each split file
-        while read protein_file; do
-            filename=$(basename "$protein_file")
-            phage_id=$(basename "$filename" .faa)
-            outfile="{output.results_dir}/tmp/$phage_id.phacts.out"
-            
-            echo "Processing $phage_id" >> {log}
-            
-            # Run PHACTS
-            phacts.py "$protein_file" "$outfile" >> {log} 2>&1
-        done < {input.split_list}
+        # Run PHACTS
+        phacts.py {input.protein_file} {output.result} > {log} 2>&1
+        """
+
+# 5b. Aggregate PHACTS results
+rule phacts_aggregate_results:
+    input:
+        # Dynamic input based on the split files
+        lambda wildcards: expand(
+            f"{config['output_dir']}/03_phacts_results/tmp/{{sample}}.phacts.out",
+            sample=[os.path.splitext(os.path.basename(f))[0] 
+                   for f in glob.glob(f"{config['output_dir']}/03_split_proteins/*.faa")]
+        )
+    output:
+        results_dir = directory(f"{config['output_dir']}/03_phacts_results"),
+        predictions = f"{config['output_dir']}/03_phacts_results/phacts_predictions_compiled.tsv"
+    log:
+        f"{config['output_dir']}/logs/phacts_aggregate_results.log"
+    shell:
+        """
+        # Ensure results directory exists
+        mkdir -p {output.results_dir}
         
         # Compile results
         echo -e "phage_id\\tlifestyle\\tprobability" > {output.predictions}
-        for file in {output.results_dir}/tmp/*.phacts.out; do
+        
+        for file in {input}; do
             phage_id=$(basename "$file" .phacts.out)
             lifestyle=$(grep "Lifestyle:" "$file" | awk '{{print $2}}')
             probability=$(grep "Probability:" "$file" | awk '{{print $2}}')

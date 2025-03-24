@@ -3,6 +3,12 @@ Phage Analysis Pipeline
 
 A Snakemake workflow for phage prediction, clustering, and characterization.
 """
+import os
+import glob
+from snakemake.utils import min_version
+
+# Ensure minimum Snakemake version
+min_version("8.0")
 
 configfile: "../config/config.yaml"
 
