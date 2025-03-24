@@ -1,0 +1,23 @@
+# slurm resource configuration
+executor: slurm
+
+# Resources to use if not otherwise specified    
+default-resources:
+  - mem_mb=50000
+  - runtime=1440
+  - cores=24
+  - slurm_account=sahlab
+
+jobs: 40
+latency-wait: 60 
+use-conda: True
+keep-going: True
+rerun-incomplete: True
+printshellcmds: True
+scheduler: greedy
+
+set-resources:
+    mmseqs_taxonomy:
+        mem: 700G
+    mmseqs_phage_taxonomy:
+        mem: 700G
