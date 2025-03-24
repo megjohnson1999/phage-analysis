@@ -18,14 +18,7 @@ git clone https://github.com/megjohnson1999/phage-analysis.git
 cd phage-analysis
 ```
 
-2. Create the required conda environments (or use your own):
-```
-conda env create -f envs/mmseqs2.yaml
-conda env create -f envs/reneo.yaml
-# Create other environment files as needed
-```
-
-3. Update the `config/config.yaml` file with your input paths and parameters
+2. Update the `config/config.yaml` file with your input paths and parameters
 
 ## Usage
 
