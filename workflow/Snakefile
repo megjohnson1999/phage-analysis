@@ -20,6 +20,18 @@ include: "rules/03_analysis.smk"
 # Default target rule
 rule all:
     input:
+        # Explicitly include splitting steps to ensure they appear in the plan
+        f"{config['output_dir']}/03_split_seqs/split_file_list.txt",
+        f"{config['output_dir']}/03_split_proteins/split_protein_list.txt",
+        
+        # Add checkpoint triggers
+        f"{config['output_dir']}/03_iphop_results/.splits_ready",
+        f"{config['output_dir']}/03_phacts_results/.splits_ready",
+        
+        # Add helpers that run the single prediction jobs
+        f"{config['output_dir']}/03_iphop_results/.all_predictions_done",
+        f"{config['output_dir']}/03_phacts_results/.all_predictions_done",
+        
         # Final output files depending on whether clustering is enabled
         lambda wildcards: 
             expand(

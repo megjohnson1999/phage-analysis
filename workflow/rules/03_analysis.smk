@@ -76,11 +76,24 @@ rule iphop_single_prediction:
             --num_threads {resources.threads} > {log} 2>&1
         """
 
+# Helper rule to force running single predictions during dry run
+rule run_all_iphop_predictions:
+    input:
+        checkpoint = f"{config['output_dir']}/03_iphop_results/.splits_ready",
+        # For dry run purposes, forces at least some samples to be "known"
+        samples = lambda wildcards: expand(
+            f"{config['output_dir']}/03_iphop_results/tmp/{{sample}}/host_prediction_to_genus.csv",
+            sample=["sample1", "sample2", "sample3"] + get_iphop_samples()
+        )
+    output:
+        touch(f"{config['output_dir']}/03_iphop_results/.all_predictions_done")
+
 # 2b. Aggregate iPhop results
 rule iphop_aggregate_results:
     input:
         # This is the key part that makes the parallelization work
         # Aggregation only happens after all individual predictions are done
+        all_done = f"{config['output_dir']}/03_iphop_results/.all_predictions_done",
         predictions = lambda wildcards: expand(
             f"{config['output_dir']}/03_iphop_results/tmp/{{sample}}/host_prediction_to_genus.csv",
             sample=get_iphop_samples()
@@ -221,11 +234,24 @@ rule phacts_single_prediction:
         phacts.py {input.protein_file} {output.result} > {log} 2>&1
         """
 
+# Helper rule to force running single phacts predictions during dry run
+rule run_all_phacts_predictions:
+    input:
+        checkpoint = f"{config['output_dir']}/03_phacts_results/.splits_ready",
+        # For dry run purposes, forces at least some samples to be "known"
+        samples = lambda wildcards: expand(
+            f"{config['output_dir']}/03_phacts_results/tmp/{{sample}}.phacts.out",
+            sample=["sample1", "sample2", "sample3"] + get_phacts_samples()
+        )
+    output:
+        touch(f"{config['output_dir']}/03_phacts_results/.all_predictions_done")
+
 # 5b. Aggregate PHACTS results
 rule phacts_aggregate_results:
     input:
         # This is the key part that makes the parallelization work
         # Aggregation only happens after all individual predictions are done
+        all_done = f"{config['output_dir']}/03_phacts_results/.all_predictions_done",
         predictions = lambda wildcards: expand(
             f"{config['output_dir']}/03_phacts_results/tmp/{{sample}}.phacts.out",
             sample=get_phacts_samples()
