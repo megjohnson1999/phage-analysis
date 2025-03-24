@@ -44,7 +44,7 @@ rule mmseqs_taxonomy:
         TMP_DIR=$(mktemp -d)
         
         # Run mmseqs2 for taxonomy assignment
-        mmseqs easy-taxonomy {input.assembly} {config[mmseqs2][db]} \
+        mmseqs easy-taxonomy {input.assembly} {config[resources][mmseqs2][db]} \
             $(dirname {output.lca_table}) $TMP_DIR \
             --threads {resources.threads} \
             --lca-ranks species,genus,family,order,class,phylum,superkingdom \

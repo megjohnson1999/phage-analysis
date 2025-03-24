@@ -185,7 +185,7 @@ rule mmseqs_phage_taxonomy:
         TMP_DIR=$(mktemp -d)
         
         # Run mmseqs2 for taxonomy assignment
-        mmseqs easy-taxonomy {input.phage_seqs} {config[mmseqs2][db]} \
+        mmseqs easy-taxonomy {input.phage_seqs} {config[resources][mmseqs2][db]} \
             {output.results_dir} $TMP_DIR \
             --threads {resources.threads} \
             --lca-ranks species,genus,family,order,class,phylum,superkingdom \

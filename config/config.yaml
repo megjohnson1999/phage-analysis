@@ -1,7 +1,6 @@
 # Phage Analysis Pipeline Configuration
 
-# Base directories
-base_dir: "/path/to/your/project"  # Change to your actual base directory
+# Directory configuration
 output_dir: "/path/to/your/project/outputs"  # Change to your actual output directory
 
 # Input files/directories
@@ -11,54 +10,54 @@ reads_dir: "/path/to/reads"  # Directory containing sequencing reads
 # Pipeline configuration
 do_clustering: true  # Set to false to skip clustering
 
-# Tool parameters
-mmseqs2:
-  db: "UniRef50"
-  threads: 16
-
-jaeger:
-  threads: 8
-
-genomad:
-  threads: 16
-
-checkv:
-  threads: 16
-
-phold:
-  threads: 16
-
-vclust:
-  min_length: 10000
-  identity: 95
-  coverage: 85
-
-# Resources
+# Resources (includes all tool parameters)
 resources:
   prediction:
-    mem_mb: 32000
     threads: 16
+    mem_mb: 32000
     time: "24:00:00"
   
   clustering:
-    mem_mb: 16000
     threads: 8
-    time: "6:00:00"
+    mem_mb: 32000
+    time: "24:00:00"
   
   iphop:
-    mem_mb: 64000
     threads: 8
-    time: "24:00:00"
+    mem_mb: 32000
+    time: "48:00:00"
   
   phacts:
-    mem_mb: 8000
     threads: 4
-    time: "6:00:00"
+    mem_mb: 16000
+    time: "12:00:00"
   
   genomic_info:
-    mem_mb: 32000
     threads: 16
+    mem_mb: 32000
     time: "24:00:00"
+  
+  mmseqs2:
+    threads: 16
+    db: "UniRef50"
+  
+  jaeger:
+    threads: 8
+  
+  genomad:
+    threads: 16
+  
+  checkv:
+    threads: 16
+  
+  phold:
+    threads: 16
+  
+  vclust:
+    threads: 16
+    min_length: 10000
+    identity: 95
+    coverage: 85
 
 # Conda environments
 conda_envs:

@@ -32,13 +32,13 @@ rule cluster_phages:
     shell:
         """
         # Filter contigs by length
-        seqkit seq -m {config[vclust][min_length]} {input.phage_contigs} > {output.clustering_dir}/filtered.fasta
+        seqkit seq -m {config[resources][vclust][min_length]} {input.phage_contigs} > {output.clustering_dir}/filtered.fasta
         
         # Run vclust for clustering
         vclust --in {output.clustering_dir}/filtered.fasta \
             --out $(dirname {output.clusters}) \
-            --id {config[vclust][identity]} \
-            --cov {config[vclust][coverage]} \
+            --id {config[resources][vclust][identity]} \
+            --cov {config[resources][vclust][coverage]} \
             --threads {resources.threads} > {log} 2>&1
             
         # Move clusters file to expected output
