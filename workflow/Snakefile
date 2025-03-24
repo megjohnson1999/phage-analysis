@@ -28,6 +28,10 @@ rule all:
         f"{config['output_dir']}/03_iphop_results/.splits_ready",
         f"{config['output_dir']}/03_phacts_results/.splits_ready",
         
+        # Add the input file checkpoints
+        f"{config['output_dir']}/03_iphop_results/.input_files_found",
+        f"{config['output_dir']}/03_phacts_results/.input_files_found",
+        
         # Add helpers that run the single prediction jobs
         f"{config['output_dir']}/03_iphop_results/.all_predictions_done",
         f"{config['output_dir']}/03_phacts_results/.all_predictions_done",

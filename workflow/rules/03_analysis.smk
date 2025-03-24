@@ -50,10 +50,23 @@ checkpoint wait_for_iphop_splits:
     shell:
         "mkdir -p $(dirname {output})"
 
+# Checkpoint to handle dynamic input files in a way that works with dry-run
+checkpoint get_iphop_input_files:
+    input:
+        split_list = f"{config['output_dir']}/03_split_seqs/split_file_list.txt"
+    output:
+        flag = f"{config['output_dir']}/03_iphop_results/.input_files_found"
+    shell:
+        """
+        mkdir -p $(dirname {output.flag})
+        touch {output.flag}
+        """
+
 # 2a. Run iPhop for host prediction on a single split file
 rule iphop_single_prediction:
     input:
         checkpoint = f"{config['output_dir']}/03_iphop_results/.splits_ready",
+        flag = f"{config['output_dir']}/03_iphop_results/.input_files_found",
         phage_file = f"{config['output_dir']}/03_split_seqs/{{sample}}.fasta"
     output:
         prediction = f"{config['output_dir']}/03_iphop_results/tmp/{{sample}}/host_prediction_to_genus.csv"
@@ -80,10 +93,11 @@ rule iphop_single_prediction:
 rule run_all_iphop_predictions:
     input:
         checkpoint = f"{config['output_dir']}/03_iphop_results/.splits_ready",
-        # For dry run purposes, forces at least some samples to be "known"
+        # For actual runs, get samples from the split files
+        # For dry runs, this will be an empty list, which is fine
         samples = lambda wildcards: expand(
             f"{config['output_dir']}/03_iphop_results/tmp/{{sample}}/host_prediction_to_genus.csv",
-            sample=["sample1", "sample2", "sample3"] + get_iphop_samples()
+            sample=get_iphop_samples()
         )
     output:
         touch(f"{config['output_dir']}/03_iphop_results/.all_predictions_done")
@@ -210,10 +224,23 @@ checkpoint wait_for_phacts_splits:
     shell:
         "mkdir -p $(dirname {output})"
 
+# Checkpoint to handle dynamic input files in a way that works with dry-run
+checkpoint get_phacts_input_files:
+    input:
+        split_list = f"{config['output_dir']}/03_split_proteins/split_protein_list.txt"
+    output:
+        flag = f"{config['output_dir']}/03_phacts_results/.input_files_found"
+    shell:
+        """
+        mkdir -p $(dirname {output.flag})
+        touch {output.flag}
+        """
+
 # 5a. Run PHACTS for lifestyle prediction on a single protein file
 rule phacts_single_prediction:
     input:
         checkpoint = f"{config['output_dir']}/03_phacts_results/.splits_ready",
+        flag = f"{config['output_dir']}/03_phacts_results/.input_files_found",
         protein_file = f"{config['output_dir']}/03_split_proteins/{{sample}}.faa"
     output:
         result = f"{config['output_dir']}/03_phacts_results/tmp/{{sample}}.phacts.out"
@@ -238,10 +265,11 @@ rule phacts_single_prediction:
 rule run_all_phacts_predictions:
     input:
         checkpoint = f"{config['output_dir']}/03_phacts_results/.splits_ready",
-        # For dry run purposes, forces at least some samples to be "known"
+        # For actual runs, get samples from the split files
+        # For dry runs, this will be an empty list, which is fine
         samples = lambda wildcards: expand(
             f"{config['output_dir']}/03_phacts_results/tmp/{{sample}}.phacts.out",
-            sample=["sample1", "sample2", "sample3"] + get_phacts_samples()
+            sample=get_phacts_samples()
         )
     output:
         touch(f"{config['output_dir']}/03_phacts_results/.all_predictions_done")
