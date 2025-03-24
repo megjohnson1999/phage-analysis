@@ -8,7 +8,8 @@ rule reneo_binning:
         assembly = config["assembly_file"],
         reads_dir = config["reads_dir"]
     output:
-        directory(f"{config['output_dir']}/01_reneo_output")
+        outdir = directory(f"{config['output_dir']}/01_reneo_output"),
+        filtered_contigs = f"{config['output_dir']}/01_reneo_output/genomes_and_unresolved_edges_1KB.fasta"
     log:
         f"{config['output_dir']}/logs/reneo_binning.log"
     conda:
@@ -20,14 +21,19 @@ rule reneo_binning:
     shell:
         """
         # Run Reneo for binning
-        reneo run -a {input.assembly} -r {input.reads_dir} -o {output} \
+        reneo run -a {input.assembly} -r {input.reads_dir} -o {output.outdir} \
             -t {resources.threads} > {log} 2>&1
+            
+        # Filter contigs by length (1KB)
+        seqkit seq --min-len 1000 -g \
+            "{output.outdir}/genomes_and_unresolved_edges.fasta" > "{output.filtered_contigs}"
         """
 
 # 2. Run mmseqs2 for taxonomy assignment
 rule mmseqs_taxonomy:
     input:
-        assembly = config["assembly_file"]
+        # Use the filtered output from reneo binning if present
+        filtered_contigs = f"{config['output_dir']}/01_reneo_output/genomes_and_unresolved_edges_1KB.fasta"
     output:
         lca_table = f"{config['output_dir']}/01_mmseqs_output/lca.tsv"
     log:
@@ -44,7 +50,7 @@ rule mmseqs_taxonomy:
         TMP_DIR=$(mktemp -d)
         
         # Run mmseqs2 for taxonomy assignment
-        mmseqs easy-taxonomy {input.assembly} {config[resources][mmseqs2][db]} \
+        mmseqs easy-taxonomy {input.filtered_contigs} {config[resources][mmseqs2][db]} \
             $(dirname {output.lca_table}) $TMP_DIR \
             --threads {resources.threads} \
             --lca-ranks species,genus,family,order,class,phylum,superkingdom \
@@ -58,7 +64,7 @@ rule mmseqs_taxonomy:
 rule filter_mmseqs_lca:
     input:
         lca_table = f"{config['output_dir']}/01_mmseqs_output/lca.tsv",
-        contigs = config["assembly_file"]
+        contigs = f"{config['output_dir']}/01_reneo_output/genomes_and_unresolved_edges_1KB.fasta"
     output:
         filtered_lca = f"{config['output_dir']}/01_filtered_mmseqs/filtered_lca.tsv",
         passing_ids = f"{config['output_dir']}/01_filtered_mmseqs/passing_contig_ids.txt",
@@ -70,10 +76,27 @@ rule filter_mmseqs_lca:
     script:
         "../scripts/01_filterMmseqsLca.py"
 
+# 3b. Extract passing viral contigs
+rule extract_viral_contigs:
+    input:
+        contigs = f"{config['output_dir']}/01_reneo_output/genomes_and_unresolved_edges_1KB.fasta",
+        passing_ids = f"{config['output_dir']}/01_filtered_mmseqs/passing_contig_ids.txt"
+    output:
+        viral_contigs = f"{config['output_dir']}/01_filtered_mmseqs/passing_Viralcontigs.fasta"
+    log:
+        f"{config['output_dir']}/logs/extract_viral_contigs.log"
+    conda:
+        "bioconda::seqkit"
+    shell:
+        """
+        # Extract viral contigs from the filtered assembly
+        seqkit grep -f {input.passing_ids} {input.contigs} > {output.viral_contigs} 2> {log}
+        """
+
 # 4. Run Jaeger for phage prediction
 rule jaeger_prediction:
     input:
-        assembly = config["assembly_file"]
+        assembly = f"{config['output_dir']}/01_filtered_mmseqs/passing_Viralcontigs.fasta"
     output:
         results = directory(f"{config['output_dir']}/01_jaeger_output"),
         predictions = f"{config['output_dir']}/01_jaeger_output/final_predictions_scored.tsv"
@@ -94,7 +117,7 @@ rule jaeger_prediction:
 # 5. Run GeNomad for viral prediction
 rule genomad_prediction:
     input:
-        assembly = config["assembly_file"]
+        assembly = f"{config['output_dir']}/01_filtered_mmseqs/passing_Viralcontigs.fasta"
     output:
         results = directory(f"{config['output_dir']}/01_genomad_output"),
         virus_summary = f"{config['output_dir']}/01_genomad_output/summary/virus_summary.tsv"
@@ -116,7 +139,7 @@ rule genomad_prediction:
 # 6. Run Phold for protein annotation
 rule phold_prediction:
     input:
-        assembly = config["assembly_file"]
+        assembly = f"{config['output_dir']}/01_filtered_mmseqs/passing_Viralcontigs.fasta"
     output:
         results = directory(f"{config['output_dir']}/01_phold_output"),
         predictions = f"{config['output_dir']}/01_phold_output/phold_per_cds_predictions.tsv"
@@ -142,7 +165,7 @@ rule phold_prediction:
 # 7. Run CheckV for quality assessment
 rule checkv_assessment:
     input:
-        assembly = config["assembly_file"]
+        assembly = f"{config['output_dir']}/01_filtered_mmseqs/passing_Viralcontigs.fasta"
     output:
         results = directory(f"{config['output_dir']}/01_checkv_output"),
         quality_summary = f"{config['output_dir']}/01_checkv_output/quality_summary.tsv"
@@ -181,7 +204,7 @@ rule integrate_phage_predictions:
 # 9. Extract phage contigs
 rule extract_phage_contigs:
     input:
-        assembly = config["assembly_file"],
+        contigs = f"{config['output_dir']}/01_filtered_mmseqs/passing_Viralcontigs.fasta",
         contig_ids = f"{config['output_dir']}/01_phage_predictions/contig_ids.txt"
     output:
         phage_contigs = f"{config['output_dir']}/01_phage_predictions/phageContigs.fasta"
@@ -191,6 +214,6 @@ rule extract_phage_contigs:
         "bioconda::seqkit"
     shell:
         """
-        # Extract phage contigs from assembly
-        seqkit grep -f {input.contig_ids} {input.assembly} > {output.phage_contigs} 2> {log}
+        # Extract phage contigs from viral contigs
+        seqkit grep -f {input.contig_ids} {input.contigs} > {output.phage_contigs} 2> {log}
         """
