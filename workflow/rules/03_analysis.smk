@@ -55,10 +55,11 @@ rule iphop_single_prediction:
 rule iphop_aggregate_results:
     input:
         # Dynamic input based on the split files
-        lambda wildcards: expand(
+        split_list = f"{config['output_dir']}/03_split_seqs/split_file_list.txt",
+        predictions = lambda wildcards: expand(
             f"{config['output_dir']}/03_iphop_results/tmp/{{sample}}/host_prediction_to_genus.csv",
             sample=[os.path.splitext(os.path.basename(f))[0] 
-                   for f in glob.glob(f"{config['output_dir']}/03_split_seqs/*.fasta")]
+                   for f in glob.glob(f"{config['output_dir']}/03_split_seqs/*.fasta") if os.path.exists(f)]
         )
     output:
         results_dir = directory(f"{config['output_dir']}/03_iphop_results"),
@@ -72,12 +73,27 @@ rule iphop_aggregate_results:
         
         # Compile results
         echo "Compiling results" > {log}
-        head -n 1 {input[0]} > {output.predictions}.tmp
-        cat {input} | grep -v "query" >> {output.predictions}.tmp
         
-        # Convert to TSV
-        tr ',' '\t' < {output.predictions}.tmp > {output.predictions}
-        rm {output.predictions}.tmp
+        if [ -n "$(ls -A {output.results_dir}/tmp 2>/dev/null)" ]; then
+            # If there are prediction files
+            FIRST_FILE=$(find {output.results_dir}/tmp -name "host_prediction_to_genus.csv" | head -n 1)
+            
+            if [ -n "$FIRST_FILE" ]; then
+                head -n 1 "$FIRST_FILE" > {output.predictions}.tmp
+                find {output.results_dir}/tmp -name "host_prediction_to_genus.csv" | xargs cat | grep -v "query" >> {output.predictions}.tmp
+            else
+                # Create empty file with header
+                echo "query,host,score,identity,coverage,kingdom,phylum,class,order,family,genus" > {output.predictions}.tmp
+            fi
+            
+            # Convert to TSV
+            tr ',' '\\t' < {output.predictions}.tmp > {output.predictions}
+            rm {output.predictions}.tmp
+        else
+            # Create empty file with header
+            echo -e "query\\thost\\tscore\\tidentity\\tcoverage\\tkingdom\\tphylum\\tclass\\torder\\tfamily\\tgenus" > {output.predictions}
+            echo "No prediction files found, created empty result file" >> {log}
+        fi
         """
 
 # 3. Run Prodigal for ORF prediction on phage sequences
@@ -160,10 +176,11 @@ rule phacts_single_prediction:
 rule phacts_aggregate_results:
     input:
         # Dynamic input based on the split files
-        lambda wildcards: expand(
+        split_list = f"{config['output_dir']}/03_split_proteins/split_protein_list.txt",
+        predictions = lambda wildcards: expand(
             f"{config['output_dir']}/03_phacts_results/tmp/{{sample}}.phacts.out",
             sample=[os.path.splitext(os.path.basename(f))[0] 
-                   for f in glob.glob(f"{config['output_dir']}/03_split_proteins/*.faa")]
+                   for f in glob.glob(f"{config['output_dir']}/03_split_proteins/*.faa") if os.path.exists(f)]
         )
     output:
         results_dir = directory(f"{config['output_dir']}/03_phacts_results"),
@@ -176,14 +193,28 @@ rule phacts_aggregate_results:
         mkdir -p {output.results_dir}
         
         # Compile results
+        echo "Compiling PHACTS results" > {log}
         echo -e "phage_id\\tlifestyle\\tprobability" > {output.predictions}
         
-        for file in {input}; do
-            phage_id=$(basename "$file" .phacts.out)
-            lifestyle=$(grep "Lifestyle:" "$file" | awk '{{print $2}}')
-            probability=$(grep "Probability:" "$file" | awk '{{print $2}}')
-            echo -e "$phage_id\\t$lifestyle\\t$probability" >> {output.predictions}
-        done
+        if [ -n "$(ls -A {output.results_dir}/tmp 2>/dev/null)" ]; then
+            # Process each phacts output file if it exists
+            for file in {output.results_dir}/tmp/*.phacts.out 2>/dev/null; do
+                if [ -f "$file" ]; then
+                    phage_id=$(basename "$file" .phacts.out)
+                    lifestyle=$(grep "Lifestyle:" "$file" | awk '{{print $2}}')
+                    probability=$(grep "Probability:" "$file" | awk '{{print $2}}')
+                    echo -e "$phage_id\\t$lifestyle\\t$probability" >> {output.predictions}
+                fi
+            done
+            
+            if [ "$(wc -l < {output.predictions})" -eq 1 ]; then
+                echo "No valid PHACTS results were found, only header in output file" >> {log}
+            else
+                echo "Successfully compiled $(( $(wc -l < {output.predictions}) - 1 )) PHACTS results" >> {log}
+            fi
+        else
+            echo "No PHACTS result files found, created empty result file" >> {log}
+        fi
         """
 
 # 6. Run mmseqs2 taxonomy assignment on phage genomes
