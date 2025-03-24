@@ -26,9 +26,34 @@ rule split_phage_sequences:
         find {output.split_dir} -name "*.fasta" > {output.split_list}
         """
 
+# List all samples for iphop from split files
+def get_iphop_samples():
+    # After split_phage_sequences is run, this reads the split file list
+    split_list = f"{config['output_dir']}/03_split_seqs/split_file_list.txt"
+    if os.path.exists(split_list):
+        with open(split_list, "r") as f:
+            files = [line.strip() for line in f]
+        return [os.path.splitext(os.path.basename(file))[0] for file in files]
+    # Fallback to glob when file doesn't exist yet (for dry runs)
+    elif os.path.exists(f"{config['output_dir']}/03_split_seqs"):
+        return [os.path.splitext(os.path.basename(f))[0] 
+                for f in glob.glob(f"{config['output_dir']}/03_split_seqs/*.fasta")]
+    else:
+        return []  # Return empty list if no directory exists yet
+
+# 2. iphop workflow - Use checkpoint to wait for split files to be created
+checkpoint wait_for_iphop_splits:
+    input:
+        split_list = f"{config['output_dir']}/03_split_seqs/split_file_list.txt"
+    output:
+        touch(f"{config['output_dir']}/03_iphop_results/.splits_ready")
+    shell:
+        "mkdir -p $(dirname {output})"
+
 # 2a. Run iPhop for host prediction on a single split file
 rule iphop_single_prediction:
     input:
+        checkpoint = f"{config['output_dir']}/03_iphop_results/.splits_ready",
         phage_file = f"{config['output_dir']}/03_split_seqs/{{sample}}.fasta"
     output:
         prediction = f"{config['output_dir']}/03_iphop_results/tmp/{{sample}}/host_prediction_to_genus.csv"
@@ -54,12 +79,11 @@ rule iphop_single_prediction:
 # 2b. Aggregate iPhop results
 rule iphop_aggregate_results:
     input:
-        # Dynamic input based on the split files
-        split_list = f"{config['output_dir']}/03_split_seqs/split_file_list.txt",
+        # This is the key part that makes the parallelization work
+        # Aggregation only happens after all individual predictions are done
         predictions = lambda wildcards: expand(
             f"{config['output_dir']}/03_iphop_results/tmp/{{sample}}/host_prediction_to_genus.csv",
-            sample=[os.path.splitext(os.path.basename(f))[0] 
-                   for f in glob.glob(f"{config['output_dir']}/03_split_seqs/*.fasta") if os.path.exists(f)]
+            sample=get_iphop_samples()
         )
     output:
         results_dir = directory(f"{config['output_dir']}/03_iphop_results"),
@@ -87,11 +111,11 @@ rule iphop_aggregate_results:
             fi
             
             # Convert to TSV
-            tr ',' '\\t' < {output.predictions}.tmp > {output.predictions}
+            tr ',' '\t' < {output.predictions}.tmp > {output.predictions}
             rm {output.predictions}.tmp
         else
             # Create empty file with header
-            echo -e "query\\thost\\tscore\\tidentity\\tcoverage\\tkingdom\\tphylum\\tclass\\torder\\tfamily\\tgenus" > {output.predictions}
+            echo -e "query\thost\tscore\tidentity\tcoverage\tkingdom\tphylum\tclass\torder\tfamily\tgenus" > {output.predictions}
             echo "No prediction files found, created empty result file" >> {log}
         fi
         """
@@ -149,9 +173,34 @@ rule split_protein_files:
         find {output.split_dir} -name "*.faa" > {output.split_list}
         """
 
+# List all samples for phacts from split protein files
+def get_phacts_samples():
+    # After split_protein_files is run, this reads the split file list
+    split_list = f"{config['output_dir']}/03_split_proteins/split_protein_list.txt"
+    if os.path.exists(split_list):
+        with open(split_list, "r") as f:
+            files = [line.strip() for line in f]
+        return [os.path.splitext(os.path.basename(file))[0] for file in files]
+    # Fallback to glob when file doesn't exist yet (for dry runs)
+    elif os.path.exists(f"{config['output_dir']}/03_split_proteins"):
+        return [os.path.splitext(os.path.basename(f))[0] 
+                for f in glob.glob(f"{config['output_dir']}/03_split_proteins/*.faa")]
+    else:
+        return []  # Return empty list if no directory exists yet
+
+# 5. PHACTS workflow - Use checkpoint to wait for split files to be created
+checkpoint wait_for_phacts_splits:
+    input:
+        split_list = f"{config['output_dir']}/03_split_proteins/split_protein_list.txt"
+    output:
+        touch(f"{config['output_dir']}/03_phacts_results/.splits_ready")
+    shell:
+        "mkdir -p $(dirname {output})"
+
 # 5a. Run PHACTS for lifestyle prediction on a single protein file
 rule phacts_single_prediction:
     input:
+        checkpoint = f"{config['output_dir']}/03_phacts_results/.splits_ready",
         protein_file = f"{config['output_dir']}/03_split_proteins/{{sample}}.faa"
     output:
         result = f"{config['output_dir']}/03_phacts_results/tmp/{{sample}}.phacts.out"
@@ -175,12 +224,11 @@ rule phacts_single_prediction:
 # 5b. Aggregate PHACTS results
 rule phacts_aggregate_results:
     input:
-        # Dynamic input based on the split files
-        split_list = f"{config['output_dir']}/03_split_proteins/split_protein_list.txt",
+        # This is the key part that makes the parallelization work
+        # Aggregation only happens after all individual predictions are done
         predictions = lambda wildcards: expand(
             f"{config['output_dir']}/03_phacts_results/tmp/{{sample}}.phacts.out",
-            sample=[os.path.splitext(os.path.basename(f))[0] 
-                   for f in glob.glob(f"{config['output_dir']}/03_split_proteins/*.faa") if os.path.exists(f)]
+            sample=get_phacts_samples()
         )
     output:
         results_dir = directory(f"{config['output_dir']}/03_phacts_results"),
