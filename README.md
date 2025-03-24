@@ -40,9 +40,35 @@ snakemake --use-conda -j <cores>
 snakemake --use-conda -j <cores> --config do_clustering=false
 ```
 
-4. To run on a SLURM cluster:
+### SLURM Execution
+
+The pipeline includes a SLURM profile configuration in `profile/slurm/config.yaml` for running on a SLURM cluster:
+
+1. Run the complete pipeline with the SLURM profile:
 ```
-snakemake --profile slurm -j <jobs>
+snakemake --profile profile/slurm
+```
+
+2. Run without clustering on SLURM:
+```
+snakemake --profile profile/slurm --config do_clustering=false
+```
+
+3. The SLURM profile includes the following default settings:
+   - Default resources: 50GB memory, 24 cores, 24 hour runtime
+   - SLURM account: sahlab
+   - Maximum concurrent jobs: 40
+   - Conda environment activation enabled
+   - Increased resources for taxonomy-related tasks
+
+4. To override default SLURM settings:
+```
+snakemake --profile profile/slurm --default-resources mem_mb=100000 runtime=2880
+```
+
+5. To run a specific step of the pipeline:
+```
+snakemake --profile profile/slurm <target_rule>
 ```
 
 ## Pipeline Steps
