@@ -20,6 +20,7 @@ rule cluster_phages:
         phage_contigs = f"{config['output_dir']}/01_phage_predictions/phageContigs.fasta"
     output:
         clustering_dir = directory(f"{config['output_dir']}/02_clustering/clustering_results"),
+        filtered_fasta = f"{config['output_dir']}/02_clustering/clustering_results/filtered.fasta",
         clusters = f"{config['output_dir']}/02_clustering/clusters.tsv"
     log:
         f"{config['output_dir']}/logs/cluster_phages.log"
@@ -32,10 +33,10 @@ rule cluster_phages:
     shell:
         """
         # Filter contigs by length
-        seqkit seq -m {config[resources][vclust][min_length]} {input.phage_contigs} > {output.clustering_dir}/filtered.fasta
+        seqkit seq -m {config[resources][vclust][min_length]} {input.phage_contigs} > {output.filtered_fasta}
         
         # Run vclust for clustering
-        vclust --in {output.clustering_dir}/filtered.fasta \
+        vclust --in {output.filtered_fasta} \
             --out $(dirname {output.clusters}) \
             --id {config[resources][vclust][identity]} \
             --cov {config[resources][vclust][coverage]} \

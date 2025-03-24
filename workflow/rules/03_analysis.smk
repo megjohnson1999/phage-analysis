@@ -203,7 +203,9 @@ rule phabox_prediction:
     input:
         phage_seqs = get_phage_input
     output:
-        results_dir = directory(f"{config['output_dir']}/03_genomic_info/phabox_output")
+        results_dir = directory(f"{config['output_dir']}/03_genomic_info/phabox_output"),
+        taxonomy = f"{config['output_dir']}/03_genomic_info/phabox_output/taxonomy.tsv",
+        lifestyle = f"{config['output_dir']}/03_genomic_info/phabox_output/lifestyle.tsv"
     log:
         f"{config['output_dir']}/logs/phabox_prediction.log"
     conda:
@@ -224,7 +226,9 @@ rule vcontact3_taxonomy:
     input:
         proteins = f"{config['output_dir']}/03_orf_predictions/proteins.faa"
     output:
-        results_dir = directory(f"{config['output_dir']}/03_genomic_info/vc3_output")
+        results_dir = directory(f"{config['output_dir']}/03_genomic_info/vc3_output"),
+        gene2genome = f"{config['output_dir']}/03_genomic_info/vc3_output/gene2genome.csv",
+        clusters = f"{config['output_dir']}/03_genomic_info/vc3_output/genome_by_genome_overview.csv"
     log:
         f"{config['output_dir']}/logs/vcontact3_taxonomy.log"
     conda:
@@ -236,14 +240,14 @@ rule vcontact3_taxonomy:
     shell:
         """
         # Create gene2genome file
-        echo -e "protein_id\\tcontig_id" > {output.results_dir}/gene2genome.csv
+        echo -e "protein_id\\tcontig_id" > {output.gene2genome}
         grep ">" {input.proteins} | sed 's/>//g' | 
-        awk -F " # " '{{split($1,a,"_"); print $1"\\t"a[1]}}' >> {output.results_dir}/gene2genome.csv
+        awk -F " # " '{{split($1,a,"_"); print $1"\\t"a[1]}}' >> {output.gene2genome}
         
         # Run vContact3
         vContact3 --raw-proteins {input.proteins} \
             --rel-mode 'Diamond' \
-            --proteins-fp {output.results_dir}/gene2genome.csv \
+            --proteins-fp {output.gene2genome} \
             --output-dir {output.results_dir} \
             --threads {resources.threads} > {log} 2>&1
         """

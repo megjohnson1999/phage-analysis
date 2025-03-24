@@ -75,7 +75,8 @@ rule jaeger_prediction:
     input:
         assembly = config["assembly_file"]
     output:
-        results = directory(f"{config['output_dir']}/01_jaeger_output")
+        results = directory(f"{config['output_dir']}/01_jaeger_output"),
+        predictions = f"{config['output_dir']}/01_jaeger_output/final_predictions_scored.tsv"
     log:
         f"{config['output_dir']}/logs/jaeger_prediction.log"
     conda:
@@ -95,7 +96,8 @@ rule genomad_prediction:
     input:
         assembly = config["assembly_file"]
     output:
-        results = directory(f"{config['output_dir']}/01_genomad_output")
+        results = directory(f"{config['output_dir']}/01_genomad_output"),
+        virus_summary = f"{config['output_dir']}/01_genomad_output/summary/virus_summary.tsv"
     log:
         f"{config['output_dir']}/logs/genomad_prediction.log"
     conda:
