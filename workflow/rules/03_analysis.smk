@@ -85,6 +85,7 @@ rule iphop_single_prediction:
         
         # Run iPhop
         iphop predict --fa_file {input.phage_file} \
+            --db_dir {config[resources][iphop][db]} \
             --out_dir $(dirname {output.prediction}) \
             --num_threads {resources.threads} > {log} 2>&1
         """
@@ -342,8 +343,18 @@ rule mmseqs_phage_taxonomy:
         # Run mmseqs2 for taxonomy assignment
         mmseqs easy-taxonomy {input.phage_seqs} {config[resources][mmseqs2][db]} \
             {output.results_dir} $TMP_DIR \
+            --min-length 30 \
+            -e 1e-15 \
+            --search-type 2 \
+            -s 4.0 \
+            --shuffle 0 \
+            --lca-mode 2 \
+            -a \
+            --tax-lineage 2 \
+            --format-output "query,target,evalue,pident,fident,nident,mismatch,qcov,tcov,qstart,qend,qlen,tstart,tend,tlen,alnlen,bits,qheader,theader,taxid,taxname,taxlineage" \
             --threads {resources.threads} \
-            --lca-ranks species,genus,family,order,class,phylum,superkingdom \
+            --split-mode 0 \
+            --orf-filter 1 \
             > {log} 2>&1
             
         # Copy and format the taxonomy results
@@ -372,8 +383,11 @@ rule phabox_prediction:
     shell:
         """
         # Run Phabox2
-        phabox.py -i {input.phage_seqs} -o {output.results_dir} \
-            -t {resources.threads} > {log} 2>&1
+        phabox2 --task end_to_end --dbdir {config[resources][phabox][db]} \
+            --outpth {output.results_dir} \
+            --contigs {input.phage_seqs} \
+            --len 1000 \
+            --threads {resources.threads} > {log} 2>&1
         """
 
 # 8. Run vContact3 for phage taxonomy based on gene content
@@ -400,9 +414,10 @@ rule vcontact3_taxonomy:
         awk -F " # " '{{split($1,a,"_"); print $1"\\t"a[1]}}' >> {output.gene2genome}
         
         # Run vContact3
-        vContact3 --raw-proteins {input.proteins} \
-            --rel-mode 'Diamond' \
-            --proteins-fp {output.gene2genome} \
-            --output-dir {output.results_dir} \
-            --threads {resources.threads} > {log} 2>&1
+        vcontact3 run --nucleotide $(dirname {input.proteins})/../{get_phage_input(None).split('/')[-1]} \
+            --output {output.results_dir} \
+            --db-domain "prokaryotes" \
+            --db-version 223 \
+            --db-path {config[resources][vcontact3][db]} \
+            -t {resources.threads} > {log} 2>&1
         """

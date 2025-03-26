@@ -21,8 +21,11 @@ rule reneo_binning:
     shell:
         """
         # Run Reneo for binning
-        reneo run -a {input.assembly} -r {input.reads_dir} -o {output.outdir} \
-            -t {resources.threads} > {log} 2>&1
+        reneo run --input {input.assembly} \
+            --reads {input.reads_dir} \
+            --minlength 1000 \
+            --output {output.outdir} \
+            --threads {resources.threads} > {log} 2>&1
             
         # Filter contigs by length (1KB)
         seqkit seq --min-len 1000 -g \
@@ -50,10 +53,21 @@ rule mmseqs_taxonomy:
         TMP_DIR=$(mktemp -d)
         
         # Run mmseqs2 for taxonomy assignment
-        mmseqs easy-taxonomy {input.filtered_contigs} {config[resources][mmseqs2][db]} \
-            $(dirname {output.lca_table}) $TMP_DIR \
+        mmseqs easy-taxonomy {input.filtered_contigs} \
+            {config[resources][mmseqs2][db]} \
+            $(dirname {output.lca_table}) \
+            $TMP_DIR \
+            --min-length 30 \
+            -e 1e-15 \
+            --search-type 2 \
+            -s 4.0 \
+            --shuffle 0 \
+            --lca-mode 2 \
+            -a \
+            --tax-lineage 2 \
             --threads {resources.threads} \
-            --lca-ranks species,genus,family,order,class,phylum,superkingdom \
+            --split-mode 0 \
+            --orf-filter 1 \
             > {log} 2>&1
             
         # Clean up
@@ -110,8 +124,10 @@ rule jaeger_prediction:
         time = config["resources"]["prediction"]["time"]
     shell:
         """
-        jaeger.py -i {input.assembly} -o {output.results} \
-            -t {resources.threads} > {log} 2>&1
+        Jaeger -i {input.assembly} -o {output.results} \
+            -s 2.5 \
+            --fsize 1000 \
+            --stride 1000 > {log} 2>&1
         """
 
 # 5. Run GeNomad for viral prediction
@@ -131,9 +147,12 @@ rule genomad_prediction:
         time = config["resources"]["prediction"]["time"]
     shell:
         """
-        genomad end-to-end {input.assembly} {output.results} \
-            $(dirname {input.assembly})/genomad_db \
-            --threads {resources.threads} > {log} 2>&1
+        genomad end-to-end --min-score 0.6 \
+            --cleanup \
+            --threads {resources.threads} \
+            {input.assembly} \
+            {output.results} \
+            {config[resources][genomad][db]} > {log} 2>&1
         """
 
 # 6. Run Phold for protein annotation
@@ -153,13 +172,11 @@ rule phold_prediction:
         time = config["resources"]["prediction"]["time"]
     shell:
         """
-        # Run ORF prediction
-        prodigal -i {input.assembly} -a {output.results}/proteins.faa -d {output.results}/genes.fna
-
         # Run phold
-        phold predict --orf-file {output.results}/proteins.faa \
-            --output-dir {output.results} \
-            --threads {resources.threads} > {log} 2>&1
+        phold run -i {input.assembly} \
+            -o {output.results} \
+            -d {config[resources][phold][db]} \
+            -t {resources.threads} --cpu --force > {log} 2>&1
         """
 
 # 7. Run CheckV for quality assessment
@@ -180,7 +197,9 @@ rule checkv_assessment:
     shell:
         """
         # Run CheckV for viral quality assessment
-        checkv end-to-end {input.assembly} {output.results} \
+        checkv end_to_end {input.assembly} \
+            {output.results} \
+            -d {config[resources][checkv][db]} \
             -t {resources.threads} > {log} 2>&1
         """
 

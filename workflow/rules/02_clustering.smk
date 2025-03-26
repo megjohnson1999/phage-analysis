@@ -36,11 +36,26 @@ rule cluster_phages:
         seqkit seq -m {config[resources][vclust][min_length]} {input.phage_contigs} > {output.filtered_fasta}
         
         # Run vclust for clustering
-        vclust --in {output.filtered_fasta} \
-            --out $(dirname {output.clusters}) \
-            --id {config[resources][vclust][identity]} \
-            --cov {config[resources][vclust][coverage]} \
-            --threads {resources.threads} > {log} 2>&1
+        # First prefilter
+        vclust prefilter -i {output.filtered_fasta} \
+            -o $(dirname {output.clusters})/vclust_fltr.txt \
+            --min-kmers 20 \
+            --min-ident 0.95
+            
+        # Then align
+        vclust align -i {output.filtered_fasta} \
+            -o $(dirname {output.clusters})/vclust_ani.tsv \
+            --filter $(dirname {output.clusters})/vclust_fltr.txt
+            
+        # Finally cluster
+        vclust cluster -i $(dirname {output.clusters})/vclust_ani.tsv \
+            -o $(dirname {output.clusters})/clusters.tsv \
+            --algorithm leiden \
+            --metric ani \
+            --ids $(dirname {output.clusters})/vclust_ani.ids.tsv \
+            --ani {config[resources][vclust][identity]} \
+            --qcov {config[resources][vclust][coverage]} \
+            --rcov {config[resources][vclust][coverage]} > {log} 2>&1
             
         # Move clusters file to expected output
         mv $(dirname {output.clusters})/clusters.tsv {output.clusters}

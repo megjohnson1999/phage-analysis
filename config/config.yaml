@@ -26,6 +26,7 @@ resources:
     threads: 8
     mem_mb: 32000
     time: "48:00:00"
+    db: "/ref/sahlab/data/viral_analysis_DBs/iphop_DBs/Aug_2023_pub_rw"
   
   phacts:
     threads: 4
@@ -36,22 +37,31 @@ resources:
     threads: 16
     mem_mb: 32000
     time: "24:00:00"
+    
+  phabox:
+    db: "/ref/sahlab/data/viral_analysis_DBs/phabox_db_v2"
+    
+  vcontact3:
+    db: "/ref/sahlab/data/viral_analysis_DBs/vcontact3_DB223"
   
   mmseqs2:
     threads: 16
-    db: "UniRef50"
+    db: "/ref/sahlab/data/nr/nr_mmseqs15_DB"
   
   jaeger:
     threads: 8
   
   genomad:
     threads: 16
+    db: "/ref/sahlab/data/genomad_db"
   
   checkv:
     threads: 16
+    db: "/ref/sahlab/data/viral_analysis_DBs/checkV_DB/checkv-db-v1.5"
   
   phold:
     threads: 16
+    db: "/ref/sahlab/data/protein_Structure_DBs/phold"
   
   vclust:
     threads: 16
