@@ -113,25 +113,25 @@ rule iphop_aggregate_results:
             sample=get_iphop_samples()
         )
     output:
-        results_dir = directory(f"{config['output_dir']}/03_iphop_results"),
         predictions = f"{config['output_dir']}/03_iphop_results/iphop_predictions_compiled.tsv"
     log:
         f"{config['output_dir']}/logs/iphop_aggregate_results.log"
     shell:
         """
         # Ensure results directory exists
-        mkdir -p {output.results_dir}
+        RESULTS_DIR=$(dirname {output.predictions})
+        mkdir -p $RESULTS_DIR
         
         # Compile results
         echo "Compiling results" > {log}
         
-        if [ -n "$(ls -A {output.results_dir}/tmp 2>/dev/null)" ]; then
+        if [ -n "$(ls -A $RESULTS_DIR/tmp 2>/dev/null)" ]; then
             # If there are prediction files
-            FIRST_FILE=$(find {output.results_dir}/tmp -name "host_prediction_to_genus.csv" | head -n 1)
+            FIRST_FILE=$(find $RESULTS_DIR/tmp -name "host_prediction_to_genus.csv" | head -n 1)
             
             if [ -n "$FIRST_FILE" ]; then
                 head -n 1 "$FIRST_FILE" > {output.predictions}.tmp
-                find {output.results_dir}/tmp -name "host_prediction_to_genus.csv" | xargs cat | grep -v "query" >> {output.predictions}.tmp
+                find $RESULTS_DIR/tmp -name "host_prediction_to_genus.csv" | xargs cat | grep -v "query" >> {output.predictions}.tmp
             else
                 # Create empty file with header
                 echo "query,host,score,identity,coverage,kingdom,phylum,class,order,family,genus" > {output.predictions}.tmp
@@ -285,22 +285,22 @@ rule phacts_aggregate_results:
             sample=get_phacts_samples()
         )
     output:
-        results_dir = directory(f"{config['output_dir']}/03_phacts_results"),
         predictions = f"{config['output_dir']}/03_phacts_results/phacts_predictions_compiled.tsv"
     log:
         f"{config['output_dir']}/logs/phacts_aggregate_results.log"
     shell:
         """
         # Ensure results directory exists
-        mkdir -p {output.results_dir}
+        RESULTS_DIR=$(dirname {output.predictions})
+        mkdir -p $RESULTS_DIR
         
         # Compile results
         echo "Compiling PHACTS results" > {log}
         echo -e "phage_id\\tlifestyle\\tprobability" > {output.predictions}
         
-        if [ -n "$(ls -A {output.results_dir}/tmp 2>/dev/null)" ]; then
+        if [ -n "$(ls -A $RESULTS_DIR/tmp 2>/dev/null)" ]; then
             # Process each phacts output file if it exists
-            for file in {output.results_dir}/tmp/*.phacts.out 2>/dev/null; do
+            for file in $RESULTS_DIR/tmp/*.phacts.out 2>/dev/null; do
                 if [ -f "$file" ]; then
                     phage_id=$(basename "$file" .phacts.out)
                     lifestyle=$(grep "Lifestyle:" "$file" | awk '{{print $2}}')
