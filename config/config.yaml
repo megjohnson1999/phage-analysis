@@ -70,17 +70,34 @@ resources:
     coverage: 85
 
 # Conda environments
+# Option 1: Use existing envs on server (faster, no need to create new environments)
 conda_envs:
-  reneo: "../envs/reneo.yaml"
-  mmseqs2: "../envs/mmseqs2.yaml"
-  jaeger: "../envs/jaeger.yaml"
-  genomad: "../envs/genomad.yaml"
-  phold: "../envs/phold.yaml"
-  checkv: "../envs/checkv.yaml"
-  r: "../envs/r.yaml"
-  vclust: "../envs/vclust.yaml"
-  iphop: "../envs/iphop.yaml"
-  phacts: "../envs/phacts.yaml"
-  phabox2: "../envs/phabox2.yaml"
-  vcontact3: "../envs/vcontact3.yaml"
-  python: "../envs/python.yaml"
+  reneo: "/ref/sahlab/software/miniforge3/envs/reneo"
+  mmseqs2: "/ref/sahlab/software/miniforge3/envs/mmseqs2_v15-6f452"
+  jaeger: "/ref/sahlab/software/miniforge3/envs/jaeger"
+  genomad: "/ref/sahlab/software/anaconda3/envs/genomad"
+  phold: "/ref/sahlab/software/miniforge3/envs/pholdENV"
+  checkv: "/ref/sahlab/software/anaconda3/envs/checkV"
+  r: "/ref/sahlab/software/miniforge3/envs/R"
+  vclust: "/ref/sahlab/software/miniforge3/envs/vclust"
+  iphop: "/ref/sahlab/software/miniforge3/envs/iphop_env"
+  phacts: "/ref/sahlab/software/miniforge3/envs/phacts"
+  phabox2: "/ref/sahlab/software/miniforge3/envs/phabox2"
+  vcontact3: "/ref/sahlab/software/miniforge3/envs/vcontct3"
+  python: "/ref/sahlab/software/miniforge3/envs/python3.9"
+
+# Option 2: Create new environments from YAML files (uncomment to use)
+# conda_envs:
+#   reneo: "../envs/reneo.yaml"
+#   mmseqs2: "../envs/mmseqs2.yaml"
+#   jaeger: "../envs/jaeger.yaml"
+#   genomad: "../envs/genomad.yaml"
+#   phold: "../envs/phold.yaml"
+#   checkv: "../envs/checkv.yaml"
+#   r: "../envs/r.yaml"
+#   vclust: "../envs/vclust.yaml"
+#   iphop: "../envs/iphop.yaml"
+#   phacts: "../envs/phacts.yaml"
+#   phabox2: "../envs/phabox2.yaml"
+#   vcontact3: "../envs/vcontact3.yaml"
+#   python: "../envs/python.yaml"
