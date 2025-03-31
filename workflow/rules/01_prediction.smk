@@ -8,7 +8,7 @@ rule reneo_binning:
         assembly = config["assembly_file"],
         reads_dir = config["reads_dir"]
     output:
-        outdir = directory(f"{config['output_dir']}/01_reneo_output"),
+        f"{config['output_dir']}/01_reneo_output/genomes_and_unresolved_edges.fasta"
     log:
         f"{config['output_dir']}/logs/reneo_binning.log"
     conda:
@@ -19,18 +19,20 @@ rule reneo_binning:
         time = config["resources"]["prediction"]["time"]
     shell:
         """
+        mkdir -p {config[output_dir]}/01_reneo_output
+
         # Run Reneo for binning
         reneo run --input {input.assembly} \
             --reads {input.reads_dir} \
             --minlength 1000 \
-            --output {output.outdir} \
+            --output {config[output_dir]}/01_reneo_output \
             --threads {resources.threads} > {log} 2>&1
         """
 
 # 1a. Filter contigs by length (1KB)
 rule contig_length_filter:
     input:
-        f"{config['output_dir']}/01_reneo_output"
+        f"{config['output_dir']}/01_reneo_output/genomes_and_unresolved_edges.fasta"
     output:
         f"{config['output_dir']}/01_reneo_output/genomes_and_unresolved_edges_1KB.fasta"
     log:
@@ -44,7 +46,7 @@ rule contig_length_filter:
     shell:
         """   
         seqkit seq --min-len 1000 -g \
-            "{input}/genomes_and_unresolved_edges.fasta" > "{output}"
+            "{input}" > "{output}"
         """
 
 # 2. Run mmseqs2 for taxonomy assignment
