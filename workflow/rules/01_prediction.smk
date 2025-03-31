@@ -2,14 +2,13 @@
 Rules for phage prediction from metagenomic assemblies.
 """
 
-# 1. Run Reneo for binning
+# 1a. Run Reneo for binning
 rule reneo_binning:
     input:
         assembly = config["assembly_file"],
         reads_dir = config["reads_dir"]
     output:
         outdir = directory(f"{config['output_dir']}/01_reneo_output"),
-        filtered_contigs = f"{config['output_dir']}/01_reneo_output/genomes_and_unresolved_edges_1KB.fasta"
     log:
         f"{config['output_dir']}/logs/reneo_binning.log"
     conda:
@@ -26,10 +25,26 @@ rule reneo_binning:
             --minlength 1000 \
             --output {output.outdir} \
             --threads {resources.threads} > {log} 2>&1
-            
-        # Filter contigs by length (1KB)
+        """
+
+# 1a. Filter contigs by length (1KB)
+rule contig_length_filter:
+    input:
+        f"{config['output_dir']}/01_reneo_output"
+    output:
+        f"{config['output_dir']}/01_reneo_output/genomes_and_unresolved_edges_1KB.fasta"
+    log:
+        f"{config['output_dir']}/logs/contig_length_filter.log"
+    conda:
+        config["conda_envs"]["seqkit"]
+    resources:
+        mem_mb = config["resources"]["prediction"]["mem_mb"],
+        threads = config["resources"]["prediction"]["threads"],
+        time = config["resources"]["prediction"]["time"]
+    shell:
+        """   
         seqkit seq --min-len 1000 -g \
-            "{output.outdir}/genomes_and_unresolved_edges.fasta" > "{output.filtered_contigs}"
+            "{input}/genomes_and_unresolved_edges.fasta" > "{output}"
         """
 
 # 2. Run mmseqs2 for taxonomy assignment
