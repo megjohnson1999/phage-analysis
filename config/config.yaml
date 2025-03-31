@@ -14,7 +14,7 @@ do_clustering: true  # Set to false to skip clustering
 resources:
   prediction:
     threads: 24
-    mem_mb: 32000
+    mem_mb: 64000
     time: "24:00:00"
   
   clustering:
