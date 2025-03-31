@@ -13,7 +13,7 @@ do_clustering: true  # Set to false to skip clustering
 # Resources (includes all tool parameters)
 resources:
   prediction:
-    threads: 16
+    threads: 24
     mem_mb: 32000
     time: "24:00:00"
   
