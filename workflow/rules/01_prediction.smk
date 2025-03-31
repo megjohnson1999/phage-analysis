@@ -2,7 +2,7 @@
 Rules for phage prediction from metagenomic assemblies.
 """
 
-# 1a. Run Reneo for binning
+# 1. Run Reneo for binning
 rule reneo_binning:
     input:
         assembly = config["assembly_file"],
@@ -29,7 +29,7 @@ rule reneo_binning:
             --threads {resources.threads} > {log} 2>&1
         """
 
-# 1a. Filter contigs by length (1KB)
+# 1b. Filter contigs by length (1KB)
 rule contig_length_filter:
     input:
         f"{config['output_dir']}/01_reneo_output/genomes_and_unresolved_edges.fasta"
@@ -55,7 +55,7 @@ rule mmseqs_taxonomy:
         # Use the filtered output from reneo binning if present
         filtered_contigs = f"{config['output_dir']}/01_reneo_output/genomes_and_unresolved_edges_1KB.fasta"
     output:
-        lca_table = f"{config['output_dir']}/01_mmseqs_output/lca.tsv"
+        lca_table = f"{config['output_dir']}/01_mmseqs_output/genomes_and_unresolved_edges_mmseqs_lca.tsv"
     log:
         f"{config['output_dir']}/logs/mmseqs_taxonomy.log"
     conda:
@@ -82,6 +82,7 @@ rule mmseqs_taxonomy:
             --lca-mode 2 \
             -a \
             --tax-lineage 2 \
+            --format-output "query,target,evalue,pident,fident,nident,mismatch,qcov,tcov,qstart,qend,qlen,tstart,tend,tlen,alnlen,bits,qheader,theader,taxid,taxname,taxlineage" \
             --threads {resources.threads} \
             --split-mode 0 \
             --orf-filter 1 \
@@ -94,7 +95,7 @@ rule mmseqs_taxonomy:
 # 3. Filter mmseqs2 results for viral contigs
 rule filter_mmseqs_lca:
     input:
-        lca_table = f"{config['output_dir']}/01_mmseqs_output/lca.tsv",
+        lca_table = f"{config['output_dir']}/01_mmseqs_output/genomes_and_unresolved_edges_mmseqs_lca.tsv",
         contigs = f"{config['output_dir']}/01_reneo_output/genomes_and_unresolved_edges_1KB.fasta"
     output:
         filtered_lca = f"{config['output_dir']}/01_filtered_mmseqs/filtered_lca.tsv",
