@@ -83,6 +83,7 @@ conda_envs:
   iphop: "/ref/sahlab/software/miniforge3/envs/iphop_env"
   phacts: "/ref/sahlab/software/miniforge3/envs/phacts"
   phabox2: "/ref/sahlab/software/miniforge3/envs/phabox2"
+  seqkit: "../envs/seqkit.yaml"
   vcontact3: "/ref/sahlab/software/miniforge3/envs/vcontct3"
   python: "/ref/sahlab/software/miniforge3/envs/python3.9"
 
