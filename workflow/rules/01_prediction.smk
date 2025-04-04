@@ -13,10 +13,7 @@ rule reneo_binning:
         f"{config['output_dir']}/logs/reneo_binning.log"
     conda:
         config["conda_envs"]["reneo"]
-    resources:
-        mem_mb = config["resources"]["prediction"]["mem_mb"],
-        threads = config["resources"]["prediction"]["threads"],
-        time = config["resources"]["prediction"]["time"]
+    threads: 24
     shell:
         """
         mkdir -p {config[output_dir]}/01_reneo_output
@@ -26,7 +23,7 @@ rule reneo_binning:
             --reads {input.reads_dir} \
             --minlength 1000 \
             --output {config[output_dir]}/01_reneo_output \
-            --threads {resources.threads} > {log} 2>&1
+            --threads {threads} > {log} 2>&1
         """
 
 # 1b. Filter contigs by length (1KB)
@@ -39,10 +36,7 @@ rule contig_length_filter:
         f"{config['output_dir']}/logs/contig_length_filter.log"
     conda:
         config["conda_envs"]["seqkit"]
-    resources:
-        mem_mb = config["resources"]["prediction"]["mem_mb"],
-        threads = config["resources"]["prediction"]["threads"],
-        time = config["resources"]["prediction"]["time"]
+    threads: 8
     shell:
         """   
         seqkit seq --min-len 1000 -g \
@@ -60,10 +54,7 @@ rule mmseqs_taxonomy:
         f"{config['output_dir']}/logs/mmseqs_taxonomy.log"
     conda:
         config["conda_envs"]["mmseqs2"]
-    resources:
-        mem_mb = config["resources"]["prediction"]["mem_mb"],
-        threads = config["resources"]["prediction"]["threads"],
-        time = config["resources"]["prediction"]["time"]
+    threads: 24
     shell:
         """
         # Create temporary directory
@@ -71,7 +62,7 @@ rule mmseqs_taxonomy:
         
         # Run mmseqs2 for taxonomy assignment
         mmseqs easy-taxonomy {input.filtered_contigs} \
-            {config[resources][mmseqs2][db]} \
+            {config[databases][mmseqs2][db]} \
             $(dirname {output.lca_table}) \
             $TMP_DIR \
             --min-length 30 \
@@ -83,7 +74,7 @@ rule mmseqs_taxonomy:
             -a \
             --tax-lineage 2 \
             --format-output "query,target,evalue,pident,fident,nident,mismatch,qcov,tcov,qstart,qend,qlen,tstart,tend,tlen,alnlen,bits,qheader,theader,taxid,taxname,taxlineage" \
-            --threads {resources.threads} \
+            --threads {threads} \
             --split-mode 0 \
             --orf-filter 1 \
             > {log} 2>&1
@@ -136,10 +127,6 @@ rule jaeger_prediction:
         f"{config['output_dir']}/logs/jaeger_prediction.log"
     conda:
         config["conda_envs"]["jaeger"]
-    resources:
-        mem_mb = config["resources"]["prediction"]["mem_mb"],
-        threads = config["resources"]["jaeger"]["threads"],
-        time = config["resources"]["prediction"]["time"]
     shell:
         """
         Jaeger -i {input.assembly} -o {output.results} \
@@ -159,18 +146,15 @@ rule genomad_prediction:
         f"{config['output_dir']}/logs/genomad_prediction.log"
     conda:
         config["conda_envs"]["genomad"]
-    resources:
-        mem_mb = config["resources"]["prediction"]["mem_mb"],
-        threads = config["resources"]["genomad"]["threads"],
-        time = config["resources"]["prediction"]["time"]
+    threads: 24
     shell:
         """
         genomad end-to-end --min-score 0.6 \
             --cleanup \
-            --threads {resources.threads} \
+            --threads {threads} \
             {input.assembly} \
             {output.results} \
-            {config[resources][genomad][db]} > {log} 2>&1
+            {config[databases][genomad][db]} > {log} 2>&1
         """
 
 # 6. Run Phold for protein annotation
@@ -184,17 +168,14 @@ rule phold_prediction:
         f"{config['output_dir']}/logs/phold_prediction.log"
     conda:
         config["conda_envs"]["phold"]
-    resources:
-        mem_mb = config["resources"]["prediction"]["mem_mb"],
-        threads = config["resources"]["phold"]["threads"],
-        time = config["resources"]["prediction"]["time"]
+    threads: 24
     shell:
         """
         # Run phold
         phold run -i {input.assembly} \
             -o {output.results} \
-            -d {config[resources][phold][db]} \
-            -t {resources.threads} --cpu --force > {log} 2>&1
+            -d {config[databases][phold][db]} \
+            -t {threads} --cpu --force > {log} 2>&1
         """
 
 # 7. Run CheckV for quality assessment
@@ -208,17 +189,14 @@ rule checkv_assessment:
         f"{config['output_dir']}/logs/checkv_assessment.log"
     conda:
         config["conda_envs"]["checkv"]
-    resources:
-        mem_mb = config["resources"]["prediction"]["mem_mb"],
-        threads = config["resources"]["checkv"]["threads"],
-        time = config["resources"]["prediction"]["time"]
+    threads: 24
     shell:
         """
         # Run CheckV for viral quality assessment
         checkv end_to_end {input.assembly} \
             {output.results} \
-            -d {config[resources][checkv][db]} \
-            -t {resources.threads} > {log} 2>&1
+            -d {config[databases][checkv][db]} \
+            -t {threads} > {log} 2>&1
         """
 
 # 8. Integrate phage prediction results
