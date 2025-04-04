@@ -26,14 +26,11 @@ rule cluster_phages:
         f"{config['output_dir']}/logs/cluster_phages.log"
     conda:
         config["conda_envs"]["vclust"]
-    resources:
-        mem_mb = config["resources"]["clustering"]["mem_mb"],
-        threads = config["resources"]["clustering"]["threads"],
-        time = config["resources"]["clustering"]["time"]
+    threads: 24
     shell:
         """
         # Filter contigs by length
-        seqkit seq -m {config[resources][vclust][min_length]} {input.phage_contigs} > {output.filtered_fasta}
+        seqkit seq -m {config[params][vclust][min_length]} {input.phage_contigs} > {output.filtered_fasta}
         
         # Run vclust for clustering
         # First prefilter
@@ -53,9 +50,9 @@ rule cluster_phages:
             --algorithm leiden \
             --metric ani \
             --ids $(dirname {output.clusters})/vclust_ani.ids.tsv \
-            --ani {config[resources][vclust][identity]} \
-            --qcov {config[resources][vclust][coverage]} \
-            --rcov {config[resources][vclust][coverage]} > {log} 2>&1
+            --ani {config[params][vclust][identity]} \
+            --qcov {config[params][vclust][coverage]} \
+            --rcov {config[params][vclust][coverage]} > {log} 2>&1
             
         # Move clusters file to expected output
         mv $(dirname {output.clusters})/clusters.tsv {output.clusters}
