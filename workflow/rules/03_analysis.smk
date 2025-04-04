@@ -74,10 +74,7 @@ rule iphop_single_prediction:
         f"{config['output_dir']}/logs/iphop_prediction/{{sample}}.log"
     conda:
         config["conda_envs"]["iphop"]
-    resources:
-        mem_mb = config["resources"]["iphop"]["mem_mb"],
-        threads = config["resources"]["iphop"]["threads"],
-        time = config["resources"]["iphop"]["time"]
+    threads: 24
     shell:
         """
         # Create output directory
@@ -85,9 +82,9 @@ rule iphop_single_prediction:
         
         # Run iPhop
         iphop predict --fa_file {input.phage_file} \
-            --db_dir {config[resources][iphop][db]} \
+            --db_dir {config[databases][iphop][db]} \
             --out_dir $(dirname {output.prediction}) \
-            --num_threads {resources.threads} > {log} 2>&1
+            --num_threads {threads} > {log} 2>&1
         """
 
 # Helper rule to force running single predictions during dry run
@@ -249,10 +246,6 @@ rule phacts_single_prediction:
         f"{config['output_dir']}/logs/phacts_prediction/{{sample}}.log"
     conda:
         config["conda_envs"]["phacts"]
-    resources:
-        mem_mb = config["resources"]["phacts"]["mem_mb"],
-        threads = config["resources"]["phacts"]["threads"],
-        time = config["resources"]["phacts"]["time"]
     shell:
         """
         # Create output directory
@@ -331,17 +324,14 @@ rule mmseqs_phage_taxonomy:
         f"{config['output_dir']}/logs/mmseqs_phage_taxonomy.log"
     conda:
         config["conda_envs"]["mmseqs2"]
-    resources:
-        mem_mb = config["resources"]["genomic_info"]["mem_mb"],
-        threads = config["resources"]["genomic_info"]["threads"],
-        time = config["resources"]["genomic_info"]["time"]
+    threads: 24
     shell:
         """
         # Create temporary directory
         TMP_DIR=$(mktemp -d)
         
         # Run mmseqs2 for taxonomy assignment
-        mmseqs easy-taxonomy {input.phage_seqs} {config[resources][mmseqs2][db]} \
+        mmseqs easy-taxonomy {input.phage_seqs} {config[databases][mmseqs2][db]} \
             {output.results_dir} $TMP_DIR \
             --min-length 30 \
             -e 1e-15 \
@@ -352,7 +342,7 @@ rule mmseqs_phage_taxonomy:
             -a \
             --tax-lineage 2 \
             --format-output "query,target,evalue,pident,fident,nident,mismatch,qcov,tcov,qstart,qend,qlen,tstart,tend,tlen,alnlen,bits,qheader,theader,taxid,taxname,taxlineage" \
-            --threads {resources.threads} \
+            --threads {threads} \
             --split-mode 0 \
             --orf-filter 1 \
             > {log} 2>&1
@@ -376,18 +366,15 @@ rule phabox_prediction:
         f"{config['output_dir']}/logs/phabox_prediction.log"
     conda:
         config["conda_envs"]["phabox2"]
-    resources:
-        mem_mb = config["resources"]["genomic_info"]["mem_mb"],
-        threads = config["resources"]["genomic_info"]["threads"],
-        time = config["resources"]["genomic_info"]["time"]
+    threads: 24
     shell:
         """
         # Run Phabox2
-        phabox2 --task end_to_end --dbdir {config[resources][phabox][db]} \
+        phabox2 --task end_to_end --dbdir {config[databases][phabox][db]} \
             --outpth {output.results_dir} \
             --contigs {input.phage_seqs} \
             --len 1000 \
-            --threads {resources.threads} > {log} 2>&1
+            --threads {threads} > {log} 2>&1
         """
 
 # 8. Run vContact3 for phage taxonomy based on gene content
@@ -402,10 +389,7 @@ rule vcontact3_taxonomy:
         f"{config['output_dir']}/logs/vcontact3_taxonomy.log"
     conda:
         config["conda_envs"]["vcontact3"]
-    resources:
-        mem_mb = config["resources"]["genomic_info"]["mem_mb"],
-        threads = config["resources"]["genomic_info"]["threads"],
-        time = config["resources"]["genomic_info"]["time"]
+    threads: 24
     shell:
         """
         # Create gene2genome file
@@ -418,6 +402,6 @@ rule vcontact3_taxonomy:
             --output {output.results_dir} \
             --db-domain "prokaryotes" \
             --db-version 223 \
-            --db-path {config[resources][vcontact3][db]} \
-            -t {resources.threads} > {log} 2>&1
+            --db-path {config[databases][vcontact3][db]} \
+            -t {threads} > {log} 2>&1
         """
