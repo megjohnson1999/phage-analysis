@@ -17,7 +17,18 @@ printshellcmds: True
 scheduler: greedy
 
 set-resources:
+    # Prediction
+    reneo_binning:
+        mem: 200G
+        runtime: 300:00:00
     mmseqs_taxonomy:
         mem: 700G
+    genomad_prediction:
+        mem: 64G
+    phold_prediction:
+        mem: 64G
+    checkv_assessment:
+        mem: 64G
+
     mmseqs_phage_taxonomy:
         mem: 700G
