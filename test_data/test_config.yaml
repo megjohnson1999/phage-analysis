@@ -1,0 +1,26 @@
+# Test configuration for phage-analysis pipeline
+samples: ["test_sample"]
+input:
+  fasta_dir: "test_data/assemblies"
+  reads_dir: "test_data/reads"
+
+# Database paths (use smaller test databases if available)
+databases:
+  mmseqs2: "test_data/db/mmseqs2"
+  checkv: "test_data/db/checkv"
+  genomad: "test_data/db/genomad"
+  iphop: "test_data/db/iphop"
+  phabox2: "test_data/db/phabox2"
+  phacts: "test_data/db/phacts"
+  vcontact3: "test_data/db/vcontact3"
+
+# Analysis parameters
+params:
+  min_length: 1000
+  do_clustering: true
+  cluster_min_identity: 0.95
+  cluster_min_coverage: 0.85
+  threads: 4
+
+# Output directory
+output_dir: "test_data/results"
