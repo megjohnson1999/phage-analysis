@@ -28,4 +28,3 @@ set-resources:
     # Analysis    
     mmseqs_phage_taxonomy:
         mem: 700G
-        mem: 64G
