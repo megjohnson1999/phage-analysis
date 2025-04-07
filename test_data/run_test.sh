@@ -3,11 +3,8 @@
 # Test case execution script for phage-analysis pipeline
 set -e
 
-# Create mock database files (empty files just for testing)
-echo "Setting up mock databases..."
-for DB in mmseqs2 checkv genomad iphop phabox2 phacts vcontact3; do
-    touch test_data/db/$DB/db_mock.txt
-done
+# Create output directory if it doesn't exist
+mkdir -p test_data/results
 
 # Run the snakemake workflow with the test configuration
 echo "Running phage-analysis pipeline with test data..."
