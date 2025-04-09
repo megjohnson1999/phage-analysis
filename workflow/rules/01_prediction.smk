@@ -20,10 +20,10 @@ rule reneo_binning:
         mkdir -p {config[output_dir]}/01_reneo_output
         
         # Create Reneo config file
-        cat > {config[output_dir]}/01_reneo_output/config.yaml << 'EOL'
+        cat << 'EOL' > {config['output_dir']}/01_reneo_output/config.yaml
         input: {input.assembly}
         reads: {input.reads_dir}
-        output: {config[output_dir]}/01_reneo_output
+        output: {config['output_dir']}/01_reneo_output
         minlength: 1000
         threads: {threads}
         EOL
