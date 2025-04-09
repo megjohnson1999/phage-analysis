@@ -16,20 +16,34 @@ rule reneo_binning:
     threads: 24
     shell:
         """
-        mkdir -p {config[output_dir]}/01_reneo_output
-        touch "{output}"
-
-        # Run Reneo for binning
-        reneo run --input {input.assembly} \
-            --reads {input.reads_dir} \
-            --minlength 1000 \
-            --output {config[output_dir]}/01_reneo_output \
-            --threads {threads} > {log} 2>&1 || true
-
-        if [ ! -s "{output}" ]; then
-            echo "Output file exists but is empty - Reneo may have failed before creating it" >> {log}
+        # Create output directory
+        mkdir -p {config['output_dir']}/01_reneo_output
+        
+        # Create Reneo config file
+        cat > {config['output_dir']}/01_reneo_output/config.yaml << 'EOL'
+        input: {input.assembly}
+        reads: {input.reads_dir}
+        output: {config['output_dir']}/01_reneo_output
+        minlength: 1000
+        threads: {threads}
+        EOL
+        
+        # Run Reneo with its internal Snakemake workflow
+        snakemake -s /ref/sahlab/software/miniforge3/envs/reneo/lib/python3.10/site-packages/reneo/workflow/reneo.smk \
+                 --configfile {config['output_dir']}/01_reneo_output/config.yaml \
+                 --jobs {threads} \
+                 --use-conda \
+                 --keep-incomplete \
+                 --conda-prefix /ref/sahlab/software/miniforge3/envs/reneo/lib/python3.10/site-packages/reneo/workflow/conda \
+                 > {log} 2>&1
+        
+        # Check if output exists
+        if [ ! -f "{output}" ]; then
+            echo "ERROR: Required output file was not created" >> {log}
             exit 1
+        fi
         """
+
 
 # 1b. Filter contigs by length (1KB)
 rule contig_length_filter:
