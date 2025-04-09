@@ -20,6 +20,10 @@ databases:
   phold:
     db: "/ref/sahlab/data/protein_Structure_DBs/phold"
 
+# Pipeline configuration
+use_reneo: true  # Set to false to skip Reneo assembly improvement
+do_clustering: true  # Set to false to skip clustering
+
 # Analysis parameters
 params:
   vclust:

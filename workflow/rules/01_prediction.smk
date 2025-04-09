@@ -43,11 +43,32 @@ rule contig_length_filter:
             "{input}" > "{output}"
         """
 
+# 1c. Filter assembly directly (if not using Reneo)
+rule direct_contig_filter:
+    input:
+        assembly = config["assembly_file"]
+    output:
+        filtered_assembly = f"{config['output_dir']}/01_filtered_assembly/filtered_assembly_1KB.fasta"
+    log:
+        f"{config['output_dir']}/logs/direct_contig_filter.log"
+    conda:
+        config["conda_envs"]["seqkit"]
+    threads: 8
+    shell:
+        """
+        mkdir -p {config[output_dir]}/01_filtered_assembly
+        seqkit seq --min-len 1000 -g \
+            "{input.assembly}" > "{output.filtered_assembly}"
+        """
+
 # 2. Run mmseqs2 for taxonomy assignment
 rule mmseqs_taxonomy:
     input:
-        # Use the filtered output from reneo binning if present
-        filtered_contigs = f"{config['output_dir']}/01_reneo_output/genomes_and_unresolved_edges_1KB.fasta"
+        # Use the appropriate filtered contigs based on whether Reneo is enabled
+        filtered_contigs = lambda wildcards: 
+            f"{config['output_dir']}/01_reneo_output/genomes_and_unresolved_edges_1KB.fasta" 
+            if config.get("use_reneo", True) else 
+            f"{config['output_dir']}/01_filtered_assembly/filtered_assembly_1KB.fasta"
     output:
         lca_table = f"{config['output_dir']}/01_mmseqs_output/genomes_and_unresolved_edges_mmseqs_lca.tsv"
     log:
@@ -87,7 +108,10 @@ rule mmseqs_taxonomy:
 rule filter_mmseqs_lca:
     input:
         lca_table = f"{config['output_dir']}/01_mmseqs_output/genomes_and_unresolved_edges_mmseqs_lca.tsv",
-        contigs = f"{config['output_dir']}/01_reneo_output/genomes_and_unresolved_edges_1KB.fasta"
+        contigs = lambda wildcards: 
+            f"{config['output_dir']}/01_reneo_output/genomes_and_unresolved_edges_1KB.fasta" 
+            if config.get("use_reneo", True) else 
+            f"{config['output_dir']}/01_filtered_assembly/filtered_assembly_1KB.fasta"
     output:
         filtered_lca = f"{config['output_dir']}/01_filtered_mmseqs/filtered_lca.tsv",
         passing_ids = f"{config['output_dir']}/01_filtered_mmseqs/passing_contig_ids.txt",
@@ -102,7 +126,10 @@ rule filter_mmseqs_lca:
 # 3b. Extract passing viral contigs
 rule extract_viral_contigs:
     input:
-        contigs = f"{config['output_dir']}/01_reneo_output/genomes_and_unresolved_edges_1KB.fasta",
+        contigs = lambda wildcards: 
+            f"{config['output_dir']}/01_reneo_output/genomes_and_unresolved_edges_1KB.fasta" 
+            if config.get("use_reneo", True) else 
+            f"{config['output_dir']}/01_filtered_assembly/filtered_assembly_1KB.fasta",
         passing_ids = f"{config['output_dir']}/01_filtered_mmseqs/passing_contig_ids.txt"
     output:
         viral_contigs = f"{config['output_dir']}/01_filtered_mmseqs/passing_Viralcontigs.fasta"

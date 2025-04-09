@@ -9,6 +9,7 @@ reads_dir: "/path/to/reads"  # Directory containing sequencing reads
 
 # Pipeline configuration
 do_clustering: true  # Set to false to skip clustering
+use_reneo: true      # Set to false to skip Reneo assembly improvement
 
 databases:
   iphop:

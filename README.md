@@ -28,7 +28,12 @@ cd phage-analysis
 snakemake --use-conda -j <cores>
 ```
 
-3. Run the pipeline without clustering:
+3. Run the pipeline without Reneo (skip assembly improvement):
+```
+snakemake --use-conda -j <cores> --config use_reneo=false
+```
+
+4. Run the pipeline without clustering:
 ```
 snakemake --use-conda -j <cores> --config do_clustering=false
 ```
@@ -67,6 +72,7 @@ snakemake --profile profile/slurm <target_rule>
 ## Pipeline Steps
 
 1. **Phage Prediction**: Identify phage contigs from metagenome assembly
+   - Assembly processing (with or without Reneo)
    - mmseqs2 taxonomy assignment
    - Multiple phage prediction tools
    - Integration of prediction results
@@ -85,6 +91,7 @@ snakemake --profile profile/slurm <target_rule>
 
 Key configuration options:
 
+- `use_reneo`: Set to false to skip Reneo and use direct assembly input
 - `do_clustering`: Set to false to skip the clustering step
 - `assembly_file`: Path to your input assembly FASTA
 - `reads_dir`: Directory containing sequencing reads

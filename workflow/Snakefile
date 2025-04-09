@@ -20,6 +20,12 @@ include: "rules/03_analysis.smk"
 # Default target rule
 rule all:
     input:
+        # Start with appropriate filtered assembly based on Reneo setting
+        lambda wildcards:
+            [f"{config['output_dir']}/01_reneo_output/genomes_and_unresolved_edges_1KB.fasta"] 
+            if config.get("use_reneo", True) else 
+            [f"{config['output_dir']}/01_filtered_assembly/filtered_assembly_1KB.fasta"],
+            
         # Explicitly include splitting steps to ensure they appear in the plan
         f"{config['output_dir']}/03_split_seqs/split_file_list.txt",
         f"{config['output_dir']}/03_split_proteins/split_protein_list.txt",
