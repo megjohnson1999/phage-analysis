@@ -29,7 +29,6 @@ rule reneo_binning:
         if [ ! -s "{output}" ]; then
             echo "Output file exists but is empty - Reneo may have failed before creating it" >> {log}
             exit 1
-        fi
         """
 
 # 1b. Filter contigs by length (1KB)
