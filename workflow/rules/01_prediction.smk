@@ -17,13 +17,19 @@ rule reneo_binning:
     shell:
         """
         mkdir -p {config[output_dir]}/01_reneo_output
+        touch "{output}"
 
         # Run Reneo for binning
         reneo run --input {input.assembly} \
             --reads {input.reads_dir} \
             --minlength 1000 \
             --output {config[output_dir]}/01_reneo_output \
-            --threads {threads} > {log} 2>&1
+            --threads {threads} > {log} 2>&1 || true
+
+        if [ ! -s "{output}" ]; then
+            echo "Output file exists but is empty - Reneo may have failed before creating it" >> {log}
+            exit 1
+        fi
         """
 
 # 1b. Filter contigs by length (1KB)
