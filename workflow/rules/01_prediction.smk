@@ -17,20 +17,20 @@ rule reneo_binning:
     shell:
         """
         # Create output directory
-        mkdir -p {config['output_dir']}/01_reneo_output
+        mkdir -p {config[output_dir]}/01_reneo_output
         
         # Create Reneo config file
-        cat > {config['output_dir']}/01_reneo_output/config.yaml << 'EOL'
+        cat > {config[output_dir]}/01_reneo_output/config.yaml << 'EOL'
         input: {input.assembly}
         reads: {input.reads_dir}
-        output: {config['output_dir']}/01_reneo_output
+        output: {config[output_dir]}/01_reneo_output
         minlength: 1000
         threads: {threads}
         EOL
         
         # Run Reneo with its internal Snakemake workflow
         snakemake -s /ref/sahlab/software/miniforge3/envs/reneo/lib/python3.10/site-packages/reneo/workflow/reneo.smk \
-                 --configfile {config['output_dir']}/01_reneo_output/config.yaml \
+                 --configfile {config[output_dir]}/01_reneo_output/config.yaml \
                  --jobs {threads} \
                  --use-conda \
                  --keep-incomplete \
