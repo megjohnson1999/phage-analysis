@@ -12,6 +12,9 @@ min_version("8.0")
 
 configfile: "../config/config.yaml"
 
+# Define custom resources
+workflow.resource_scopes.append('skip')
+
 # Import rules
 include: "rules/01_prediction.smk"
 include: "rules/02_clustering.smk"

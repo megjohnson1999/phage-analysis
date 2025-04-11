@@ -2,6 +2,10 @@
 Rules for phage prediction from metagenomic assemblies.
 """
 
+# Helper function to determine if Reneo should be skipped
+def should_skip_reneo(wildcards):
+    return not config.get("use_reneo", True)
+
 # 1. Run Reneo for binning
 rule reneo_binning:
     input:
@@ -14,6 +18,8 @@ rule reneo_binning:
     conda:
         config["conda_envs"]["reneo"]
     threads: 24
+    resources:
+        skip = should_skip_reneo
     shell:
         """
         mkdir -p {config[output_dir]}/01_reneo_output
@@ -37,6 +43,8 @@ rule contig_length_filter:
     conda:
         config["conda_envs"]["seqkit"]
     threads: 8
+    resources:
+        skip = should_skip_reneo
     shell:
         """   
         seqkit seq --min-len 1000 -g \
