@@ -17,13 +17,16 @@ workflow.globals["use_reneo"] = not should_skip_reneo(None)
 
 # Helper function to determine which assembly file to use
 def get_assembly_input(wildcards):
-    # If both assembly_file and assembly_graph are provided, use assembly_file
-    # If only assembly_graph is provided, use Reneo output
+    # If assembly_file is provided and not empty, use it
     if config.get("assembly_file") and config.get("assembly_file") != "":
         return config["assembly_file"]
     # If no assembly_file but assembly_graph exists, Reneo must run first 
     # and we'll use its output as the assembly file
-    return f"{config['output_dir']}/01_reneo_output/genomes_and_unresolved_edges.fasta"
+    # This will only be used if workflow.globals["use_reneo"] is True
+    if workflow.globals["use_reneo"]:
+        return f"{config['output_dir']}/01_reneo_output/genomes_and_unresolved_edges.fasta"
+    # Fallback case - this should never happen as the validation checks should catch it
+    raise ValueError("Neither assembly_file nor valid assembly_graph were provided")
 
 # 1. Run Reneo for binning (only if use_reneo is True)
 if workflow.globals["use_reneo"]:
@@ -67,23 +70,24 @@ if workflow.globals["use_reneo"]:
                 "{input}" > "{output}"
             """
 
-# 1c. Filter assembly directly (if not using Reneo)
-rule direct_contig_filter:
-    input:
-        assembly = get_assembly_input
-    output:
-        filtered_assembly = f"{config['output_dir']}/01_filtered_assembly/filtered_assembly_1KB.fasta"
-    log:
-        f"{config['output_dir']}/logs/direct_contig_filter.log"
-    conda:
-        config["conda_envs"]["seqkit"]
-    threads: 8
-    shell:
-        """
-        mkdir -p {config[output_dir]}/01_filtered_assembly
-        seqkit seq --min-len 1000 -g \
-            "{input.assembly}" > "{output.filtered_assembly}"
-        """
+# 1c. Filter assembly directly (only if not using Reneo AND assembly_file is provided)
+if not workflow.globals["use_reneo"] and config.get("assembly_file") and config.get("assembly_file") != "":
+    rule direct_contig_filter:
+        input:
+            assembly = config["assembly_file"]
+        output:
+            filtered_assembly = f"{config['output_dir']}/01_filtered_assembly/filtered_assembly_1KB.fasta"
+        log:
+            f"{config['output_dir']}/logs/direct_contig_filter.log"
+        conda:
+            config["conda_envs"]["seqkit"]
+        threads: 8
+        shell:
+            """
+            mkdir -p {config[output_dir]}/01_filtered_assembly
+            seqkit seq --min-len 1000 -g \
+                "{input.assembly}" > "{output.filtered_assembly}"
+            """
 
 # 2. Run mmseqs2 for taxonomy assignment
 rule mmseqs_taxonomy:

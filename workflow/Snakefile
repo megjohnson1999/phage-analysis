@@ -21,6 +21,17 @@ include: "rules/03_analysis.smk"
 if not config.get("assembly_file") and not config.get("assembly_graph"):
     raise ValueError("At least one of 'assembly_file' or 'assembly_graph' must be provided in the config.")
 
+# If assembly_graph is provided, ensure reads_dir is also provided (required for Reneo)
+if config.get("assembly_graph") and config.get("assembly_graph") != "":
+    if not config.get("reads_dir"):
+        raise ValueError("When using 'assembly_graph', 'reads_dir' must also be provided for Reneo to work.")
+    
+    # Check if the assembly_graph file exists
+    import os
+    if not os.path.exists(config.get("assembly_graph", "")):
+        raise ValueError(f"The specified assembly_graph file '{config.get('assembly_graph')}' does not exist.")
+
+# Make sure reads_dir is provided in all cases
 if not config.get("reads_dir"):
     raise ValueError("'reads_dir' must be provided in the config.")
 
