@@ -4,12 +4,23 @@ Rules for phage prediction from metagenomic assemblies.
 
 # Helper function to determine if Reneo should be skipped
 def should_skip_reneo(wildcards):
-    return not config.get("use_reneo", True)
+    # Skip Reneo if assembly_graph is empty or not provided
+    return not config.get("assembly_graph") or config.get("assembly_graph") == ""
+
+# Helper function to determine which assembly file to use
+def get_assembly_input(wildcards):
+    # If both assembly_file and assembly_graph are provided, use assembly_file
+    # If only assembly_graph is provided, use Reneo output
+    if config.get("assembly_file") and config.get("assembly_file") != "":
+        return config["assembly_file"]
+    # If no assembly_file but assembly_graph exists, Reneo must run first 
+    # and we'll use its output as the assembly file
+    return f"{config['output_dir']}/01_reneo_output/genomes_and_unresolved_edges.fasta"
 
 # 1. Run Reneo for binning
 rule reneo_binning:
     input:
-        assembly = config["assembly_file"],
+        assembly_graph = config["assembly_graph"],
         reads_dir = config["reads_dir"]
     output:
         f"{config['output_dir']}/01_reneo_output/genomes_and_unresolved_edges.fasta"
@@ -25,7 +36,7 @@ rule reneo_binning:
         mkdir -p {config[output_dir]}/01_reneo_output
 
         # Run Reneo for binning
-        reneo run --input {input.assembly} \
+        reneo run --input {input.assembly_graph} \
             --reads {input.reads_dir} \
             --minlength 1000 \
             --output {config[output_dir]}/01_reneo_output \
@@ -54,7 +65,7 @@ rule contig_length_filter:
 # 1c. Filter assembly directly (if not using Reneo)
 rule direct_contig_filter:
     input:
-        assembly = config["assembly_file"]
+        assembly = get_assembly_input
     output:
         filtered_assembly = f"{config['output_dir']}/01_filtered_assembly/filtered_assembly_1KB.fasta"
     log:

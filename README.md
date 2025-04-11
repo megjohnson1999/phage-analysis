@@ -28,9 +28,19 @@ cd phage-analysis
 snakemake --use-conda -j <cores>
 ```
 
-3. Run the pipeline without Reneo (skip assembly improvement):
+3. Input Configuration Options:
+   - **FASTA only**: Provide only `assembly_file` (skips Reneo)
+   - **Assembly graph only**: Provide only `assembly_graph` (uses Reneo)
+   - **Both files**: Provide both `assembly_file` and `assembly_graph` (uses Reneo and original FASTA)
 ```
-snakemake --use-conda -j <cores> --config use_reneo=false
+# Example using only FASTA file (skips Reneo)
+snakemake --use-conda -j <cores> --config assembly_file="/path/to/assembly.fasta" assembly_graph=""
+
+# Example using only assembly graph (runs Reneo)
+snakemake --use-conda -j <cores> --config assembly_file="" assembly_graph="/path/to/assembly.gfa"
+
+# Example using both files
+snakemake --use-conda -j <cores> --config assembly_file="/path/to/assembly.fasta" assembly_graph="/path/to/assembly.gfa"
 ```
 
 4. Run the pipeline without clustering:
@@ -91,9 +101,9 @@ snakemake --profile profile/slurm <target_rule>
 
 Key configuration options:
 
-- `use_reneo`: Set to false to skip Reneo and use direct assembly input
+- `assembly_file`: Path to your input assembly FASTA (can be empty if only using assembly_graph)
+- `assembly_graph`: Path to assembly graph file (leave empty to skip Reneo, required if no assembly_file)
 - `do_clustering`: Set to false to skip the clustering step
-- `assembly_file`: Path to your input assembly FASTA
 - `reads_dir`: Directory containing sequencing reads
 - Tool parameters and resource allocations
 

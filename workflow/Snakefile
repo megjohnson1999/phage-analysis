@@ -20,13 +20,20 @@ include: "rules/01_prediction.smk"
 include: "rules/02_clustering.smk"
 include: "rules/03_analysis.smk"
 
+# Validate required inputs
+if not config.get("assembly_file") and not config.get("assembly_graph"):
+    raise ValueError("At least one of 'assembly_file' or 'assembly_graph' must be provided in the config.")
+
+if not config.get("reads_dir"):
+    raise ValueError("'reads_dir' must be provided in the config.")
+
 # Default target rule
 rule all:
     input:
-        # Start with appropriate filtered assembly based on Reneo setting
+        # Start with appropriate filtered assembly based on whether Reneo will run
         lambda wildcards:
             [f"{config['output_dir']}/01_reneo_output/genomes_and_unresolved_edges_1KB.fasta"] 
-            if config.get("use_reneo", True) else 
+            if config.get("assembly_graph") and config.get("assembly_graph") != "" else 
             [f"{config['output_dir']}/01_filtered_assembly/filtered_assembly_1KB.fasta"],
             
         # Explicitly include splitting steps to ensure they appear in the plan

@@ -4,12 +4,15 @@
 output_dir: "/path/to/your/project/outputs"  # Change to your actual output directory
 
 # Input files/directories
-assembly_file: "/path/to/assembly.fasta"  # Path to the FLYE assembly
+# Note: At least one of assembly_file or assembly_graph must be provided
+assembly_file: "/path/to/assembly.fasta"  # Path to the assembly file (FASTA)
+                                         # Can be left empty if using only assembly_graph
+assembly_graph: ""   # Path to assembly graph file (leave empty to skip Reneo)
+                     # Required if assembly_file is not provided
 reads_dir: "/path/to/reads"  # Directory containing sequencing reads
 
 # Pipeline configuration
 do_clustering: true  # Set to false to skip clustering
-use_reneo: true      # Set to false to skip Reneo assembly improvement
 
 databases:
   iphop:
