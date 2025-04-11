@@ -12,7 +12,8 @@ def should_skip_reneo(wildcards):
     return not os.path.exists(config.get("assembly_graph", ""))
 
 # Define a flag for skipping Reneo
-use_reneo = not should_skip_reneo(None)
+# Set the global variable in the workflow module
+workflow.globals["use_reneo"] = not should_skip_reneo(None)
 
 # Helper function to determine which assembly file to use
 def get_assembly_input(wildcards):
@@ -25,7 +26,7 @@ def get_assembly_input(wildcards):
     return f"{config['output_dir']}/01_reneo_output/genomes_and_unresolved_edges.fasta"
 
 # 1. Run Reneo for binning (only if use_reneo is True)
-if use_reneo:
+if workflow.globals["use_reneo"]:
     rule reneo_binning:
         input:
             assembly_graph = config["assembly_graph"],
@@ -90,7 +91,7 @@ rule mmseqs_taxonomy:
         # Use the appropriate filtered contigs based on whether Reneo is enabled
         filtered_contigs = lambda wildcards: 
             f"{config['output_dir']}/01_reneo_output/genomes_and_unresolved_edges_1KB.fasta" 
-            if use_reneo else 
+            if workflow.globals["use_reneo"] else 
             f"{config['output_dir']}/01_filtered_assembly/filtered_assembly_1KB.fasta"
     output:
         lca_table = f"{config['output_dir']}/01_mmseqs_output/genomes_and_unresolved_edges_mmseqs_lca.tsv"
@@ -151,7 +152,7 @@ rule extract_viral_contigs:
     input:
         contigs = lambda wildcards: 
             f"{config['output_dir']}/01_reneo_output/genomes_and_unresolved_edges_1KB.fasta" 
-            if use_reneo else 
+            if workflow.globals["use_reneo"] else 
             f"{config['output_dir']}/01_filtered_assembly/filtered_assembly_1KB.fasta",
         passing_ids = f"{config['output_dir']}/01_filtered_mmseqs/passing_contig_ids.txt"
     output:
