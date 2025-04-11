@@ -11,10 +11,8 @@ def should_skip_reneo(wildcards):
     import os
     return not os.path.exists(config.get("assembly_graph", ""))
 
-# Skip Reneo-related rules if assembly_graph is missing or invalid
-if should_skip_reneo(None):
-    workflow.skip("reneo_binning")
-    workflow.skip("contig_length_filter")
+# Define a flag for skipping Reneo
+use_reneo = not should_skip_reneo(None)
 
 # Helper function to determine which assembly file to use
 def get_assembly_input(wildcards):
@@ -26,46 +24,47 @@ def get_assembly_input(wildcards):
     # and we'll use its output as the assembly file
     return f"{config['output_dir']}/01_reneo_output/genomes_and_unresolved_edges.fasta"
 
-# 1. Run Reneo for binning
-rule reneo_binning:
-    input:
-        assembly_graph = config["assembly_graph"],
-        reads_dir = config["reads_dir"]
-    output:
-        f"{config['output_dir']}/01_reneo_output/genomes_and_unresolved_edges.fasta"
-    log:
-        f"{config['output_dir']}/logs/reneo_binning.log"
-    conda:
-        config["conda_envs"]["reneo"]
-    threads: 24
-    shell:
-        """
-        mkdir -p {config[output_dir]}/01_reneo_output
+# 1. Run Reneo for binning (only if use_reneo is True)
+if use_reneo:
+    rule reneo_binning:
+        input:
+            assembly_graph = config["assembly_graph"],
+            reads_dir = config["reads_dir"]
+        output:
+            f"{config['output_dir']}/01_reneo_output/genomes_and_unresolved_edges.fasta"
+        log:
+            f"{config['output_dir']}/logs/reneo_binning.log"
+        conda:
+            config["conda_envs"]["reneo"]
+        threads: 24
+        shell:
+            """
+            mkdir -p {config[output_dir]}/01_reneo_output
 
-        # Run Reneo for binning
-        reneo run --input {input.assembly_graph} \
-            --reads {input.reads_dir} \
-            --minlength 1000 \
-            --output {config[output_dir]}/01_reneo_output \
-            --threads {threads} > {log} 2>&1
-        """
+            # Run Reneo for binning
+            reneo run --input {input.assembly_graph} \
+                --reads {input.reads_dir} \
+                --minlength 1000 \
+                --output {config[output_dir]}/01_reneo_output \
+                --threads {threads} > {log} 2>&1
+            """
 
-# 1b. Filter contigs by length (1KB)
-rule contig_length_filter:
-    input:
-        f"{config['output_dir']}/01_reneo_output/genomes_and_unresolved_edges.fasta"
-    output:
-        f"{config['output_dir']}/01_reneo_output/genomes_and_unresolved_edges_1KB.fasta"
-    log:
-        f"{config['output_dir']}/logs/contig_length_filter.log"
-    conda:
-        config["conda_envs"]["seqkit"]
-    threads: 8
-    shell:
-        """   
-        seqkit seq --min-len 1000 -g \
-            "{input}" > "{output}"
-        """
+    # 1b. Filter contigs by length (1KB)
+    rule contig_length_filter:
+        input:
+            f"{config['output_dir']}/01_reneo_output/genomes_and_unresolved_edges.fasta"
+        output:
+            f"{config['output_dir']}/01_reneo_output/genomes_and_unresolved_edges_1KB.fasta"
+        log:
+            f"{config['output_dir']}/logs/contig_length_filter.log"
+        conda:
+            config["conda_envs"]["seqkit"]
+        threads: 8
+        shell:
+            """   
+            seqkit seq --min-len 1000 -g \
+                "{input}" > "{output}"
+            """
 
 # 1c. Filter assembly directly (if not using Reneo)
 rule direct_contig_filter:
@@ -91,7 +90,7 @@ rule mmseqs_taxonomy:
         # Use the appropriate filtered contigs based on whether Reneo is enabled
         filtered_contigs = lambda wildcards: 
             f"{config['output_dir']}/01_reneo_output/genomes_and_unresolved_edges_1KB.fasta" 
-            if config.get("use_reneo", True) else 
+            if use_reneo else 
             f"{config['output_dir']}/01_filtered_assembly/filtered_assembly_1KB.fasta"
     output:
         lca_table = f"{config['output_dir']}/01_mmseqs_output/genomes_and_unresolved_edges_mmseqs_lca.tsv"
@@ -134,7 +133,7 @@ rule filter_mmseqs_lca:
         lca_table = f"{config['output_dir']}/01_mmseqs_output/genomes_and_unresolved_edges_mmseqs_lca.tsv",
         contigs = lambda wildcards: 
             f"{config['output_dir']}/01_reneo_output/genomes_and_unresolved_edges_1KB.fasta" 
-            if config.get("use_reneo", True) else 
+            if use_reneo else 
             f"{config['output_dir']}/01_filtered_assembly/filtered_assembly_1KB.fasta"
     output:
         filtered_lca = f"{config['output_dir']}/01_filtered_mmseqs/filtered_lca.tsv",
@@ -152,7 +151,7 @@ rule extract_viral_contigs:
     input:
         contigs = lambda wildcards: 
             f"{config['output_dir']}/01_reneo_output/genomes_and_unresolved_edges_1KB.fasta" 
-            if config.get("use_reneo", True) else 
+            if use_reneo else 
             f"{config['output_dir']}/01_filtered_assembly/filtered_assembly_1KB.fasta",
         passing_ids = f"{config['output_dir']}/01_filtered_mmseqs/passing_contig_ids.txt"
     output:

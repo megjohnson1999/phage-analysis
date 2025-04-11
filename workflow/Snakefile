@@ -24,13 +24,16 @@ if not config.get("assembly_file") and not config.get("assembly_graph"):
 if not config.get("reads_dir"):
     raise ValueError("'reads_dir' must be provided in the config.")
 
+# Check if Reneo should run
+from workflow.rules.01_prediction import use_reneo
+
 # Default target rule
 rule all:
     input:
         # Start with appropriate filtered assembly based on whether Reneo will run
         lambda wildcards:
             [f"{config['output_dir']}/01_reneo_output/genomes_and_unresolved_edges_1KB.fasta"] 
-            if config.get("assembly_graph") and config.get("assembly_graph") != "" else 
+            if use_reneo else 
             [f"{config['output_dir']}/01_filtered_assembly/filtered_assembly_1KB.fasta"],
             
         # Explicitly include splitting steps to ensure they appear in the plan
