@@ -13,7 +13,7 @@ min_version("8.0")
 configfile: "../config/config.yaml"
 
 # Define custom resources
-workflow.resource_scopes.append('skip')
+workflow.resource_scope("skip")
 
 # Import rules
 include: "rules/01_prediction.smk"
