@@ -7,6 +7,12 @@ def should_skip_reneo(wildcards):
     # Skip Reneo if assembly_graph is empty or not provided
     return not config.get("assembly_graph") or config.get("assembly_graph") == ""
 
+# Define which rules should be skipped when no assembly graph is provided
+skip_rules = ["reneo_binning", "contig_length_filter"]
+for rule_name in skip_rules:
+    if should_skip_reneo(None):
+        workflow.skip_until(rule_name, lambda: True)
+
 # Helper function to determine which assembly file to use
 def get_assembly_input(wildcards):
     # If both assembly_file and assembly_graph are provided, use assembly_file
@@ -29,8 +35,6 @@ rule reneo_binning:
     conda:
         config["conda_envs"]["reneo"]
     threads: 24
-    resources:
-        skip = should_skip_reneo
     shell:
         """
         mkdir -p {config[output_dir]}/01_reneo_output
@@ -54,8 +58,6 @@ rule contig_length_filter:
     conda:
         config["conda_envs"]["seqkit"]
     threads: 8
-    resources:
-        skip = should_skip_reneo
     shell:
         """   
         seqkit seq --min-len 1000 -g \
