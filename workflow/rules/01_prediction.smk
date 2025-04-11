@@ -5,13 +5,16 @@ Rules for phage prediction from metagenomic assemblies.
 # Helper function to determine if Reneo should be skipped
 def should_skip_reneo(wildcards):
     # Skip Reneo if assembly_graph is empty or not provided
-    return not config.get("assembly_graph") or config.get("assembly_graph") == ""
+    # or if the file doesn't exist
+    if not config.get("assembly_graph") or config.get("assembly_graph") == "":
+        return True
+    import os
+    return not os.path.exists(config.get("assembly_graph", ""))
 
-# Define which rules should be skipped when no assembly graph is provided
-skip_rules = ["reneo_binning", "contig_length_filter"]
-for rule_name in skip_rules:
-    if should_skip_reneo(None):
-        workflow.skip_until(rule_name, lambda: True)
+# Skip Reneo-related rules if assembly_graph is missing or invalid
+if should_skip_reneo(None):
+    workflow.skip("reneo_binning")
+    workflow.skip("contig_length_filter")
 
 # Helper function to determine which assembly file to use
 def get_assembly_input(wildcards):
