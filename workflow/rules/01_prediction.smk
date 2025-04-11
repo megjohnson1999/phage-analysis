@@ -70,7 +70,8 @@ if workflow.globals["use_reneo"]:
                 "{input}" > "{output}"
             """
 
-# 1c. Filter assembly directly (only if not using Reneo AND assembly_file is provided)
+# 1c. Filter assembly directly (when not using Reneo)
+# This is only defined when assembly_file is provided
 if not workflow.globals["use_reneo"] and config.get("assembly_file") and config.get("assembly_file") != "":
     rule direct_contig_filter:
         input:
