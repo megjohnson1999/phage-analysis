@@ -112,6 +112,8 @@ rule mmseqs_taxonomy:
         
         # Get the base input filename without extension
         INPUT_BASE=$(basename {input.filtered_contigs} .fasta)
+
+        mkdir -p {config[output_dir]}/01_mmseqs_output
         
         # Run mmseqs2 for taxonomy assignment
         mmseqs easy-taxonomy {input.filtered_contigs} \
