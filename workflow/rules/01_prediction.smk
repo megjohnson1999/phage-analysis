@@ -110,10 +110,13 @@ rule mmseqs_taxonomy:
         # Create temporary directory
         TMP_DIR=$(mktemp -d)
         
+        # Get the base input filename without extension
+        INPUT_BASE=$(basename {input.filtered_contigs} .fasta)
+        
         # Run mmseqs2 for taxonomy assignment
         mmseqs easy-taxonomy {input.filtered_contigs} \
             {config[databases][mmseqs2][db]} \
-            $(dirname {output.lca_table}) \
+            {config[output_dir]}/01_mmseqs_output/temp_results \
             $TMP_DIR \
             --min-length 30 \
             -e 1e-15 \
@@ -128,6 +131,9 @@ rule mmseqs_taxonomy:
             --split-mode 0 \
             --orf-filter 1 \
             > {log} 2>&1
+        
+        # Move the generated LCA file to the expected output location
+        mv {config[output_dir]}/01_mmseqs_output/temp_results_lca.tsv {output.lca_table}
             
         # Clean up
         rm -rf $TMP_DIR
