@@ -56,5 +56,6 @@ conda_envs:
    iphop: "../envs/iphop.yaml"
    phacts: "../envs/phacts.yaml"
    phabox2: "../envs/phabox2.yaml"
+   seqkit: "../envs/seqkit.yaml"
    vcontact3: "../envs/vcontact3.yaml"
    python: "../envs/python.yaml"
