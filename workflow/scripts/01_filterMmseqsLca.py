@@ -14,6 +14,17 @@ logging.basicConfig(
 )
 logger = logging.getLogger("filter_mmseqs")
 
+def safe_first_taxid(lineage):
+    """Safely extract the first taxid from the lineage string."""
+    if pd.isnull(lineage):
+        return None
+    parts = lineage.split(";")
+    try:
+        return int(parts[0])
+    except (IndexError, ValueError):
+        logger.warning(f"Invalid lineage entry: {lineage}")
+        return None
+
 def filter_mmseqs_output(input_file, output_file, ids_output_file, fasta_file, missing_contigs_output_file):
     """
     Filter mmseqs2 taxonomy results to select viral contigs.
@@ -36,7 +47,7 @@ def filter_mmseqs_output(input_file, output_file, ids_output_file, fasta_file, m
     logger.info(f"Loaded {len(df)} entries from mmseqs2 table")
 
     # Condition 1: First taxID in lineage is 10239 (virus)
-    df["first_taxid_in_lineage"] = df["lineage"].apply(lambda x: int(x.split(";")[0]) if pd.notnull(x) else None)
+    df["first_taxid_in_lineage"] = df["lineage"].apply(safe_first_taxid)
     condition_virus = df["first_taxid_in_lineage"] == 10239
 
     # Condition 2: taxID is 1

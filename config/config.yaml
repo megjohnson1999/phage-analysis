@@ -28,7 +28,7 @@ databases:
     db: "/ref/sahlab/data/nr/nr_mmseqs15_DB"
   
   genomad:
-    db: "/ref/sahlab/data/genomad_db"
+    db: "/ref/sahlab/data/viral_analysis_DBs/genomad_DBs/genomad_db"
   
   checkv:
     db: "/ref/sahlab/data/viral_analysis_DBs/checkV_DB/checkv-db-v1.5"
@@ -47,7 +47,7 @@ params:
 conda_envs:
    reneo: "/ref/sahlab/software/miniforge3/envs/reneo"
    mmseqs2: "../envs/mmseqs2.yaml"
-   jaeger: "../envs/jaeger.yaml"
+   jaeger: "/ref/sahlab/software/miniforge3/envs/jaeger"
    genomad: "../envs/genomad.yaml"
    phold: "../envs/phold.yaml"
    checkv: "../envs/checkv.yaml"

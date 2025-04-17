@@ -157,8 +157,18 @@ rule filter_mmseqs_lca:
         f"{config['output_dir']}/logs/filter_mmseqs_lca.log"
     conda:
         config["conda_envs"]["python"]
-    script:
-        "../scripts/01_filterMmseqsLca.py"
+    shell:
+        """
+        # Use python script to filter mmseqs2 results
+        python ../scripts/01_filterMmseqsLca.py \
+            --mmseqs_LCA_table {input.lca_table} \
+            --contigs {input.contigs} \
+            --o_filtered_LCA_table {output.filtered_lca} \
+            --o_passing_contig_ids {output.passing_ids} \
+            --o_missing_contig_ids {output.missing_ids} \
+            > {log} 2>&1
+        """
+
 
 # 3b. Extract passing viral contigs
 rule extract_viral_contigs:
@@ -173,7 +183,7 @@ rule extract_viral_contigs:
     log:
         f"{config['output_dir']}/logs/extract_viral_contigs.log"
     conda:
-        "bioconda::seqkit"
+        config["conda_envs"]["seqkit"]
     shell:
         """
         # Extract viral contigs from the filtered assembly
@@ -290,7 +300,7 @@ rule extract_phage_contigs:
     log:
         f"{config['output_dir']}/logs/extract_phage_contigs.log"
     conda:
-        "bioconda::seqkit"
+        config["conda_envs"]["seqkit"]
     shell:
         """
         # Extract phage contigs from viral contigs
