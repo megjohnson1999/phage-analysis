@@ -10,7 +10,17 @@ def filter_mmseqs_output(input_file, output_file, ids_output_file, fasta_file, m
     ])
 
     #Condition 1: First taxID in lineage is 10239 (virus)
-    df["first_taxid_in_lineage"] = df["lineage"].apply(lambda x: int(x.split(";")[0]) if pd.notnull(x) else None)
+    def safe_convert_to_int(value):
+        if pd.notnull(value):
+            first_taxid = value.split(";")[0]
+            try:
+                return int(first_taxid)
+            except ValueError:
+                # Handle non-numeric taxIDs by returning None
+                return None
+        return None
+    
+    df["first_taxid_in_lineage"] = df["lineage"].apply(safe_convert_to_int)
     condition_virus = df["first_taxid_in_lineage"] == 10239
 
     #Condition 2: taxID is 1

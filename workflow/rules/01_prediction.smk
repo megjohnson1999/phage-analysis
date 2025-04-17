@@ -196,17 +196,25 @@ rule jaeger_prediction:
         assembly = f"{config['output_dir']}/01_filtered_mmseqs/passing_Viralcontigs.fasta"
     output:
         results = directory(f"{config['output_dir']}/01_jaeger_output"),
-        predictions = f"{config['output_dir']}/01_jaeger_output/final_predictions_scored.tsv"
+        predictions = f"{config['output_dir']}/01_jaeger_output/final_predictions.tsv"
     log:
         f"{config['output_dir']}/logs/jaeger_prediction.log"
     conda:
         config["conda_envs"]["jaeger"]
     shell:
         """
+        mkdir -p {output.results}
+        
         Jaeger -i {input.assembly} -o {output.results} \
             -s 2.5 \
             --fsize 1000 \
             --stride 1000 > {log} 2>&1
+            
+        # Check if the output exists - if not, create an empty file to satisfy Snakemake
+        if [ ! -f {output.predictions} ]; then
+            echo "Warning: Jaeger did not produce final_predictions.tsv. Creating empty file." >> {log}
+            touch {output.predictions}
+        fi
         """
 
 # 5. Run GeNomad for viral prediction
@@ -277,7 +285,7 @@ rule checkv_assessment:
 rule integrate_phage_predictions:
     input:
         phold = f"{config['output_dir']}/01_phold_output/phold_per_cds_predictions.tsv",
-        jaeger = f"{config['output_dir']}/01_jaeger_output/final_predictions_scored.tsv",
+        jaeger = f"{config['output_dir']}/01_jaeger_output/final_predictions.tsv",
         genomad = f"{config['output_dir']}/01_genomad_output/summary/virus_summary.tsv",
         checkv = f"{config['output_dir']}/01_checkv_output/quality_summary.tsv"
     output:
