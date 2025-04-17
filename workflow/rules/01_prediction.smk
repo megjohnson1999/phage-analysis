@@ -156,7 +156,7 @@ rule filter_mmseqs_lca:
     log:
         f"{config['output_dir']}/logs/filter_mmseqs_lca.log"
     conda:
-        "python:3.9"
+        config["conda_envs"]["python"]
     script:
         "../scripts/01_filterMmseqsLca.py"
 
