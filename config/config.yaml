@@ -40,14 +40,16 @@ databases:
 params:    
   vclust:
     min_length: 10000
-    identity: 95
-    coverage: 85
+    identity: 0.95
+    coverage: 0.85
+
 
 # Conda environments
 conda_envs:
    reneo: "/ref/sahlab/software/miniforge3/envs/reneo"
    mmseqs2: "../envs/mmseqs2.yaml"
-   jaeger: "/ref/sahlab/software/miniforge3/envs/jaeger"
+   jaeger: "../envs/jaeger.yaml"
+   #jaeger: "/ref/sahlab/software/miniforge3/envs/jaeger"
    genomad: "../envs/genomad.yaml"
    phold: "../envs/phold.yaml"
    checkv: "../envs/checkv.yaml"
