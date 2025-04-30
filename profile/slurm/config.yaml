@@ -11,6 +11,7 @@ default-resources:
 jobs: 40
 latency-wait: 60 
 use-conda: True
+conda-prefix: "/ref/sahlab/software/miniforge3/envs/smk_envs_phage_pred"
 keep-going: True
 rerun-incomplete: True
 printshellcmds: True
@@ -28,3 +29,5 @@ set-resources:
     # Analysis    
     mmseqs_phage_taxonomy:
         mem: 700G
+    phacts_single_prediction:
+        mem: 10G
