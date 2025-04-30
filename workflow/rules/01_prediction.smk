@@ -196,7 +196,7 @@ rule jaeger_prediction:
         assembly = f"{config['output_dir']}/01_filtered_mmseqs/passing_Viralcontigs.fasta"
     output:
         results = directory(f"{config['output_dir']}/01_jaeger_output"),
-        predictions = f"{config['output_dir']}/01_jaeger_output/final_predictions.tsv"
+        predictions = f"{config['output_dir']}/01_jaeger_output/passing_Viralcontigs_default_jaeger.tsv"
     log:
         f"{config['output_dir']}/logs/jaeger_prediction.log"
     conda:
@@ -212,7 +212,7 @@ rule jaeger_prediction:
             
         # Check if the output exists - if not, create an empty file to satisfy Snakemake
         if [ ! -f {output.predictions} ]; then
-            echo "Warning: Jaeger did not produce final_predictions.tsv. Creating empty file." >> {log}
+            echo "Warning: Jaeger did not produce output. Creating empty file." >> {log}
             touch {output.predictions}
         fi
         """
@@ -223,7 +223,7 @@ rule genomad_prediction:
         assembly = f"{config['output_dir']}/01_filtered_mmseqs/passing_Viralcontigs.fasta"
     output:
         results = directory(f"{config['output_dir']}/01_genomad_output"),
-        virus_summary = f"{config['output_dir']}/01_genomad_output/summary/virus_summary.tsv"
+        virus_summary = f"{config['output_dir']}/01_genomad_output/passing_Viralcontigs_summary/passing_Viralcontigs_virus_summary.tsv"
     log:
         f"{config['output_dir']}/logs/genomad_prediction.log"
     conda:
@@ -231,6 +231,8 @@ rule genomad_prediction:
     threads: 24
     shell:
         """
+        #genomad download-database {config[databases][genomad][db]}
+
         genomad end-to-end --min-score 0.6 \
             --cleanup \
             --threads {threads} \
@@ -285,8 +287,8 @@ rule checkv_assessment:
 rule integrate_phage_predictions:
     input:
         phold = f"{config['output_dir']}/01_phold_output/phold_per_cds_predictions.tsv",
-        jaeger = f"{config['output_dir']}/01_jaeger_output/final_predictions.tsv",
-        genomad = f"{config['output_dir']}/01_genomad_output/summary/virus_summary.tsv",
+        jaeger = f"{config['output_dir']}/01_jaeger_output/passing_Viralcontigs_default_jaeger.tsv",
+        genomad = f"{config['output_dir']}/01_genomad_output/passing_Viralcontigs_summary/passing_Viralcontigs_virus_summary.tsv",
         checkv = f"{config['output_dir']}/01_checkv_output/quality_summary.tsv"
     output:
         predictions = f"{config['output_dir']}/01_phage_predictions/phagePredictedContigs.tsv",

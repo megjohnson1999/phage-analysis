@@ -55,7 +55,7 @@ rule cluster_phages:
             --rcov {config[params][vclust][coverage]} > {log} 2>&1
             
         # Move clusters file to expected output
-        mv $(dirname {output.clusters})/clusters.tsv {output.clusters}
+        #mv $(dirname {output.clusters})/clusters.tsv {output.clusters}
         """
 
 # 2. Extract vOTU representative sequences
@@ -68,7 +68,7 @@ rule extract_votu_representatives:
     log:
         f"{config['output_dir']}/logs/extract_votu_representatives.log"
     conda:
-        "bioconda::seqkit"
+        config["conda_envs"]["seqkit"]
     shell:
         """
         # Extract representative sequence IDs from clusters file

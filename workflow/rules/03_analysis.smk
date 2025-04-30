@@ -13,7 +13,7 @@ rule split_phage_sequences:
     log:
         f"{config['output_dir']}/logs/split_phage_sequences.log"
     conda:
-        "bioconda::seqkit"
+        config["conda_envs"]["seqkit"]
     shell:
         """
         # Create output directory
@@ -74,7 +74,7 @@ rule iphop_single_prediction:
         f"{config['output_dir']}/logs/iphop_prediction/{{sample}}.log"
     conda:
         config["conda_envs"]["iphop"]
-    threads: 24
+    threads: 12
     shell:
         """
         # Create output directory
@@ -155,7 +155,7 @@ rule prodigal_orf_prediction:
     log:
         f"{config['output_dir']}/logs/prodigal_orf_prediction.log"
     conda:
-        "bioconda::prodigal"
+        config["conda_envs"]["phacts"]
     shell:
         """
         # Run Prodigal for ORF prediction
@@ -175,7 +175,7 @@ rule split_protein_files:
     log:
         f"{config['output_dir']}/logs/split_protein_files.log"
     conda:
-        "bioconda::seqkit"
+        config["conda_envs"]["seqkit"]
     shell:
         """
         # Create output directory
@@ -242,6 +242,7 @@ rule phacts_single_prediction:
         protein_file = f"{config['output_dir']}/03_split_proteins/{{sample}}.faa"
     output:
         result = f"{config['output_dir']}/03_phacts_results/tmp/{{sample}}.phacts.out"
+    threads: 4
     log:
         f"{config['output_dir']}/logs/phacts_prediction/{{sample}}.log"
     conda:
