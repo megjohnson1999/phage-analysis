@@ -4,7 +4,10 @@ channels:
   - bioconda
   - defaults
 dependencies:
-  - jaeger
   - pandas
   - numpy
   - biopython
+  - tensorflow=2.14
+  - pip
+  - pip:
+    - jaeger-bio==1.1.26
