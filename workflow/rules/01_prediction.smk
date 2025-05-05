@@ -28,7 +28,7 @@ def get_assembly_input(wildcards):
     # Fallback case - this should never happen as the validation checks should catch it
     raise ValueError("Neither assembly_file nor valid assembly_graph were provided")
 
-# 1. Run Reneo for binning (only if use_reneo is True)
+# 1. Run Reneo for binning (only if workflow.globals["use_reneo"] is True)
 if workflow.globals["use_reneo"]:
     rule reneo_binning:
         input:
@@ -147,7 +147,7 @@ rule filter_mmseqs_lca:
         lca_table = f"{config['output_dir']}/01_mmseqs_output/genomes_and_unresolved_edges_mmseqs_lca.tsv",
         contigs = lambda wildcards: 
             f"{config['output_dir']}/01_reneo_output/genomes_and_unresolved_edges_1KB.fasta" 
-            if use_reneo else 
+            if workflow.globals["use_reneo"] else 
             f"{config['output_dir']}/01_filtered_assembly/filtered_assembly_1KB.fasta"
     output:
         filtered_lca = f"{config['output_dir']}/01_filtered_mmseqs/filtered_lca.tsv",
@@ -241,25 +241,133 @@ rule genomad_prediction:
             {config[databases][genomad][db]} > {log} 2>&1
         """
 
-# 6. Run Phold for protein annotation
-rule phold_prediction:
+# 6a. Split viral contigs for parallel PHOLD processing
+rule split_viral_contigs_for_phold:
     input:
         assembly = f"{config['output_dir']}/01_filtered_mmseqs/passing_Viralcontigs.fasta"
     output:
-        results = directory(f"{config['output_dir']}/01_phold_output"),
-        predictions = f"{config['output_dir']}/01_phold_output/phold_per_cds_predictions.tsv"
+        split_dir = directory(f"{config['output_dir']}/01_phold_split_seqs"),
+        split_list = f"{config['output_dir']}/01_phold_split_seqs/split_file_list.txt"
     log:
-        f"{config['output_dir']}/logs/phold_prediction.log"
+        f"{config['output_dir']}/logs/split_viral_contigs_for_phold.log"
     conda:
-        config["conda_envs"]["phold"]
-    threads: 24
+        config["conda_envs"]["seqkit"]
     shell:
         """
-        # Run phold
-        phold run -i {input.assembly} \
-            -o {output.results} \
+        # Create output directory
+        mkdir -p {output.split_dir}
+        
+        # Split FASTA file into individual files (1 sequence per file)
+        seqkit split {input.assembly} -O {output.split_dir} -s 1 > {log} 2>&1
+        
+        # Create list of split files
+        find {output.split_dir} -name "*.fasta" > {output.split_list}
+        """
+
+# Helper function to get PHOLD samples
+def get_phold_samples():
+    # After split_viral_contigs_for_phold is run, this reads the split file list
+    split_list = f"{config['output_dir']}/01_phold_split_seqs/split_file_list.txt"
+    if os.path.exists(split_list):
+        with open(split_list, "r") as f:
+            files = [line.strip() for line in f]
+        return [os.path.splitext(os.path.basename(file))[0] for file in files]
+    # Fallback to glob when file doesn't exist yet (for dry runs)
+    elif os.path.exists(f"{config['output_dir']}/01_phold_split_seqs"):
+        return [os.path.splitext(os.path.basename(f))[0] 
+                for f in glob.glob(f"{config['output_dir']}/01_phold_split_seqs/*.fasta")]
+    else:
+        return []  # Return empty list if no directory exists yet
+
+# 6b. Checkpoint to wait for split files to be created
+checkpoint wait_for_phold_splits:
+    input:
+        split_list = f"{config['output_dir']}/01_phold_split_seqs/split_file_list.txt"
+    output:
+        touch(f"{config['output_dir']}/01_phold_output/.splits_ready")
+    shell:
+        "mkdir -p $(dirname {output})"
+
+# 6c. Run PHOLD on a single contig
+rule phold_single_prediction:
+    input:
+        checkpoint = f"{config['output_dir']}/01_phold_output/.splits_ready",
+        contig_file = f"{config['output_dir']}/01_phold_split_seqs/{{sample}}.fasta"
+    output:
+        results_dir = directory(f"{config['output_dir']}/01_phold_output/tmp/{{sample}}"),
+        predictions = f"{config['output_dir']}/01_phold_output/tmp/{{sample}}/phold_per_cds_predictions.tsv"
+    log:
+        f"{config['output_dir']}/logs/phold_prediction/{{sample}}.log"
+    conda:
+        config["conda_envs"]["phold"]
+    threads: 8
+    shell:
+        """
+        # Create output directory
+        mkdir -p {output.results_dir}
+        
+        # Run phold on single contig
+        phold run -i {input.contig_file} \
+            -o {output.results_dir} \
             -d {config[databases][phold][db]} \
             -t {threads} --cpu --force > {log} 2>&1
+        """
+
+# 6d. Helper rule to force running all PHOLD predictions
+rule run_all_phold_predictions:
+    input:
+        checkpoint = f"{config['output_dir']}/01_phold_output/.splits_ready",
+        # For actual runs, get samples from the split files
+        # For dry runs, this will be an empty list, which is fine
+        samples = lambda wildcards: expand(
+            f"{config['output_dir']}/01_phold_output/tmp/{{sample}}/phold_per_cds_predictions.tsv",
+            sample=get_phold_samples()
+        )
+    output:
+        touch(f"{config['output_dir']}/01_phold_output/.all_predictions_done")
+
+# 6e. Aggregate PHOLD results
+rule phold_aggregate_results:
+    input:
+        # This is the key part that makes the parallelization work
+        # Aggregation only happens after all individual predictions are done
+        all_done = f"{config['output_dir']}/01_phold_output/.all_predictions_done",
+        predictions = lambda wildcards: expand(
+            f"{config['output_dir']}/01_phold_output/tmp/{{sample}}/phold_per_cds_predictions.tsv",
+            sample=get_phold_samples()
+        )
+    output:
+        predictions = f"{config['output_dir']}/01_phold_output/phold_per_cds_predictions.tsv"
+    log:
+        f"{config['output_dir']}/logs/phold_aggregate_results.log"
+    conda:
+        config["conda_envs"]["phold"]
+    shell:
+        """
+        # Ensure results directory exists
+        RESULTS_DIR=$(dirname {output.predictions})
+        mkdir -p $RESULTS_DIR
+        
+        # Compile results
+        echo "Compiling PHOLD results" > {log}
+        
+        # Get header from first file
+        FIRST_FILE=$(find $RESULTS_DIR/tmp -name "phold_per_cds_predictions.tsv" | head -n 1)
+        
+        if [ -n "$FIRST_FILE" ]; then
+            # Create the output file with header
+            head -n 1 "$FIRST_FILE" > {output.predictions}
+            
+            # Append data from all prediction files, skipping headers
+            find $RESULTS_DIR/tmp -name "phold_per_cds_predictions.tsv" | xargs cat | grep -v "^contig_id" >> {output.predictions}
+            
+            # Log success
+            echo "Successfully compiled PHOLD results" >> {log}
+        else
+            # Create empty output with header structure
+            echo "contig_id\torf_id\tstart\tend\tstrand\taa_length\tcategory\tproduct\thit\tevalue\tidentity" > {output.predictions}
+            echo "No PHOLD result files found, created empty file with header" >> {log}
+        fi
         """
 
 # 7. Run CheckV for quality assessment

@@ -25,9 +25,18 @@ set-resources:
         runtime: 300:00:00
     mmseqs_taxonomy:
         mem: 700G
-    phold_prediction:
-        runtime: 100:00:00
-
+    
+    # PHOLD resources
+    split_viral_contigs_for_phold:
+        mem: 10G
+        runtime: 60:00
+    phold_single_prediction:
+        mem: 50G
+        runtime: 10:00:00
+    phold_aggregate_results:
+        mem: 10G
+        runtime: 60:00
+    
     # Analysis    
     mmseqs_phage_taxonomy:
         mem: 700G
