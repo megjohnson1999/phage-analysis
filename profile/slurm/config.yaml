@@ -25,6 +25,8 @@ set-resources:
         runtime: 300:00:00
     mmseqs_taxonomy:
         mem: 700G
+    phold_prediction:
+        runtime: 100:00:00
 
     # Analysis    
     mmseqs_phage_taxonomy:
