@@ -248,6 +248,9 @@ rule split_viral_contigs_for_phold:
     output:
         split_dir = directory(f"{config['output_dir']}/01_phold_split_seqs"),
         split_list = f"{config['output_dir']}/01_phold_split_seqs/split_file_list.txt"
+    params:
+        # Number of sequences per chunk - adjust based on expected sequence sizes
+        chunk_size = 1000
     log:
         f"{config['output_dir']}/logs/split_viral_contigs_for_phold.log"
     conda:
@@ -257,11 +260,18 @@ rule split_viral_contigs_for_phold:
         # Create output directory
         mkdir -p {output.split_dir}
         
-        # Split FASTA file into individual files (1 sequence per file)
-        seqkit split {input.assembly} -O {output.split_dir} -s 1 > {log} 2>&1
+        # Count total sequences to calculate appropriate chunking
+        TOTAL_SEQS=$(seqkit stats -T {input.assembly} | tail -n 1 | cut -f 4)
+        echo "Total sequences: $TOTAL_SEQS" > {log}
+        
+        # Split FASTA file into chunked files with multiple sequences per file
+        seqkit split {input.assembly} -O {output.split_dir} -p {params.chunk_size} >> {log} 2>&1
         
         # Create list of split files
         find {output.split_dir} -name "*.fasta" > {output.split_list}
+        
+        # Report chunking results
+        echo "Created $(wc -l < {output.split_list}) chunk files" >> {log}
         """
 
 # Helper function to get PHOLD samples
@@ -288,7 +298,7 @@ checkpoint wait_for_phold_splits:
     shell:
         "mkdir -p $(dirname {output})"
 
-# 6c. Run PHOLD on a single contig
+# 6c. Run PHOLD on a chunk of contigs
 rule phold_single_prediction:
     input:
         checkpoint = f"{config['output_dir']}/01_phold_output/.splits_ready",
@@ -300,13 +310,13 @@ rule phold_single_prediction:
         f"{config['output_dir']}/logs/phold_prediction/{{sample}}.log"
     conda:
         config["conda_envs"]["phold"]
-    threads: 8
+    threads: 24
     shell:
         """
         # Create output directory
         mkdir -p {output.results_dir}
         
-        # Run phold on single contig
+        # Run phold on chunk of contigs
         phold run -i {input.contig_file} \
             -o {output.results_dir} \
             -d {config[databases][phold][db]} \
