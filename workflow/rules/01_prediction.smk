@@ -257,37 +257,92 @@ rule split_viral_contigs_for_phold:
         config["conda_envs"]["seqkit"]
     shell:
         """
-        # Create output directory
+        # Create output directory and ensure directory for final output exists
         mkdir -p {output.split_dir}
+        mkdir -p {config[output_dir]}/01_phold_output/tmp
         
         # Count total sequences to calculate appropriate chunking
         TOTAL_SEQS=$(seqkit stats -T {input.assembly} | tail -n 1 | cut -f 4)
-        echo "Total sequences: $TOTAL_SEQS" > {log}
+        echo "Total sequences: $TOTAL_SEQS" > {log} 2>&1
         
-        # Split FASTA file into chunked files with multiple sequences per file
-        seqkit split {input.assembly} -O {output.split_dir} -p {params.chunk_size} >> {log} 2>&1
-        
-        # Create list of split files
-        find {output.split_dir} -name "*.fasta" > {output.split_list}
-        
-        # Report chunking results
-        echo "Created $(wc -l < {output.split_list}) chunk files" >> {log}
+        # Check if input file is empty
+        if [ "$TOTAL_SEQS" -eq 0 ]; then
+            echo "Warning: Input file contains 0 sequences" >> {log} 2>&1
+            # Create an empty placeholder file to satisfy workflow
+            touch {output.split_dir}/empty.fasta
+            echo "{output.split_dir}/empty.fasta" > {output.split_list}
+            echo "Created empty placeholder file" >> {log} 2>&1
+        else
+            # Split FASTA file into chunked files with multiple sequences per file
+            seqkit split {input.assembly} -O {output.split_dir} -p {params.chunk_size} >> {log} 2>&1
+            
+            # Create list of split files - use absolute paths for reliability
+            find {output.split_dir} -name "*.fasta" -type f | sort > {output.split_list}
+            
+            # Report chunking results
+            CHUNK_COUNT=$(wc -l < {output.split_list})
+            echo "Created $CHUNK_COUNT chunk files from $TOTAL_SEQS sequences" >> {log} 2>&1
+            
+            # Validate the split files
+            for file in $(cat {output.split_list}); do
+                if [ ! -s "$file" ]; then
+                    echo "Warning: Empty split file detected: $file" >> {log} 2>&1
+                fi
+            done
+        fi
         """
 
 # Helper function to get PHOLD samples
 def get_phold_samples():
     # After split_viral_contigs_for_phold is run, this reads the split file list
     split_list = f"{config['output_dir']}/01_phold_split_seqs/split_file_list.txt"
+    
+    # Make sure the required modules are imported
+    import os
+    import glob
+    
+    # Primary method: read from the split file list if it exists
     if os.path.exists(split_list):
-        with open(split_list, "r") as f:
-            files = [line.strip() for line in f]
-        return [os.path.splitext(os.path.basename(file))[0] for file in files]
-    # Fallback to glob when file doesn't exist yet (for dry runs)
-    elif os.path.exists(f"{config['output_dir']}/01_phold_split_seqs"):
-        return [os.path.splitext(os.path.basename(f))[0] 
-                for f in glob.glob(f"{config['output_dir']}/01_phold_split_seqs/*.fasta")]
-    else:
-        return []  # Return empty list if no directory exists yet
+        try:
+            with open(split_list, "r") as f:
+                files = [line.strip() for line in f if line.strip()]
+            # Extract filenames without extension and ensure unique values
+            samples = [os.path.splitext(os.path.basename(file))[0] for file in files]
+            # Filter out any empty strings
+            samples = [s for s in samples if s]
+            # If we found samples, return them
+            if samples:
+                return samples
+        except Exception as e:
+            print(f"Warning: Error reading split file list: {e}")
+            # Continue to fallback methods
+    
+    # Fallback method 1: Use glob to find fasta files directly
+    try:
+        split_dir = f"{config['output_dir']}/01_phold_split_seqs"
+        if os.path.exists(split_dir) and os.path.isdir(split_dir):
+            samples = [os.path.splitext(os.path.basename(f))[0] 
+                    for f in glob.glob(f"{split_dir}/*.fasta")]
+            # Filter out any empty strings
+            samples = [s for s in samples if s]
+            if samples:
+                return samples
+    except Exception as e:
+        print(f"Warning: Error using glob to find fasta files: {e}")
+    
+    # Fallback method 2: Check tmp dir for existing predictions
+    try:
+        tmp_dir = f"{config['output_dir']}/01_phold_output/tmp"
+        if os.path.exists(tmp_dir) and os.path.isdir(tmp_dir):
+            samples = [d for d in os.listdir(tmp_dir) 
+                      if os.path.isdir(os.path.join(tmp_dir, d))]
+            if samples:
+                return samples
+    except Exception as e:
+        print(f"Warning: Error checking tmp dir for predictions: {e}")
+    
+    # If all methods fail, return empty list
+    return []
 
 # 6b. Checkpoint to wait for split files to be created
 checkpoint wait_for_phold_splits:
@@ -359,25 +414,47 @@ rule phold_aggregate_results:
         mkdir -p $RESULTS_DIR
         
         # Compile results
-        echo "Compiling PHOLD results" > {log}
+        echo "Compiling PHOLD results" > {log} 2>&1
         
-        # Get header from first file
-        FIRST_FILE=$(find $RESULTS_DIR/tmp -name "phold_per_cds_predictions.tsv" | head -n 1)
+        # Create a temporary directory for processing
+        TMP_DIR=$(mktemp -d)
         
-        if [ -n "$FIRST_FILE" ]; then
+        # First create a list of all prediction files
+        find "$RESULTS_DIR/tmp" -name "phold_per_cds_predictions.tsv" -type f > "$TMP_DIR/prediction_files.txt"
+        
+        # Count how many files we found
+        FILE_COUNT=$(wc -l < "$TMP_DIR/prediction_files.txt")
+        echo "Found $FILE_COUNT prediction files to process" >> {log} 2>&1
+        
+        if [ "$FILE_COUNT" -gt 0 ]; then
+            # Get the first file to extract header
+            FIRST_FILE=$(head -n 1 "$TMP_DIR/prediction_files.txt")
+            
             # Create the output file with header
             head -n 1 "$FIRST_FILE" > {output.predictions}
             
-            # Append data from all prediction files, skipping headers
-            find $RESULTS_DIR/tmp -name "phold_per_cds_predictions.tsv" | xargs cat | grep -v "^contig_id" >> {output.predictions}
+            # Process files in batches to avoid command line length limits
+            # Use a while loop to read the file list instead of xargs
+            while read -r pred_file; do
+                # Skip header line (first line) from each file
+                awk 'NR>1' "$pred_file" >> "$TMP_DIR/aggregated_data.tmp"
+            done < "$TMP_DIR/prediction_files.txt"
             
-            # Log success
-            echo "Successfully compiled PHOLD results" >> {log}
+            # Append all data to the output file
+            cat "$TMP_DIR/aggregated_data.tmp" >> {output.predictions}
+            
+            # Count records in final file
+            RECORD_COUNT=$(wc -l < {output.predictions})
+            RECORD_COUNT=$((RECORD_COUNT - 1))  # Subtract 1 for header
+            echo "Successfully compiled PHOLD results with $RECORD_COUNT data records" >> {log} 2>&1
         else
             # Create empty output with header structure
             echo "contig_id\torf_id\tstart\tend\tstrand\taa_length\tcategory\tproduct\thit\tevalue\tidentity" > {output.predictions}
-            echo "No PHOLD result files found, created empty file with header" >> {log}
+            echo "No PHOLD result files found, created empty file with header" >> {log} 2>&1
         fi
+        
+        # Clean up temporary directory
+        rm -rf "$TMP_DIR"
         """
 
 # 7. Run CheckV for quality assessment
