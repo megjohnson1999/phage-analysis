@@ -8,7 +8,7 @@ rule split_phage_sequences:
     input:
         phage_seqs = get_phage_input  # Function defined in 02_clustering.smk
     output:
-        split_dir = directory(f"{config['output_dir']}/03_split_seqs"),
+        split_dir = temp(directory(f"{config['output_dir']}/03_split_seqs")),
         split_list = f"{config['output_dir']}/03_split_seqs/split_file_list.txt"
     log:
         f"{config['output_dir']}/logs/split_phage_sequences.log"
@@ -69,7 +69,7 @@ rule iphop_single_prediction:
         flag = f"{config['output_dir']}/03_iphop_results/.input_files_found",
         phage_file = f"{config['output_dir']}/03_split_seqs/{{sample}}.fasta"
     output:
-        prediction = f"{config['output_dir']}/03_iphop_results/tmp/{{sample}}/host_prediction_to_genus.csv"
+        prediction = temp(f"{config['output_dir']}/03_iphop_results/tmp/{{sample}}/host_prediction_to_genus.csv")
     log:
         f"{config['output_dir']}/logs/iphop_prediction/{{sample}}.log"
     conda:
@@ -134,7 +134,7 @@ rule iphop_aggregate_results:
                 # Create empty file with header
                 echo "query,host,score,identity,coverage,kingdom,phylum,class,order,family,genus" > {output.predictions}.tmp
             fi
-            
+
             # Convert to TSV
             tr ',' '\t' < {output.predictions}.tmp > {output.predictions}
             rm {output.predictions}.tmp
@@ -142,6 +142,12 @@ rule iphop_aggregate_results:
             # Create empty file with header
             echo -e "query\thost\tscore\tidentity\tcoverage\tkingdom\tphylum\tclass\torder\tfamily\tgenus" > {output.predictions}
             echo "No prediction files found, created empty result file" >> {log}
+        fi
+
+        # Clean up temporary directory after successful compilation
+        if [ -d "$RESULTS_DIR/tmp" ]; then
+            echo "Cleaning up temporary directory" >> {log}
+            rm -rf "$RESULTS_DIR/tmp"
         fi
         """
 
@@ -170,7 +176,7 @@ rule split_protein_files:
     input:
         proteins = f"{config['output_dir']}/03_orf_predictions/proteins.faa"
     output:
-        split_dir = directory(f"{config['output_dir']}/03_split_proteins"),
+        split_dir = temp(directory(f"{config['output_dir']}/03_split_proteins")),
         split_list = f"{config['output_dir']}/03_split_proteins/split_protein_list.txt"
     log:
         f"{config['output_dir']}/logs/split_protein_files.log"
@@ -241,7 +247,7 @@ rule phacts_single_prediction:
         flag = f"{config['output_dir']}/03_phacts_results/.input_files_found",
         protein_file = f"{config['output_dir']}/03_split_proteins/{{sample}}.faa"
     output:
-        result = f"{config['output_dir']}/03_phacts_results/tmp/{{sample}}.phacts.out"
+        result = temp(f"{config['output_dir']}/03_phacts_results/tmp/{{sample}}.phacts.out")
     threads: 4
     log:
         f"{config['output_dir']}/logs/phacts_prediction/{{sample}}.log"
@@ -292,7 +298,7 @@ rule phacts_aggregate_results:
         # Compile results
         echo "Compiling PHACTS results" > {log}
         echo -e "phage_id\\tlifestyle\\tprobability" > {output.predictions}
-        
+
         if [ -n "$(ls -A $RESULTS_DIR/tmp 2>/dev/null)" ]; then
             # Process each phacts output file if it exists
             for file in $RESULTS_DIR/tmp/*.phacts.out 2>/dev/null; do
@@ -303,7 +309,7 @@ rule phacts_aggregate_results:
                     echo -e "$phage_id\\t$lifestyle\\t$probability" >> {output.predictions}
                 fi
             done
-            
+
             if [ "$(wc -l < {output.predictions})" -eq 1 ]; then
                 echo "No valid PHACTS results were found, only header in output file" >> {log}
             else
@@ -311,6 +317,12 @@ rule phacts_aggregate_results:
             fi
         else
             echo "No PHACTS result files found, created empty result file" >> {log}
+        fi
+
+        # Clean up temporary directory after successful compilation
+        if [ -d "$RESULTS_DIR/tmp" ]; then
+            echo "Cleaning up temporary directory" >> {log}
+            rm -rf "$RESULTS_DIR/tmp"
         fi
         """
 
