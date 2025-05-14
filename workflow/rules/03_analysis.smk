@@ -11,8 +11,10 @@ rule split_phage_sequences:
         split_dir = directory(f"{config['output_dir']}/03_split_seqs"),
         split_list = f"{config['output_dir']}/03_split_seqs/split_file_list.txt"
     params:
-        # Number of sequences per chunk - adjust based on expected sequence sizes
-        chunk_size = 500
+        # Default chunk size for sequence counts
+        chunk_size = 1000,
+        # Maximum number of batches (prevents too many files)
+        max_batches = 100
     log:
         f"{config['output_dir']}/logs/split_phage_sequences.log"
     conda:
@@ -22,7 +24,7 @@ rule split_phage_sequences:
         # Create output directory
         mkdir -p {output.split_dir}
         
-        # Count total sequences to calculate appropriate chunking
+        # Count total sequences
         TOTAL_SEQS=$(seqkit stats -T {input.phage_seqs} | tail -n 1 | cut -f 4)
         echo "Total sequences: $TOTAL_SEQS" > {log} 2>&1
         
@@ -34,15 +36,19 @@ rule split_phage_sequences:
             echo "{output.split_dir}/empty.fasta" > {output.split_list}
             echo "Created empty placeholder file" >> {log} 2>&1
         else
-            # Split FASTA file into chunked files with multiple sequences per file
-            seqkit split {input.phage_seqs} -O {output.split_dir} -p {params.chunk_size} >> {log} 2>&1
+            # Determine optimal batch count based on sequence count
+            BATCH_COUNT=$(python -c "print(min({params.max_batches}, max(1, (int($TOTAL_SEQS) // {params.chunk_size}) + 1)))")
+            echo "Will create $BATCH_COUNT batches" >> {log} 2>&1
+            
+            # Split FASTA file into optimal number of parts
+            seqkit split -p $BATCH_COUNT {input.phage_seqs} -O {output.split_dir} >> {log} 2>&1
             
             # Create list of split files - use absolute paths for reliability
             find {output.split_dir} -name "*.fasta" -type f | sort > {output.split_list}
             
             # Report chunking results
-            CHUNK_COUNT=$(wc -l < {output.split_list})
-            echo "Created $CHUNK_COUNT chunk files from $TOTAL_SEQS sequences" >> {log} 2>&1
+            ACTUAL_BATCH_COUNT=$(wc -l < {output.split_list})
+            echo "Created $ACTUAL_BATCH_COUNT chunk files from $TOTAL_SEQS sequences" >> {log} 2>&1
         fi
         """
 
@@ -247,8 +253,10 @@ rule split_protein_files:
         split_dir = directory(f"{config['output_dir']}/03_split_proteins"),
         split_list = f"{config['output_dir']}/03_split_proteins/split_protein_list.txt"
     params:
-        # Number of protein sets per chunk
-        chunk_size = 50
+        # Use larger chunk size
+        chunk_size = 1000,
+        # Maximum number of batches (prevents too many files)
+        max_batches = 100
     log:
         f"{config['output_dir']}/logs/split_protein_files.log"
     conda:
@@ -258,47 +266,28 @@ rule split_protein_files:
         # Create output directory
         mkdir -p {output.split_dir}
         
-        # Count approximate number of unique contigs in the protein file
-        CONTIG_COUNT=$(grep ">" {input.proteins} | cut -d "#" -f 1 | cut -d "_" -f 1 | sort -u | wc -l)
-        echo "Estimated number of contigs: $CONTIG_COUNT" > {log} 2>&1
+        # Count total sequences
+        TOTAL_SEQS=$(grep -c ">" {input.proteins})
+        echo "Total protein sequences: $TOTAL_SEQS" > {log} 2>&1
         
-        # Extract proteins grouped by contig and batch them
-        awk 'BEGIN {{count=0; batch=1; open_batch=0}}
-             /^>/ {{
-                if ($0 ~ /^>([^_]+)/ || $0 ~ /^>(\\S+)_([^#]+)/) {{
-                    match($0, /^>([^_]+)/ , arr1); 
-                    if (arr1[1] == "") {{
-                        match($0, /^>(\\S+)_([^#]+)/ , arr2);
-                        contig = arr2[1];
-                    }} else {{
-                        contig = arr1[1];
-                    }}
-                    
-                    # If new contig and we've seen {params.chunk_size} contigs, start new batch
-                    if (contig != prev_contig) {{
-                        if (prev_contig != "" && ++contig_count >= {params.chunk_size}) {{
-                            batch++;
-                            contig_count = 0;
-                        }}
-                        prev_contig = contig;
-                    }}
-                    
-                    if (batch != prev_batch) {{
-                        if (open_batch) close(file);
-                        file = "{output.split_dir}/batch_" batch ".faa";
-                        open_batch = 1;
-                        prev_batch = batch;
-                    }}
-                }}
-                print > file;
-                next;
-             }}
-             {{print > file}}' {input.proteins} 2>>{log}
+        # Determine optimal batch count
+        BATCH_COUNT=$(python -c "print(min({params.max_batches}, max(1, ($TOTAL_SEQS // {params.chunk_size}) + 1)))")
+        echo "Will create $BATCH_COUNT batches" >> {log} 2>&1
+        
+        # Use seqkit split with part option instead of complex AWK
+        seqkit split -p $BATCH_COUNT {input.proteins} -O {output.split_dir} >> {log} 2>&1
         
         # Create list of split files
         find {output.split_dir} -name "*.faa" | sort > {output.split_list}
-        BATCH_COUNT=$(wc -l < {output.split_list})
-        echo "Created $BATCH_COUNT protein batch files" >> {log} 2>&1
+        ACTUAL_BATCH_COUNT=$(wc -l < {output.split_list})
+        echo "Created $ACTUAL_BATCH_COUNT protein batch files" >> {log} 2>&1
+        
+        # If no files were created (empty input), create an empty placeholder
+        if [ "$ACTUAL_BATCH_COUNT" -eq 0 ]; then
+            echo "Input was empty, creating placeholder file" >> {log} 2>&1
+            touch "{output.split_dir}/empty.faa"
+            echo "{output.split_dir}/empty.faa" > {output.split_list}
+        fi
         """
 
 # List all samples for phacts from split protein files
