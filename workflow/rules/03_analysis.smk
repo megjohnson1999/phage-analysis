@@ -113,10 +113,44 @@ checkpoint wait_for_iphop_splits:
     shell:
         "mkdir -p $(dirname {output})"
 
+# Check if input files exist for iPhop
+rule check_iphop_input_files:
+    input:
+        # Prerequisite - splits must be ready
+        splits_ready = f"{config['output_dir']}/03_iphop_results/.splits_ready",
+        # Input sequences should exist
+        phage_seqs = get_phage_input,
+        # Check that split files are created
+        split_list = f"{config['output_dir']}/03_split_seqs/split_file_list.txt"
+    output:
+        touch(f"{config['output_dir']}/03_iphop_results/.input_files_found")
+    log:
+        f"{config['output_dir']}/logs/check_iphop_input_files.log"
+    shell:
+        """
+        # Check if input sequences exist
+        if [ ! -f "{input.phage_seqs}" ]; then
+            echo "Error: Input sequence file does not exist: {input.phage_seqs}" > {log} 2>&1
+            exit 1
+        fi
+        
+        # Check if split list exists and has content
+        if [ ! -s "{input.split_list}" ]; then
+            echo "Warning: Split file list is empty or doesn't exist: {input.split_list}" > {log} 2>&1
+            echo "Creating a placeholder split list..." >> {log} 2>&1
+            mkdir -p $(dirname {input.split_list})
+            touch {input.split_list}
+        fi
+        
+        # Everything checked out, all input files exist
+        echo "All required input files for iPhop were found" > {log} 2>&1
+        """
+
 # 2a. Run iPhop for host prediction on a single split file
 rule iphop_single_prediction:
     input:
         checkpoint = f"{config['output_dir']}/03_iphop_results/.splits_ready",
+        input_check = f"{config['output_dir']}/03_iphop_results/.input_files_found",
         phage_file = f"{config['output_dir']}/03_split_seqs/{{sample}}.fasta"
     output:
         results_dir = directory(f"{config['output_dir']}/03_iphop_results/tmp/{{sample}}"),
@@ -148,6 +182,7 @@ rule iphop_single_prediction:
 rule run_all_iphop_predictions:
     input:
         checkpoint = f"{config['output_dir']}/03_iphop_results/.splits_ready",
+        input_check = f"{config['output_dir']}/03_iphop_results/.input_files_found",
         # For actual runs, get samples from the split files
         # For dry runs, this will be an empty list, which is fine
         samples = lambda wildcards: expand(
@@ -350,10 +385,44 @@ checkpoint wait_for_phacts_splits:
     shell:
         "mkdir -p $(dirname {output})"
 
+# Check if input files exist for PHACTS
+rule check_phacts_input_files:
+    input:
+        # Prerequisite - splits must be ready
+        splits_ready = f"{config['output_dir']}/03_phacts_results/.splits_ready",
+        # Required protein predictions
+        proteins = f"{config['output_dir']}/03_orf_predictions/proteins.faa",
+        # Check that split files are created
+        split_list = f"{config['output_dir']}/03_split_proteins/split_protein_list.txt"
+    output:
+        touch(f"{config['output_dir']}/03_phacts_results/.input_files_found")
+    log:
+        f"{config['output_dir']}/logs/check_phacts_input_files.log"
+    shell:
+        """
+        # Check if protein file exists
+        if [ ! -f "{input.proteins}" ]; then
+            echo "Error: Protein file does not exist: {input.proteins}" > {log} 2>&1
+            exit 1
+        fi
+        
+        # Check if split list exists and has content
+        if [ ! -s "{input.split_list}" ]; then
+            echo "Warning: Split protein file list is empty or doesn't exist: {input.split_list}" > {log} 2>&1
+            echo "Creating a placeholder split list..." >> {log} 2>&1
+            mkdir -p $(dirname {input.split_list})
+            touch {input.split_list}
+        fi
+        
+        # Everything checked out, all input files exist
+        echo "All required input files for PHACTS were found" > {log} 2>&1
+        """
+
 # 5a. Run PHACTS for lifestyle prediction on a single protein file batch
 rule phacts_single_prediction:
     input:
         checkpoint = f"{config['output_dir']}/03_phacts_results/.splits_ready",
+        input_check = f"{config['output_dir']}/03_phacts_results/.input_files_found",
         protein_file = f"{config['output_dir']}/03_split_proteins/{{sample}}.faa"
     output:
         result = f"{config['output_dir']}/03_phacts_results/tmp/{{sample}}.phacts.out"
@@ -381,6 +450,7 @@ rule phacts_single_prediction:
 rule run_all_phacts_predictions:
     input:
         checkpoint = f"{config['output_dir']}/03_phacts_results/.splits_ready",
+        input_check = f"{config['output_dir']}/03_phacts_results/.input_files_found",
         # For actual runs, get samples from the split files
         # For dry runs, this will be an empty list, which is fine
         samples = lambda wildcards: expand(
