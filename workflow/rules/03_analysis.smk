@@ -305,8 +305,8 @@ rule split_protein_files:
         TOTAL_SEQS=$(grep -c ">" {input.proteins})
         echo "Total protein sequences: $TOTAL_SEQS" > {log} 2>&1
         
-        # Determine optimal batch count
-        BATCH_COUNT=$(python -c "print(min({params.max_batches}, max(1, ($TOTAL_SEQS // {params.chunk_size}) + 1)))")
+        # Determine optimal batch count - use proper Python syntax
+        BATCH_COUNT=$(python -c "print(min({params.max_batches}, max(1, (int($TOTAL_SEQS) // {params.chunk_size}) + 1)))")
         echo "Will create $BATCH_COUNT batches" >> {log} 2>&1
         
         # Use seqkit split with part option instead of complex AWK
@@ -495,8 +495,8 @@ rule phacts_aggregate_results:
                         # Extract the contig information from the PHACTS output
                         # Look for lines containing >contig identifiers in the first part of the file
                         phage_ids=$(grep "^>" "$file" | head -n 10 | sed 's/^>//g' | cut -d "_" -f 1 | sort -u)
-                        lifestyle=$(grep "Lifestyle:" "$file" | awk '{print $2}')
-                        probability=$(grep "Probability:" "$file" | awk '{print $2}')
+                        lifestyle=$(grep "Lifestyle:" "$file" | awk '{{print $2}}')
+                        probability=$(grep "Probability:" "$file" | awk '{{print $2}}')
                         
                         # Add prediction for each phage in the batch
                         for phage_id in $phage_ids; do
