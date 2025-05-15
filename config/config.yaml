@@ -35,6 +35,11 @@ databases:
   
   phold:
     db: "/ref/sahlab/data/protein_Structure_DBs/phold"
+    
+  phacts:
+    # Path to PHACTS script, uncomment and edit to use a specific installation
+    # Leave commented to use PATH-based installation
+    path: "/home/luisalberto/Softwares/PHACTS/phacts.py"
   
 
 params:    

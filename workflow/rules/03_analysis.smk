@@ -367,8 +367,9 @@ def get_phacts_samples():
     try:
         tmp_dir = f"{config['output_dir']}/03_phacts_results/tmp"
         if os.path.exists(tmp_dir) and os.path.isdir(tmp_dir):
-            samples = [os.path.splitext(os.path.basename(f))[0] 
-                    for f in glob.glob(f"{tmp_dir}/*.phacts.out")]
+            # Look for directories in the tmp directory
+            samples = [d for d in os.listdir(tmp_dir)
+                      if os.path.isdir(os.path.join(tmp_dir, d))]
             if samples:
                 return samples
     except Exception as e:
@@ -425,7 +426,8 @@ rule phacts_single_prediction:
         input_check = f"{config['output_dir']}/03_phacts_results/.input_files_found",
         protein_file = f"{config['output_dir']}/03_split_proteins/{{sample}}.faa"
     output:
-        result = f"{config['output_dir']}/03_phacts_results/tmp/{{sample}}.phacts.out"
+        result_dir = directory(f"{config['output_dir']}/03_phacts_results/tmp/{{sample}}"),
+        result = f"{config['output_dir']}/03_phacts_results/tmp/{{sample}}/{{sample}}.phacts.out"
     threads: 4
     log:
         f"{config['output_dir']}/logs/phacts_prediction/{{sample}}.log"
@@ -434,13 +436,36 @@ rule phacts_single_prediction:
     shell:
         """
         # Create output directory
-        mkdir -p $(dirname {output.result})
+        mkdir -p {output.result_dir}
         
-        # Run PHACTS
-        phacts.py {input.protein_file} {output.result} > {log} 2>&1
+        # Get the filename without extension
+        NAME=$(basename {input.protein_file} .faa)
         
-        # Check if the output exists and has the expected content
-        if [ ! -f "{output.result}" ] || [ ! -s "{output.result}" ]; then
+        # Determine PHACTS path - use config if available, otherwise search in PATH
+        if [ -n "{config.get('databases', {}).get('phacts', {}).get('path', '')}" ] && [ -f "{config.get('databases', {}).get('phacts', {}).get('path', '')}" ]; then
+            # Use specified path from config
+            PHACTS_PATH="{config.get('databases', {}).get('phacts', {}).get('path', '')}"
+            echo "Using configured PHACTS path: $PHACTS_PATH" >> {log}
+            python "$PHACTS_PATH" {input.protein_file} -o {output.result_dir} > {log} 2>&1
+        else
+            # Fall back to PATH-based lookup
+            echo "No valid PHACTS path in config, using PATH-based lookup" >> {log}
+            PHACTS_PATH=$(which phacts.py 2>/dev/null || echo "")
+            
+            if [ -n "$PHACTS_PATH" ]; then
+                echo "Found PHACTS in PATH: $PHACTS_PATH" >> {log}
+                python "$PHACTS_PATH" {input.protein_file} -o {output.result_dir} > {log} 2>&1
+            else
+                echo "ERROR: PHACTS script not found in PATH or configuration" >> {log}
+                echo "Please either install PHACTS to PATH or specify its location in config.yaml" >> {log}
+                exit 1
+            fi
+        fi
+        
+        # Rename the output file to match expected format
+        if [ -f "{output.result_dir}/prediction.txt" ]; then
+            mv {output.result_dir}/prediction.txt {output.result}
+        else
             echo "Warning: PHACTS did not produce valid output. Creating placeholder file." >> {log}
             echo "No prediction was made for this batch" > {output.result}
         fi
@@ -454,7 +479,7 @@ rule run_all_phacts_predictions:
         # For actual runs, get samples from the split files
         # For dry runs, this will be an empty list, which is fine
         samples = lambda wildcards: expand(
-            f"{config['output_dir']}/03_phacts_results/tmp/{{sample}}.phacts.out",
+            f"{config['output_dir']}/03_phacts_results/tmp/{{sample}}/{{sample}}.phacts.out",
             sample=get_phacts_samples()
         )
     output:
@@ -467,7 +492,7 @@ rule phacts_aggregate_results:
         # Aggregation only happens after all individual predictions are done
         all_done = f"{config['output_dir']}/03_phacts_results/.all_predictions_done",
         predictions = lambda wildcards: expand(
-            f"{config['output_dir']}/03_phacts_results/tmp/{{sample}}.phacts.out",
+            f"{config['output_dir']}/03_phacts_results/tmp/{{sample}}/{{sample}}.phacts.out",
             sample=get_phacts_samples()
         )
     output:
@@ -488,7 +513,7 @@ rule phacts_aggregate_results:
 
         if [ -n "$(ls -A $RESULTS_DIR/tmp 2>/dev/null)" ]; then
             # Process each phacts output file if it exists
-            for file in $RESULTS_DIR/tmp/*.phacts.out 2>/dev/null; do
+            for file in $RESULTS_DIR/tmp/*/*.phacts.out 2>/dev/null; do
                 if [ -f "$file" ]; then
                     # Check if the file contains useful predictions
                     if grep -q "Lifestyle:" "$file" && grep -q "Probability:" "$file"; then
