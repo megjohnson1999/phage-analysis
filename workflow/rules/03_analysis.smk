@@ -439,9 +439,9 @@ rule phacts_single_prediction:
         NAME=$(basename {input.protein_file} .faa)
         
         # Determine PHACTS path - use config if available, otherwise search in PATH
-        if [ -n "{config['databases']['phacts'].get('path', '')}" ] && [ -f "{config['databases']['phacts'].get('path', '')}" ]; then
+        PHACTS_PATH="{config[databases][phacts].get('path', '')}"
+        if [ -n "$PHACTS_PATH" ] && [ -f "$PHACTS_PATH" ]; then
             # Use specified path from config
-            PHACTS_PATH="{config['databases']['phacts'].get('path', '')}"
             echo "Using configured PHACTS path: $PHACTS_PATH" >> {log}
             python "$PHACTS_PATH" {input.protein_file} -o {output.result_dir} > {log} 2>&1
         else
