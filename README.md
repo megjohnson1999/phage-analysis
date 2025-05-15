@@ -1,6 +1,6 @@
 # Phage Analysis Pipeline
 
-A Snakemake workflow for phage prediction, clustering, and characterization from metagenomic assemblies.
+A Snakemake workflow for phage prediction, clustering, and characterization.
 
 ## Features
 
@@ -125,15 +125,6 @@ The pipeline includes a SLURM profile configuration in `profile/slurm/config.yam
 - Conda environment activation enabled
 - Increased resources for memory-intensive tasks (mmseqs2, iPhop)
 
-## Testing
-
-The repository includes test data to verify installation:
-
-```
-# Run the test data
-cd phage-analysis
-bash test_data/run_test.sh
-```
 
 ## Output
 
