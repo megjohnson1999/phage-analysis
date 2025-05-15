@@ -30,6 +30,22 @@ conda install -c conda-forge -c bioconda snakemake=8 mamba
 pip install snakemake-executor-plugin-slurm
 ```
 
+3. Install PHACTS (required for lifestyle prediction):
+```
+# Run the PHACTS installation script
+bash scripts/install_phacts.sh
+
+# For custom installation path
+bash scripts/install_phacts.sh -d /path/to/install/location
+```
+
+The PHACTS installation script will automatically:
+- Detect the conda environment from your SLURM profile
+- Clone the PHACTS repository
+- Install it properly with pip
+- Configure PYTHONPATH
+- Update your config.yaml if needed
+
 ## Workflow Structure
 
 The pipeline is organized into three main modules:
@@ -147,7 +163,14 @@ The pipeline produces the following key outputs:
 
 ## Dependencies
 
-The workflow automatically handles all dependencies through conda environments defined in the `workflow/envs/` directory.
+The workflow automatically handles most dependencies through conda environments defined in the `workflow/envs/` directory. 
+
+However, PHACTS requires manual installation using the provided script:
+```
+bash scripts/install_phacts.sh
+```
+
+This is because PHACTS is not available through conda channels and requires specific setup steps to work properly with the pipeline.
 
 ## License
 
