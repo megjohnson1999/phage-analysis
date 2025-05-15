@@ -11,10 +11,8 @@ rule split_phage_sequences:
         split_dir = directory(f"{config['output_dir']}/03_split_seqs"),
         split_list = f"{config['output_dir']}/03_split_seqs/split_file_list.txt"
     params:
-        # Smaller chunk size based on original script (100 sequences per file)
-        chunk_size = 100,
-        # Increased maximum number of batches to match original approach
-        max_batches = 500
+        # Fixed number of sequences per job for consistent performance
+        sequences_per_job = 100
     log:
         f"{config['output_dir']}/logs/split_phage_sequences.log"
     conda:
@@ -36,12 +34,11 @@ rule split_phage_sequences:
             echo "{output.split_dir}/empty.fasta" > {output.split_list}
             echo "Created empty placeholder file" >> {log} 2>&1
         else
-            # Determine optimal batch count based on sequence count
-            BATCH_COUNT=$(python -c "print(min({params.max_batches}, max(1, (int($TOTAL_SEQS) // {params.chunk_size}) + 1)))")
-            echo "Will create $BATCH_COUNT batches" >> {log} 2>&1
+            # Use a fixed number of sequences per job for consistent performance
+            echo "Using fixed chunk size of {params.sequences_per_job} sequences per job" >> {log} 2>&1
             
-            # Split FASTA file into optimal number of parts
-            seqkit split -p $BATCH_COUNT {input.phage_seqs} -O {output.split_dir} >> {log} 2>&1
+            # Split FASTA file by exact sequence count
+            seqkit split2 --by-size {params.sequences_per_job} {input.phage_seqs} -O {output.split_dir} >> {log} 2>&1
             
             # Create list of split files - use absolute paths for reliability
             find {output.split_dir} -name "*.fasta" -type f | sort > {output.split_list}
