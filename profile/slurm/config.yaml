@@ -42,3 +42,9 @@ set-resources:
         mem: 700G
     phacts_single_prediction:
         mem: 10G
+    iphop_single_prediction:
+        mem: 100G
+        runtime: 24:00:00
+    iphop_aggregate_results:
+        mem: 16G
+        runtime: 2:00:00

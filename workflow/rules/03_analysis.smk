@@ -11,10 +11,10 @@ rule split_phage_sequences:
         split_dir = directory(f"{config['output_dir']}/03_split_seqs"),
         split_list = f"{config['output_dir']}/03_split_seqs/split_file_list.txt"
     params:
-        # Default chunk size for sequence counts
-        chunk_size = 1000,
-        # Maximum number of batches (prevents too many files)
-        max_batches = 100
+        # Smaller chunk size based on original script (100 sequences per file)
+        chunk_size = 100,
+        # Increased maximum number of batches to match original approach
+        max_batches = 500
     log:
         f"{config['output_dir']}/logs/split_phage_sequences.log"
     conda:
@@ -159,7 +159,7 @@ rule iphop_single_prediction:
         f"{config['output_dir']}/logs/iphop_prediction/{{sample}}.log"
     conda:
         config["conda_envs"]["iphop"]
-    threads: 12
+    threads: 24
     shell:
         """
         # Create output directory
