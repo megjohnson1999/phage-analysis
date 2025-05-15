@@ -1,6 +1,6 @@
 # Phage Analysis Pipeline
 
-A Snakemake workflow for phage prediction, clustering and characterization from metagenomic assemblies.
+A Snakemake workflow for phage prediction, clustering, and characterization from metagenomic assemblies.
 
 ## Features
 
@@ -10,95 +10,130 @@ A Snakemake workflow for phage prediction, clustering and characterization from 
 - Lifestyle prediction using PHACTS
 - Taxonomic classification using multiple approaches
 
+## Requirements
+
+- Snakemake version 8+
+- [Mamba](https://anaconda.org/conda-forge/mamba) for environment management
+- [snakemake-executor-plugin-slurm](https://snakemake.github.io/snakemake-plugin-catalog/plugins/executor/slurm.html) for SLURM execution
+
 ## Installation
 
-Clone this repository:
+1. Clone this repository:
 ```
 git clone https://github.com/megjohnson1999/phage-analysis.git
 cd phage-analysis
 ```
 
+2. Make sure you have Snakemake v8+, mamba, and the SLURM executor plugin installed in your environment:
+```
+conda install -c conda-forge -c bioconda snakemake=8 mamba
+pip install snakemake-executor-plugin-slurm
+```
+
+## Workflow Structure
+
+The pipeline is organized into three main modules:
+
+1. **Phage Prediction** (01_prediction.smk)
+   - Filter contigs by length
+   - Process assemblies (with optional Reneo graph-based processing)
+   - Run mmseqs2 for taxonomy assignment
+   - Execute multiple phage prediction tools (Jaeger, geNomad, Phold, CheckV)
+   - Integrate results to identify phage contigs
+
+2. **Clustering** (02_clustering.smk - optional)
+   - Group similar phages into vOTUs using vclust
+   - Select representative sequences
+
+3. **Analysis** (03_analysis.smk)
+   - Host prediction with iPhop
+   - Lifestyle prediction with PHACTS
+   - Taxonomic classification and annotation
 
 ## Usage
 
-1. Edit the configuration in `config/config.yaml` to set your input files and parameters, edit slurm profile if needed
-2. cd workflow
-3. Run the full pipeline:
-```
-snakemake --profile ../profile/slurm/ --config [options]
-```
+### Configuration
 
-3. Input Configuration Options:
-   - **FASTA only**: Provide only `assembly_file` (skips Reneo)
-   - **Assembly graph only**: Provide only `assembly_graph` (uses Reneo)
-   - **Both files**: Provide both `assembly_file` and `assembly_graph` (uses Reneo and original FASTA)
-```
-# Example using only FASTA file (skips Reneo)
-snakemake --profile ../profile/slurm --config assembly_file="/path/to/assembly.fasta" reads_dir="/path/to/reads/" output_dir="/path/to/output/"
+1. Edit the configuration in `config/config.yaml` to set your input files and parameters:
+   ```yaml
+   # Key configuration options:
+   output_dir: "/path/to/your/outputs"
+   assembly_file: "/path/to/assembly.fasta"  # FASTA only workflow
+   assembly_graph: "/path/to/graph.gfa"      # Optional for Reneo graph-based workflow
+   reads_dir: "/path/to/reads/"              # Directory containing reads
+   do_clustering: true                       # Set to false to skip clustering
+   ```
 
-4. Run the pipeline without clustering:
-```
-snakemake --config do_clustering=false
-```
+2. Edit SLURM profile in `profile/slurm/config.yaml` if needed for your computing environment
 
-### SLURM Execution
+### Running the Pipeline
 
-The pipeline includes a SLURM profile configuration in `profile/slurm/config.yaml` for running on a SLURM cluster:
+Navigate to the repository directory and run:
 
-1. Run the complete pipeline with the SLURM profile:
-```
-snakemake --profile profile/slurm
+```bash
+# Standard execution with SLURM
+snakemake --profile profile/slurm --config assembly_file="/path/to/assembly.fasta" reads_dir="/path/to/reads/" output_dir="/path/to/output/"
+
+# Run from workflow directory
+cd workflow
+snakemake --profile ../profile/slurm
 ```
 
-2. Run without clustering on SLURM:
+### Input Options
+
+The pipeline supports different input configurations:
+
+- **FASTA only**: Provide `assembly_file` parameter (skips Reneo)
+  ```
+  snakemake --profile profile/slurm --config assembly_file="/path/to/assembly.fasta" reads_dir="/path/to/reads/" output_dir="/path/to/output/"
+  ```
+
+- **Assembly graph only**: Provide `assembly_graph` parameter (uses Reneo)
+  ```
+  snakemake --profile profile/slurm --config assembly_graph="/path/to/graph.gfa" reads_dir="/path/to/reads/" output_dir="/path/to/output/"
+  ```
+
+- **Both files**: Provide both `assembly_file` and `assembly_graph` (uses Reneo and original FASTA)
+  ```
+  snakemake --profile profile/slurm --config assembly_file="/path/to/assembly.fasta" assembly_graph="/path/to/graph.gfa" reads_dir="/path/to/reads/" output_dir="/path/to/output/"
+  ```
+
+### Additional Options
+
+- Skip the clustering step:
+  ```
+  snakemake --profile profile/slurm --config do_clustering=false
+  ```
+
+- Override default SLURM settings:
+  ```
+  snakemake --profile profile/slurm --default-resources mem_mb=100000 runtime=2880
+  ```
+
+- Run a specific step of the pipeline:
+  ```
+  snakemake --profile profile/slurm <target_rule>
+  ```
+
+## SLURM Execution
+
+The pipeline includes a SLURM profile configuration in `profile/slurm/config.yaml` with the following settings:
+
+- Default resources: 50GB memory, 24 cores, 24-hour runtime
+- SLURM account: sahlab
+- Maximum concurrent jobs: 40
+- Conda environment activation enabled
+- Increased resources for memory-intensive tasks (mmseqs2, iPhop)
+
+## Testing
+
+The repository includes test data to verify installation:
+
 ```
-snakemake --profile profile/slurm --config do_clustering=false
+# Run the test data
+cd phage-analysis
+bash test_data/run_test.sh
 ```
-
-3. The SLURM profile includes the following default settings:
-   - Default resources: 50GB memory, 24 cores, 24 hour runtime
-   - SLURM account: sahlab
-   - Maximum concurrent jobs: 40
-   - Conda environment activation enabled
-   - Increased resources for taxonomy-related tasks
-
-4. To override default SLURM settings:
-```
-snakemake --profile profile/slurm --default-resources mem_mb=100000 runtime=2880
-```
-
-5. To run a specific step of the pipeline:
-```
-snakemake --profile profile/slurm <target_rule>
-```
-
-## Pipeline Steps
-
-1. **Phage Prediction**: Identify phage contigs from metagenome assembly
-   - Assembly processing (with or without Reneo)
-   - mmseqs2 taxonomy assignment
-   - Multiple phage prediction tools
-   - Integration of prediction results
-
-2. **Clustering** (Optional): Group similar phages into vOTUs
-   - ANI-based clustering using vclust
-   - Representative sequence selection
-
-3. **Analysis**: Characterize phage genomes
-   - Host prediction with iPhop
-   - Lifestyle prediction with PHACTS
-   - Taxonomic classification
-   - Functional annotation
-
-## Configuration
-
-Key configuration options:
-
-- `assembly_file`: Path to your input assembly FASTA (can be empty if only using assembly_graph)
-- `assembly_graph`: Path to assembly graph file (leave empty to skip Reneo, required if no assembly_file)
-- `do_clustering`: Set to false to skip the clustering step
-- `reads_dir`: Directory containing sequencing reads
-- Tool parameters and resource allocations
 
 ## Output
 
@@ -112,10 +147,7 @@ The pipeline produces the following key outputs:
 
 ## Dependencies
 
-- Snakemake
-- Python 3.7+
-- R 4.0+
-- Various bioinformatics tools (installed via conda environments)
+The workflow automatically handles all dependencies through conda environments defined in the `workflow/envs/` directory.
 
 ## License
 
