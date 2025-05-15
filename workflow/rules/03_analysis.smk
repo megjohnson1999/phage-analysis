@@ -322,6 +322,16 @@ rule split_protein_files:
         fi
         """
 
+# Helper function to get the PHACTS script path
+def get_phacts_path():
+    """Return the path to the PHACTS script from config or empty string if not found"""
+    try:
+        if 'databases' in config and 'phacts' in config['databases'] and 'path' in config['databases']['phacts']:
+            return config['databases']['phacts']['path']
+    except:
+        pass
+    return ""
+
 # List all samples for phacts from split protein files
 def get_phacts_samples():
     # After split_protein_files is run, this reads the split file list
@@ -438,20 +448,22 @@ rule phacts_single_prediction:
         # Get the filename without extension
         NAME=$(basename {input.protein_file} .faa)
         
-        # Determine PHACTS path - use config if available, otherwise search in PATH
-        PHACTS_PATH="{config[databases][phacts]['path'] if 'path' in config[databases][phacts] else ''}"
-        if [ -n "$PHACTS_PATH" ] && [ -f "$PHACTS_PATH" ]; then
+        # Get configured PHACTS path
+        CONFIG_PATH="{get_phacts_path()}"
+        
+        # Check if we have a valid configured path
+        if [ -n "$CONFIG_PATH" ] && [ -f "$CONFIG_PATH" ]; then
             # Use specified path from config
-            echo "Using configured PHACTS path: $PHACTS_PATH" >> {log}
-            python "$PHACTS_PATH" {input.protein_file} -o {output.result_dir} > {log} 2>&1
+            echo "Using configured PHACTS path: $CONFIG_PATH" >> {log}
+            python "$CONFIG_PATH" {input.protein_file} -o {output.result_dir} > {log} 2>&1
         else
             # Fall back to PATH-based lookup
             echo "No valid PHACTS path in config, using PATH-based lookup" >> {log}
-            PHACTS_PATH=$(which phacts.py 2>/dev/null || echo "")
+            PATH_PHACTS=$(which phacts.py 2>/dev/null || echo "")
             
-            if [ -n "$PHACTS_PATH" ]; then
-                echo "Found PHACTS in PATH: $PHACTS_PATH" >> {log}
-                python "$PHACTS_PATH" {input.protein_file} -o {output.result_dir} > {log} 2>&1
+            if [ -n "$PATH_PHACTS" ]; then
+                echo "Found PHACTS in PATH: $PATH_PHACTS" >> {log}
+                python "$PATH_PHACTS" {input.protein_file} -o {output.result_dir} > {log} 2>&1
             else
                 echo "ERROR: PHACTS script not found in PATH or configuration" >> {log}
                 echo "Please either install PHACTS to PATH or specify its location in config.yaml" >> {log}
