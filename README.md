@@ -12,20 +12,20 @@ A Snakemake workflow for phage prediction, clustering and characterization from 
 
 ## Installation
 
-1. Clone this repository:
+Clone this repository:
 ```
 git clone https://github.com/megjohnson1999/phage-analysis.git
 cd phage-analysis
 ```
 
-2. Update the `config/config.yaml` file with your input paths and parameters
 
 ## Usage
 
-1. Edit the configuration in `config/config.yaml` to set your input files and parameters
-2. Run the full pipeline:
+1. Edit the configuration in `config/config.yaml` to set your input files and parameters, edit slurm profile if needed
+2. cd workflow
+3. Run the full pipeline:
 ```
-snakemake --use-conda -j <cores>
+snakemake --profile ../profile/slurm/ --config [options]
 ```
 
 3. Input Configuration Options:
@@ -34,18 +34,11 @@ snakemake --use-conda -j <cores>
    - **Both files**: Provide both `assembly_file` and `assembly_graph` (uses Reneo and original FASTA)
 ```
 # Example using only FASTA file (skips Reneo)
-snakemake --use-conda -j <cores> --config assembly_file="/path/to/assembly.fasta" assembly_graph=""
-
-# Example using only assembly graph (runs Reneo)
-snakemake --use-conda -j <cores> --config assembly_file="" assembly_graph="/path/to/assembly.gfa"
-
-# Example using both files
-snakemake --use-conda -j <cores> --config assembly_file="/path/to/assembly.fasta" assembly_graph="/path/to/assembly.gfa"
-```
+snakemake --profile ../profile/slurm --config assembly_file="/path/to/assembly.fasta" reads_dir="/path/to/reads/" output_dir="/path/to/output/"
 
 4. Run the pipeline without clustering:
 ```
-snakemake --use-conda -j <cores> --config do_clustering=false
+snakemake --config do_clustering=false
 ```
 
 ### SLURM Execution
