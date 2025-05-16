@@ -30,21 +30,10 @@ conda install -c conda-forge -c bioconda snakemake=8 mamba
 pip install snakemake-executor-plugin-slurm
 ```
 
-3. Install PHACTS (required for lifestyle prediction):
-```
-# Run the PHACTS installation script
-bash scripts/install_phacts.sh
-
-# For custom installation path
-bash scripts/install_phacts.sh -d /path/to/install/location
-```
-
-The PHACTS installation script will automatically:
-- Detect the conda environment from your SLURM profile
-- Clone the PHACTS repository
-- Install it properly with pip
-- Configure PYTHONPATH
-- Update your config.yaml if needed
+3. Configure the pipeline in `config/config.yaml`:
+   - Set input and output paths
+   - Specify database locations
+   - Configure workflow options
 
 ## Workflow Structure
 
@@ -66,6 +55,41 @@ The pipeline is organized into three main modules:
    - Lifestyle prediction with PHACTS
    - Taxonomic classification and annotation
 
+## PHACTS Integration
+
+PHACTS (Phage Classification Tool Set) is used for predicting phage lifestyle. The pipeline provides two ways to use PHACTS:
+
+### Option 1: Automatic Installation (Recommended)
+
+The workflow now includes an automatic PHACTS installation:
+
+- PHACTS is automatically installed during pipeline execution
+- Installation happens in `output_dir/db/phacts/`
+- Version control via `phacts_version` parameter in config.yaml
+
+No manual installation is needed - simply run the pipeline and PHACTS will be installed and configured automatically.
+
+### Option 2: Manual Installation
+
+For users who prefer manual control:
+
+1. Run the PHACTS installation script:
+   ```
+   bash scripts/install_phacts.sh
+   ```
+
+2. Or for custom installation path:
+   ```
+   bash scripts/install_phacts.sh -d /path/to/install/location
+   ```
+
+3. Update `config.yaml` to specify the path:
+   ```yaml
+   databases:
+     phacts:
+       path: "/path/to/phacts/phacts.py"
+   ```
+
 ## Usage
 
 ### Configuration
@@ -78,6 +102,9 @@ The pipeline is organized into three main modules:
    assembly_graph: "/path/to/graph.gfa"      # Optional for Reneo graph-based workflow
    reads_dir: "/path/to/reads/"              # Directory containing reads
    do_clustering: true                       # Set to false to skip clustering
+   
+   # PHACTS configuration 
+   phacts_version: "main"                    # Git branch or tag for PHACTS
    ```
 
 2. Edit SLURM profile in `profile/slurm/config.yaml` if needed for your computing environment
@@ -154,14 +181,7 @@ The pipeline produces the following key outputs:
 
 ## Dependencies
 
-The workflow automatically handles most dependencies through conda environments defined in the `workflow/envs/` directory. 
-
-However, PHACTS requires manual installation using the provided script:
-```
-bash scripts/install_phacts.sh
-```
-
-This is because PHACTS is not available through conda channels and requires specific setup steps to work properly with the pipeline.
+The workflow automatically handles all dependencies through conda environments defined in the `workflow/envs/` directory, including PHACTS which is now installed as part of the workflow execution.
 
 ## License
 

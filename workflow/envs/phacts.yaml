@@ -11,10 +11,9 @@ dependencies:
   - scikit-learn=0.24
   - matplotlib
   - prodigal
+  - git  # Required for installation
   - pip
   - pip:
     - libsvm
-    # PHACTS itself needs to be installed manually from source
-    # Download from https://sourceforge.net/projects/phacts/
-    # or clone from https://github.com/deprekate/PHACTS
-    # Install to a path in your conda environment
+    # PHACTS is installed by the Snakemake workflow
+    # No need to install manually
