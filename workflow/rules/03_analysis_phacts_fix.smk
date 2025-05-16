@@ -101,7 +101,7 @@ rule phacts_single_prediction:
         
         # Run the debug script to diagnose import issues
         echo "\n==== RUNNING DIAGNOSTIC SCRIPT ====" >> {log} 2>&1
-        python "{workflow.basedir}/../scripts/debug_phacts.py" --output-dir "{config['output_dir']}" >> {log} 2>&1 || true
+        python "{workflow.basedir}/scripts/debug_phacts.py" --output-dir "{config['output_dir']}" >> {log} 2>&1 || true
         echo "=================================\n" >> {log} 2>&1
         
         # Add PHACTS directory to PYTHONPATH and run with enhanced setup
