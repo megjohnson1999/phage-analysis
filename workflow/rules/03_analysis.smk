@@ -419,13 +419,12 @@ rule check_phacts_input_files:
 # We don't need a separate rule for log directories
 # Snakemake will create them automatically
 
-# 5. Run simplified PHACTS lifestyle prediction on a single protein file batch
+# 5. Run PHACTS lifestyle prediction using existing installation
 rule phacts_single_prediction:
     input:
         checkpoint = f"{config['output_dir']}/03_phacts_results/.splits_ready",
         input_check = f"{config['output_dir']}/03_phacts_results/.input_files_found",
-        protein_file = f"{config['output_dir']}/03_split_proteins/{{sample}}.faa",
-        helper_script = "workflow/scripts/phacts_helper.py"  # Our custom implementation
+        protein_file = f"{config['output_dir']}/03_split_proteins/{{sample}}.faa"
     output:
         result_dir = directory(f"{config['output_dir']}/03_phacts_results/tmp/{{sample}}"),
         result = f"{config['output_dir']}/03_phacts_results/tmp/{{sample}}/{{sample}}.phacts.out"
@@ -435,7 +434,9 @@ rule phacts_single_prediction:
     conda:
         config["conda_envs"]["phacts"]
     params:
-        output_dir = lambda w, output: output.result_dir
+        output_dir = lambda w, output: output.result_dir,
+        # Your coworker's PHACTS installation path
+        phacts_path = "/home/luisalberto/Softwares/PHACTS/phacts.py"
     shell:
         r"""
         # Create output directory
@@ -444,9 +445,17 @@ rule phacts_single_prediction:
         # Get the filename without extension
         NAME=$(basename {input.protein_file} .faa)
         
-        # Run our simplified PHACTS implementation
-        echo "Running simplified PHACTS implementation" > {log} 2>&1
-        python {input.helper_script} {input.protein_file} -o {params.output_dir} >> {log} 2>&1
+        # Set up the environment
+        PHACTS_PATH="{params.phacts_path}"
+        PHACTS_DIR=$(dirname "$PHACTS_PATH")
+        
+        # Add PHACTS to both PATH and PYTHONPATH
+        export PATH="$PHACTS_DIR:$PATH"
+        export PYTHONPATH="$PHACTS_DIR:$PYTHONPATH"
+        
+        # Run PHACTS directly
+        echo "Running PHACTS from: $PHACTS_PATH" > {log} 2>&1
+        python "$PHACTS_PATH" {input.protein_file} -o {params.output_dir} >> {log} 2>&1
         
         # Check if output file exists and rename it
         if [ -f "{params.output_dir}/prediction.txt" ]; then
