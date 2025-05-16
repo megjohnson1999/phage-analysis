@@ -229,12 +229,12 @@ rule iphop_aggregate_results:
             FIRST_FILE=$(head -n 1 "$TMP_DIR/prediction_files.txt")
             
             # Create the output file with header (convert CSV to TSV)
-            head -n 1 "$FIRST_FILE" | tr ',' '\\t' > {output.predictions}
+            head -n 1 "$FIRST_FILE" | tr ',' '\t' > {output.predictions}
             
             # Process files in batches to avoid command line length limits
             while read -r pred_file; do
                 # Skip header line (first line) from each file and convert CSV to TSV
-                awk -F ',' 'NR>1 {{OFS="\\t"; print}}' "$pred_file" >> "$TMP_DIR/aggregated_data.tmp"
+                awk -F ',' 'NR>1 {{OFS="\t"; print}}' "$pred_file" >> "$TMP_DIR/aggregated_data.tmp"
             done < "$TMP_DIR/prediction_files.txt"
             
             # Append all data to the output file
@@ -246,7 +246,7 @@ rule iphop_aggregate_results:
             echo "Successfully compiled iPhop results with $RECORD_COUNT data records" >> {log} 2>&1
         else
             # Create empty output with header structure
-            echo -e "query\\thost\\tscore\\tidentity\\tcoverage\\tkingdom\\tphylum\\tclass\\torder\\tfamily\\tgenus" > {output.predictions}
+            echo -e "query\thost\tscore\tidentity\tcoverage\tkingdom\tphylum\tclass\torder\tfamily\tgenus" > {output.predictions}
             echo "No iPhop result files found, created empty file with header" >> {log} 2>&1
         fi
         
@@ -321,8 +321,6 @@ rule split_protein_files:
             echo "{output.split_dir}/empty.faa" > {output.split_list}
         fi
         """
-
-# We'll use a direct script approach rather than a helper function
 
 # List all samples for phacts from split protein files
 def get_phacts_samples():
@@ -419,6 +417,7 @@ rule check_phacts_input_files:
         """
 
 # 5a. Run PHACTS for lifestyle prediction on a single protein file batch
+# Improved version with better path handling and error recovery
 rule phacts_single_prediction:
     input:
         checkpoint = f"{config['output_dir']}/03_phacts_results/.splits_ready",
@@ -433,45 +432,183 @@ rule phacts_single_prediction:
     conda:
         config["conda_envs"]["phacts"]
     shell:
-        """
+        r"""
         # Create output directory
         mkdir -p {output.result_dir}
         
         # Get the filename without extension
         NAME=$(basename {input.protein_file} .faa)
         
-        # Look for PHACTS in PATH, which is simpler and more reliable
-        PHACTS_PATH=$(which phacts.py 2>/dev/null || echo "")
-            
-        if [ -n "$PHACTS_PATH" ]; then
-            # Found in PATH
-            echo "Found PHACTS in PATH: $PHACTS_PATH" >> {log}
-            python "$PHACTS_PATH" {input.protein_file} -o {output.result_dir} > {log} 2>&1
-        else
-            # Try to use a hard-coded default path as fallback
-            echo "PHACTS not found in PATH, trying default location..." >> {log}
-            DEFAULT_PATH="/home/luisalberto/Softwares/PHACTS/phacts.py"
-            
-            if [ -f "$DEFAULT_PATH" ]; then
-                echo "Using default PHACTS path: $DEFAULT_PATH" >> {log}
-                python "$DEFAULT_PATH" {input.protein_file} -o {output.result_dir} > {log} 2>&1
+        # Find PHACTS in multiple locations, with better error handling
+        # 1. Check config for custom path
+        if [ -n "{config.get('databases', {}).get('phacts', {}).get('path', '')}" ]; then
+            PHACTS_PATH="{config['databases']['phacts']['path']}"
+            if [ -f "$PHACTS_PATH" ]; then
+                echo "Using PHACTS from config path: $PHACTS_PATH" > {log} 2>&1
+                PHACTS_DIR=$(dirname "$PHACTS_PATH")
             else
-                echo "ERROR: PHACTS script not found in PATH or default location" >> {log}
-                echo "Please either install PHACTS to PATH or specify its location in config.yaml" >> {log}
-                exit 1
+                echo "Warning: PHACTS path in config not found: $PHACTS_PATH" > {log} 2>&1
+                PHACTS_PATH=""
+            fi
+        else
+            PHACTS_PATH=""
+        fi
+        
+        # 2. Check if the installation script has been run
+        if [ -z "$PHACTS_PATH" ]; then
+            # Check for workflow-installed version first (in output_dir)
+            OUTPUT_DIR_PHACTS="{config['output_dir']}/db/phacts/PHACTS/phacts.py"
+            if [ -f "$OUTPUT_DIR_PHACTS" ]; then
+                PHACTS_PATH="$OUTPUT_DIR_PHACTS"
+                PHACTS_DIR=$(dirname "$PHACTS_PATH")
+                echo "Found workflow-installed PHACTS: $PHACTS_PATH" >> {log} 2>&1
+            fi
+        fi
+        
+        # 3. Try other common installation paths if still not found
+        if [ -z "$PHACTS_PATH" ]; then
+            # Try to find in common installation paths (from install_phacts.sh)
+            INSTALL_PATHS=(
+                "$HOME/Software/PHACTS/PHACTS/phacts.py"
+                "$HOME/software/PHACTS/PHACTS/phacts.py"
+                "$HOME/Softwares/PHACTS/PHACTS/phacts.py"
+                "$HOME/softwares/PHACTS/PHACTS/phacts.py"
+                "$HOME/PHACTS/PHACTS/phacts.py"
+                "$HOME/Software/PHACTS/phacts.py"
+                "$HOME/software/PHACTS/phacts.py"
+                "$HOME/Softwares/PHACTS/phacts.py"
+                "$HOME/softwares/PHACTS/phacts.py"
+                "$HOME/phacts/phacts.py"
+                "/home/luisalberto/Softwares/PHACTS/phacts.py"
+                "/ref/sahlab/software/miniforge3/envs/phacts/PHACTS/phacts.py"
+                "/ref/sahlab/software/miniforge3/envs/phacts/lib/python3.*/site-packages/PHACTS/phacts.py"
+            )
+            
+            for path in "${INSTALL_PATHS[@]}"; do
+                if [ -f "$path" ]; then
+                    PHACTS_PATH="$path"
+                    PHACTS_DIR=$(dirname "$PHACTS_PATH")
+                    echo "Found PHACTS in common location: $PHACTS_PATH" >> {log} 2>&1
+                    break
+                fi
+            done
+        fi
+        
+        # 4. Check PATH as last resort
+        if [ -z "$PHACTS_PATH" ]; then
+            PHACTS_PATH=$(which phacts.py 2>/dev/null || echo "")
+            if [ -n "$PHACTS_PATH" ]; then
+                PHACTS_DIR=$(dirname "$PHACTS_PATH")
+                echo "Found PHACTS in PATH: $PHACTS_PATH" >> {log} 2>&1
+            fi
+        fi
+        
+        # If still not found, try automatic installation if enabled
+        if [ -z "$PHACTS_PATH" ] && [ "{config.get('databases', {}).get('phacts', {}).get('auto_install', True)}" = "True" ]; then
+            echo "PHACTS not found. Attempting automatic installation..." >> {log} 2>&1
+            
+            # Create installation directory
+            INSTALL_DIR="{config['output_dir']}/db/phacts"
+            mkdir -p "$INSTALL_DIR"
+            
+            # Clone and install PHACTS
+            if [ -d "$INSTALL_DIR/PHACTS" ]; then
+                echo "PHACTS directory already exists, updating..." >> {log} 2>&1
+                cd "$INSTALL_DIR/PHACTS"
+                git pull >> {log} 2>&1
+            else
+                echo "Cloning PHACTS repository..." >> {log} 2>&1
+                cd "$INSTALL_DIR"
+                git clone https://github.com/deprekate/PHACTS.git >> {log} 2>&1
+            fi
+            
+            # Set paths after installation
+            PHACTS_PATH="$INSTALL_DIR/PHACTS/phacts.py"
+            PHACTS_DIR="$INSTALL_DIR/PHACTS"
+            PHACTS_PARENT_DIR="$INSTALL_DIR"
+            
+            # Create __init__.py if it doesn't exist
+            touch "$PHACTS_DIR/__init__.py"
+            
+            # Create wrapper script
+            echo "Creating wrapper script..." >> {log} 2>&1
+            cat > "$INSTALL_DIR/run_phacts.sh" << EOF
+#!/bin/bash
+export PYTHONPATH="$PHACTS_DIR:$INSTALL_DIR:\$PYTHONPATH"
+python "$PHACTS_PATH" "\$@"
+EOF
+            chmod +x "$INSTALL_DIR/run_phacts.sh"
+            
+            echo "PHACTS installed to $PHACTS_PATH" >> {log} 2>&1
+        fi
+        
+        # Final check - if still not found, give informative error
+        if [ -z "$PHACTS_PATH" ]; then
+            echo "ERROR: PHACTS not found in any location and auto-install failed or disabled." >> {log} 2>&1
+            echo "Please run scripts/install_phacts.sh to install PHACTS or set path in config." >> {log} 2>&1
+            echo "No prediction was made for this batch" > {output.result}
+            # Don't exit with error - create empty file to let workflow continue
+            echo "Creating empty placeholder file to allow workflow to continue." >> {log} 2>&1
+            exit 0
+        fi
+        
+        # Set PYTHONPATH to ensure imports work correctly
+        PHACTS_PARENT_DIR=$(dirname "$PHACTS_DIR")
+        export PYTHONPATH="$PHACTS_DIR:$PHACTS_PARENT_DIR:$PYTHONPATH"
+        echo "PYTHONPATH: $PYTHONPATH" >> {log} 2>&1
+        
+        # Create __init__.py if missing to make imports work
+        if [ ! -f "$PHACTS_DIR/__init__.py" ]; then
+            echo "Creating missing __init__.py file for proper imports" >> {log} 2>&1
+            touch "$PHACTS_DIR/__init__.py"
+        fi
+        
+        # Run PHACTS with multiple fallback methods for error recovery
+        echo "Running PHACTS..." >> {log} 2>&1
+        
+        # Method 1: Direct execution
+        python "$PHACTS_PATH" {input.protein_file} -o {output.result_dir} >> {log} 2>&1
+        
+        # Check if failed and try alternative methods
+        if [ ! -f "{output.result_dir}/prediction.txt" ]; then
+            echo "First execution attempt failed, trying alternate method..." >> {log} 2>&1
+            
+            # Method 2: Run as a module
+            cd "$PHACTS_PARENT_DIR" && python -m PHACTS.phacts "{input.protein_file}" -o "{output.result_dir}" >> {log} 2>&1 || true
+            
+            # Method 3: If previous methods failed, try with wrapper script
+            if [ ! -f "{output.result_dir}/prediction.txt" ]; then
+                echo "Second execution attempt failed, trying with wrapper script..." >> {log} 2>&1
+                
+                WRAPPER_SCRIPT="$PHACTS_PARENT_DIR/run_phacts.sh"
+                if [ -f "$WRAPPER_SCRIPT" ]; then
+                    bash "$WRAPPER_SCRIPT" "{input.protein_file}" -o "{output.result_dir}" >> {log} 2>&1 || true
+                else
+                    # Create a temporary wrapper script
+                    TEMP_WRAPPER=$(mktemp)
+                    echo '#!/bin/bash' > "$TEMP_WRAPPER"
+                    echo 'export PYTHONPATH="'"$PHACTS_DIR:$PHACTS_PARENT_DIR:$PYTHONPATH"'"' >> "$TEMP_WRAPPER"
+                    echo 'python "'"$PHACTS_PATH"'" "$@"' >> "$TEMP_WRAPPER"
+                    chmod +x "$TEMP_WRAPPER"
+                    
+                    # Run the temporary wrapper
+                    "$TEMP_WRAPPER" "{input.protein_file}" -o "{output.result_dir}" >> {log} 2>&1 || true
+                    rm "$TEMP_WRAPPER"
+                fi
             fi
         fi
         
         # Rename the output file to match expected format
         if [ -f "{output.result_dir}/prediction.txt" ]; then
             mv {output.result_dir}/prediction.txt {output.result}
+            echo "Prediction completed successfully" >> {log} 2>&1
         else
-            echo "Warning: PHACTS did not produce valid output. Creating placeholder file." >> {log}
+            echo "Warning: PHACTS did not produce valid output. Creating placeholder file." >> {log} 2>&1
             echo "No prediction was made for this batch" > {output.result}
         fi
         """
 
-# Helper rule to force running single phacts predictions during dry run
+# Helper rule to force running all phacts predictions
 rule run_all_phacts_predictions:
     input:
         checkpoint = f"{config['output_dir']}/03_phacts_results/.splits_ready",
@@ -509,7 +646,7 @@ rule phacts_aggregate_results:
         
         # Compile results
         echo "Compiling PHACTS results" > {log}
-        echo -e "phage_id\\tlifestyle\\tprobability" > {output.predictions}
+        echo -e "phage_id\tlifestyle\tprobability" > {output.predictions}
 
         if [ -n "$(ls -A $RESULTS_DIR/tmp 2>/dev/null)" ]; then
             # Process each phacts output file if it exists
@@ -525,7 +662,7 @@ rule phacts_aggregate_results:
                         
                         # Add prediction for each phage in the batch
                         for phage_id in $phage_ids; do
-                            echo -e "$phage_id\\t$lifestyle\\t$probability" >> {output.predictions}
+                            echo -e "$phage_id\t$lifestyle\t$probability" >> {output.predictions}
                         done
                     else
                         # Extract batch number from filename
@@ -631,9 +768,9 @@ rule vcontact3_taxonomy:
     shell:
         """
         # Create gene2genome file
-        echo -e "protein_id\\tcontig_id" > {output.gene2genome}
+        echo -e "protein_id\tcontig_id" > {output.gene2genome}
         grep ">" {input.proteins} | sed 's/>//g' | 
-        awk -F " # " '{{split($1,a,"_"); print $1"\\t"a[1]}}' >> {output.gene2genome}
+        awk -F " # " '{{split($1,a,"_"); print $1"\t"a[1]}}' >> {output.gene2genome}
         
         # Run vContact3
         vcontact3 run --nucleotide $(dirname {input.proteins})/../{get_phage_input(None).split('/')[-1]} \

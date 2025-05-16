@@ -42,10 +42,13 @@ databases:
     
   phacts:
     # Path to PHACTS script - Optional override
-    # If not specified, PHACTS will be installed under output_dir/db/phacts/
+    # If not specified, multiple locations will be searched in this order:
+    # 1. {output_dir}/db/phacts/PHACTS/phacts.py (workflow-installed version)
+    # 2. Common installation paths (HOME directories, conda environments)
+    # 3. PATH environment variable
     # path: "/home/luisalberto/Softwares/PHACTS/phacts.py"
-    # Leave commented to use workflow-installed version
-    pass
+    # Leave commented unless you want to specifically override the default search behavior
+    auto_install: true    # Set to false to disable auto-installation attempt
 
 params:    
   vclust:
