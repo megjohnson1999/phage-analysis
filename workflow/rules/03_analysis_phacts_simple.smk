@@ -1,8 +1,12 @@
 # Simple, robust PHACTS integration that relies on standalone scripts
 
-# 1. Run PHACTS for lifestyle prediction on a single protein file batch
+# Make sure that we're also including the prerequisites from the original rule
+# to maintain compatibility with existing workflows
 rule phacts_simple_prediction:
     input:
+        # Include all the prerequisites from the original rule for compatibility
+        splits_ready = f"{config['output_dir']}/03_phacts_results/.splits_ready",
+        input_check = f"{config['output_dir']}/03_phacts_results/.input_files_found",
         protein_file = f"{config['output_dir']}/03_split_proteins/{{sample}}.faa"
     output:
         result_dir = directory(f"{config['output_dir']}/03_phacts_results/tmp/{{sample}}"),
@@ -38,8 +42,9 @@ rule phacts_simple_prediction:
         fi
         """
 
-# 2. Aggregate PHACTS results
-rule phacts_simple_aggregate_results:
+# We'll reuse the original aggregation rule, but make sure our rule name is still the original one
+# from the main workflow to avoid conflicts there too
+rule phacts_aggregate_results:
     input:
         # This is the key part that makes the parallelization work
         all_done = f"{config['output_dir']}/03_phacts_results/.all_predictions_done",

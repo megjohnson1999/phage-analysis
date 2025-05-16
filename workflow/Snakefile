@@ -18,6 +18,10 @@ include: "rules/02_clustering.smk"
 include: "rules/03_analysis.smk"
 include: "rules/03_analysis_phacts_simple.smk"  # Use the simpler PHACTS integration
 
+# Specify rule precedence to resolve ambiguity
+# The simple rule (phacts_simple_prediction) should take precedence over the original rule
+ruleorder: phacts_simple_prediction > phacts_single_prediction
+
 # Import needed for file existence checks
 import os
 
