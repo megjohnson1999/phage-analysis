@@ -16,7 +16,7 @@ configfile: "../config/config.yaml"
 include: "rules/01_prediction.smk"
 include: "rules/02_clustering.smk"
 include: "rules/03_analysis.smk"
-include: "rules/03_analysis_phacts_fix.smk"  # Ensure PHACTS fixes are loaded
+include: "rules/03_analysis_phacts_simple.smk"  # Use the simpler PHACTS integration
 
 # Import needed for file existence checks
 import os
@@ -57,48 +57,9 @@ if not config.get("reads_dir"):
 # Will be set by 01_prediction.smk
 use_reneo = False
 
-# Override get_phacts_samples function to use in both modules without conflicts
-def get_phacts_samples_compatibility():
-    # After split_protein_files is run, this reads the split file list
-    split_list = f"{config['output_dir']}/03_split_proteins/split_protein_list.txt"
-    
-    # Primary method: read from the split file list if it exists
-    if os.path.exists(split_list):
-        try:
-            with open(split_list, "r") as f:
-                files = [line.strip() for line in f if line.strip()]
-            # Extract filenames without extension and ensure unique values
-            samples = [os.path.splitext(os.path.basename(file))[0] for file in files]
-            # Filter out any empty strings
-            samples = [s for s in samples if s]
-            # If we found samples, return them
-            if samples:
-                return samples
-        except Exception as e:
-            print(f"Warning: Error reading split file list: {e}")
-    
-    # Fallback: Use glob to find faa files directly
-    try:
-        split_dir = f"{config['output_dir']}/03_split_proteins"
-        if os.path.exists(split_dir) and os.path.isdir(split_dir):
-            samples = [os.path.splitext(os.path.basename(f))[0] 
-                    for f in glob.glob(f"{split_dir}/*.faa")]
-            # Filter out any empty strings
-            samples = [s for s in samples if s]
-            if samples:
-                return samples
-    except Exception as e:
-        print(f"Warning: Error using glob to find faa files: {e}")
-    
-    # If all methods fail, return empty list
-    return []
-
 # Default target rule
 rule all:
     input:
-        # First, ensure PHACTS is installed
-        f"{config['output_dir']}/db/phacts/.installed",
-        
         # Start with appropriate filtered assembly based on whether Reneo will run
         lambda wildcards:
             [f"{config['output_dir']}/01_reneo_output/genomes_and_unresolved_edges_1KB.fasta"] 
@@ -117,12 +78,9 @@ rule all:
         f"{config['output_dir']}/03_iphop_results/.input_files_found",
         f"{config['output_dir']}/03_phacts_results/.input_files_found",
         
-        # Add PHACTS verification
-        f"{config['output_dir']}/03_phacts_results/.installation_verified",
-        
         # Add helpers that run the single prediction jobs
         f"{config['output_dir']}/03_iphop_results/.all_predictions_done",
-        f"{config['output_dir']}/03_phacts_results/.all_predictions_done_v2",  # Use v2 for PHACTS
+        f"{config['output_dir']}/03_phacts_results/.all_predictions_done",
         
         # Final output files depending on whether clustering is enabled
         lambda wildcards: 
@@ -131,7 +89,7 @@ rule all:
                 outdir=config["output_dir"]
             ) +
             expand(
-                "{outdir}/03_phacts_results_v2/phacts_predictions_compiled.tsv",  # Updated path for v2
+                "{outdir}/03_phacts_results/phacts_predictions_compiled.tsv",
                 outdir=config["output_dir"]
             ) +
             expand(
