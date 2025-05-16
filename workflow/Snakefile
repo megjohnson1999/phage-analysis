@@ -131,7 +131,7 @@ rule all:
                 outdir=config["output_dir"]
             ) +
             expand(
-                "{outdir}/03_phacts_results/phacts_predictions_compiled.tsv",
+                "{outdir}/03_phacts_results_v2/phacts_predictions_compiled.tsv",  # Updated path for v2
                 outdir=config["output_dir"]
             ) +
             expand(

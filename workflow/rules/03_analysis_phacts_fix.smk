@@ -113,7 +113,7 @@ rule check_phacts_installation:
         echo "All required input files for PHACTS were found and installation verified" > {log} 2>&1
         """
 
-# 5a. Run PHACTS for lifestyle prediction on a single protein file batch (UPDATED version)
+# 5a. Run PHACTS for lifestyle prediction on a single protein file batch (UPDATED version with different output paths)
 rule phacts_single_prediction_v2:
     input:
         install_check = f"{config['output_dir']}/db/phacts/.installed",
@@ -121,11 +121,12 @@ rule phacts_single_prediction_v2:
         input_check = f"{config['output_dir']}/03_phacts_results/.input_files_found",
         protein_file = f"{config['output_dir']}/03_split_proteins/{{sample}}.faa"
     output:
-        result_dir = directory(f"{config['output_dir']}/03_phacts_results/tmp/{{sample}}"),
-        result = f"{config['output_dir']}/03_phacts_results/tmp/{{sample}}/{{sample}}.phacts.out"
+        # Use different output directory to avoid conflicts with original rule
+        result_dir = directory(f"{config['output_dir']}/03_phacts_results_v2/tmp/{{sample}}"),
+        result = f"{config['output_dir']}/03_phacts_results_v2/tmp/{{sample}}/{{sample}}.phacts.out"
     threads: 4
     log:
-        f"{config['output_dir']}/logs/phacts_prediction/{{sample}}.log"
+        f"{config['output_dir']}/logs/phacts_prediction_v2/{{sample}}.log"
     conda:
         config["conda_envs"]["phacts"]
     shell:
@@ -185,6 +186,71 @@ rule phacts_single_prediction_v2:
         fi
         """
 
+# Aggregation rule for v2 prediction results
+rule phacts_aggregate_results_v2:
+    input:
+        # This is the key part that makes the parallelization work
+        all_done = f"{config['output_dir']}/03_phacts_results/.all_predictions_done_v2",
+        predictions = lambda wildcards: expand(
+            f"{config['output_dir']}/03_phacts_results_v2/tmp/{{sample}}/{{sample}}.phacts.out",
+            sample=get_phacts_samples_compatibility()
+        )
+    output:
+        predictions = f"{config['output_dir']}/03_phacts_results_v2/phacts_predictions_compiled.tsv"
+    log:
+        f"{config['output_dir']}/logs/phacts_aggregate_results_v2.log"
+    conda:
+        config["conda_envs"]["phacts"]
+    shell:
+        """
+        # Ensure results directory exists
+        RESULTS_DIR=$(dirname {output.predictions})
+        mkdir -p $RESULTS_DIR
+        
+        # Compile results
+        echo "Compiling PHACTS results" > {log}
+        echo -e "phage_id\\tlifestyle\\tprobability" > {output.predictions}
+
+        if [ -n "$(ls -A $RESULTS_DIR/tmp 2>/dev/null)" ]; then
+            # Process each phacts output file if it exists
+            for file in $RESULTS_DIR/tmp/*/*.phacts.out 2>/dev/null; do
+                if [ -f "$file" ]; then
+                    # Check if the file contains useful predictions
+                    if grep -q "Lifestyle:" "$file" && grep -q "Probability:" "$file"; then
+                        # Extract the contig information from the PHACTS output
+                        # Look for lines containing >contig identifiers in the first part of the file
+                        phage_ids=$(grep "^>" "$file" | head -n 10 | sed 's/^>//g' | cut -d "_" -f 1 | sort -u)
+                        lifestyle=$(grep "Lifestyle:" "$file" | awk '{{print $2}}')
+                        probability=$(grep "Probability:" "$file" | awk '{{print $2}}')
+                        
+                        # Add prediction for each phage in the batch
+                        for phage_id in $phage_ids; do
+                            echo -e "$phage_id\\t$lifestyle\\t$probability" >> {output.predictions}
+                        done
+                    else
+                        # Extract batch number from filename
+                        batch_id=$(basename "$file" .phacts.out)
+                        echo "Warning: No valid prediction in $batch_id" >> {log}
+                    fi
+                fi
+            done
+
+            if [ "$(wc -l < {output.predictions})" -eq 1 ]; then
+                echo "No valid PHACTS results were found, only header in output file" >> {log}
+            else
+                echo "Successfully compiled $(( $(wc -l < {output.predictions}) - 1 )) PHACTS results" >> {log}
+            fi
+        else
+            echo "No PHACTS result files found, created empty result file" >> {log}
+        fi
+
+        # Create a copy in the original location for backward compatibility
+        ORIG_PATH="{config['output_dir']}/03_phacts_results/phacts_predictions_compiled.tsv"
+        mkdir -p $(dirname "$ORIG_PATH")
+        cp {output.predictions} "$ORIG_PATH"
+        echo "Created backward compatibility copy at $ORIG_PATH" >> {log}
+        """
+
 # Modified: Explicitly make sure install_phacts rule is included in the workflow
 # Helper rule to force running all phacts predictions (now includes install dependency)
 rule run_all_phacts_predictions_v2:
@@ -196,8 +262,8 @@ rule run_all_phacts_predictions_v2:
         # For actual runs, get samples from the split files
         # For dry runs, this will be an empty list, which is fine
         samples = lambda wildcards: expand(
-            f"{config['output_dir']}/03_phacts_results/tmp/{{sample}}/{{sample}}.phacts.out",
-            sample=get_phacts_samples()
+            f"{config['output_dir']}/03_phacts_results_v2/tmp/{{sample}}/{{sample}}.phacts.out",
+            sample=get_phacts_samples_compatibility()
         )
     output:
         touch(f"{config['output_dir']}/03_phacts_results/.all_predictions_done_v2")
