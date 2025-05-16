@@ -24,7 +24,7 @@ rule install_phacts:
     conda:
         config["conda_envs"]["phacts"]
     shell:
-        """
+        r"""
         # Create installation directory
         mkdir -p {params.output_dir}
         cd {params.output_dir}
@@ -88,7 +88,7 @@ rule check_phacts_installation:
     log:
         f"{config['output_dir']}/logs/check_phacts_installation.log"
     shell:
-        """
+        r"""
         # Check if protein file exists
         if [ ! -f "{input.proteins}" ]; then
             echo "Error: Protein file does not exist: {input.proteins}" > {log} 2>&1
@@ -130,7 +130,7 @@ rule phacts_single_prediction_v2:
     conda:
         config["conda_envs"]["phacts"]
     shell:
-        """
+        r"""
         # Create output directory
         mkdir -p {output.result_dir}
         
@@ -141,7 +141,7 @@ rule phacts_single_prediction_v2:
         echo "Using workflow-installed PHACTS at $PHACTS_PATH" > {log} 2>&1
         
         # Enhanced debugging information
-        echo -e "\\n==== PHACTS DEBUG INFO ====" >> {log} 2>&1
+        echo -e "\n==== PHACTS DEBUG INFO ====" >> {log} 2>&1
         echo "Python version: $(python --version 2>&1)" >> {log} 2>&1
         echo "PHACTS_PATH: $PHACTS_PATH" >> {log} 2>&1
         echo "PHACTS_DIR exists: $(test -d "$PHACTS_DIR" && echo "Yes" || echo "No")" >> {log} 2>&1
@@ -149,15 +149,15 @@ rule phacts_single_prediction_v2:
         echo "__init__.py exists: $(test -f "$PHACTS_DIR/__init__.py" && echo "Yes" || echo "No")" >> {log} 2>&1
         echo "Directory listing of PHACTS:" >> {log} 2>&1
         ls -la "$PHACTS_DIR" >> {log} 2>&1 2>&1 || echo "Failed to list directory" >> {log} 2>&1
-        echo -e "=========================\\n" >> {log} 2>&1
+        echo -e "=========================\n" >> {log} 2>&1
         
         # Run the debug script to diagnose import issues
-        echo -e "\\n==== RUNNING DIAGNOSTIC SCRIPT ====" >> {log} 2>&1
+        echo -e "\n==== RUNNING DIAGNOSTIC SCRIPT ====" >> {log} 2>&1
         python "$(dirname {workflow.basedir})/scripts/debug_phacts.py" --output-dir "{config['output_dir']}" >> {log} 2>&1 || true
-        echo -e "=================================\\n" >> {log} 2>&1
+        echo -e "=================================\n" >> {log} 2>&1
         
         # Add PHACTS directory to PYTHONPATH and run with enhanced setup
-        echo -e "\\n==== RUNNING PHACTS WITH MODIFIED ENVIRONMENT ====" >> {log} 2>&1
+        echo -e "\n==== RUNNING PHACTS WITH MODIFIED ENVIRONMENT ====" >> {log} 2>&1
         # Add both the PHACTS directory and its parent to PYTHONPATH
         export PYTHONPATH="$PHACTS_DIR:$PHACTS_PARENT:$PYTHONPATH"
         echo "PYTHONPATH: $PYTHONPATH" >> {log} 2>&1
@@ -174,7 +174,7 @@ rule phacts_single_prediction_v2:
             echo "Failed with direct execution, trying with -m module syntax..." >> {log} 2>&1
             cd "$PHACTS_PARENT" && python -m PHACTS.phacts "{input.protein_file}" -o "{output.result_dir}" >> {log} 2>&1 || echo "All execution attempts failed" >> {log} 2>&1
         }}
-        echo -e "=================================================\\n" >> {log} 2>&1
+        echo -e "=================================================\n" >> {log} 2>&1
         
         # Rename the output file to match expected format
         if [ -f "{output.result_dir}/prediction.txt" ]; then
@@ -202,14 +202,14 @@ rule phacts_aggregate_results_v2:
     conda:
         config["conda_envs"]["phacts"]
     shell:
-        """
+        r"""
         # Ensure results directory exists
         RESULTS_DIR=$(dirname {output.predictions})
         mkdir -p $RESULTS_DIR
         
         # Compile results
         echo "Compiling PHACTS results" > {log}
-        echo -e "phage_id\\tlifestyle\\tprobability" > {output.predictions}
+        echo -e "phage_id\tlifestyle\tprobability" > {output.predictions}
 
         if [ -n "$(ls -A $RESULTS_DIR/tmp 2>/dev/null)" ]; then
             # Process each phacts output file if it exists
@@ -225,7 +225,7 @@ rule phacts_aggregate_results_v2:
                         
                         # Add prediction for each phage in the batch
                         for phage_id in $phage_ids; do
-                            echo -e "$phage_id\\t$lifestyle\\t$probability" >> {output.predictions}
+                            echo -e "$phage_id\t$lifestyle\t$probability" >> {output.predictions}
                         done
                     else
                         # Extract batch number from filename
