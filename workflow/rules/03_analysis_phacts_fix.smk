@@ -1,12 +1,39 @@
-# Import the helper function at the top of your file
-from workflow.scripts.phacts_helper import generate_phacts_command
+# Import the helper functions at the top of your file
+import os
+from workflow.scripts.phacts_helper import generate_phacts_command, get_phacts_path
 
-# 5a. Run PHACTS for lifestyle prediction on a single protein file batch (UPDATED version)
+# 5a. Install PHACTS if needed
+rule install_phacts:
+    output:
+        flag = f"{config['output_dir']}/03_phacts_results/.phacts_installed"
+    log:
+        f"{config['output_dir']}/logs/phacts_installation.log"
+    conda:
+        config["conda_envs"]["phacts"]
+    shell:
+        """
+        # Try to locate PHACTS installation
+        PHACTS_PATH=$(python -c "from workflow.scripts.phacts_helper import get_phacts_path; path, _ = get_phacts_path({}); print(path or '')")
+        
+        if [ -z "$PHACTS_PATH" ]; then
+            echo "PHACTS not found. Installing..." > {log}
+            # Run the installation script
+            bash scripts/install_phacts.sh -e $(basename $CONDA_PREFIX) >> {log} 2>&1
+        else
+            echo "PHACTS found at $PHACTS_PATH" > {log}
+        fi
+        
+        # Create flag file to indicate installation is complete
+        touch {output.flag}
+        """
+
+# 5b. Run PHACTS for lifestyle prediction on a single protein file batch (UPDATED version)
 rule phacts_single_prediction:
     input:
         checkpoint = f"{config['output_dir']}/03_phacts_results/.splits_ready",
         input_check = f"{config['output_dir']}/03_phacts_results/.input_files_found",
-        protein_file = f"{config['output_dir']}/03_split_proteins/{{sample}}.faa"
+        protein_file = f"{config['output_dir']}/03_split_proteins/{{sample}}.faa",
+        phacts_installed = f"{config['output_dir']}/03_phacts_results/.phacts_installed"
     output:
         result_dir = directory(f"{config['output_dir']}/03_phacts_results/tmp/{{sample}}"),
         result = f"{config['output_dir']}/03_phacts_results/tmp/{{sample}}/{{sample}}.phacts.out"

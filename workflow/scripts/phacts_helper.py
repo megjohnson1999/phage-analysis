@@ -38,7 +38,11 @@ def get_phacts_path(config):
         os.path.expanduser("~/Software/PHACTS/PHACTS/phacts.py"),
         os.path.expanduser("~/Softwares/PHACTS/phacts.py"),
         os.path.expanduser("~/software/PHACTS/phacts.py"),
-        os.path.expanduser("~/phacts/phacts.py")
+        os.path.expanduser("~/phacts/phacts.py"),
+        # Check in conda environment
+        os.path.join(os.environ.get("CONDA_PREFIX", ""), "PHACTS/phacts.py"),
+        # Check in conda environment PHACTS subdirectory
+        os.path.join(os.environ.get("CONDA_PREFIX", ""), "PHACTS/PHACTS/phacts.py")
     ]
     
     for location in default_locations:
@@ -65,10 +69,20 @@ def generate_phacts_command(config, input_file, output_dir):
     if not phacts_path:
         raise ValueError("PHACTS executable not found. Please install PHACTS or specify its path in config.yaml.")
     
+    # Make phacts_dir an absolute path
+    phacts_dir = os.path.abspath(phacts_dir)
+    
     # Generate a bash command that sets up the environment properly
     cmd = f"""
 # Set PYTHONPATH to include PHACTS directory
 export PYTHONPATH="{phacts_dir}:$PYTHONPATH"
+
+# Add parent directory to handle potential 'import phacts' cases
+export PYTHONPATH="$(dirname {phacts_dir}):$PYTHONPATH"
+
+# Debug info
+echo "Using PHACTS path: {phacts_path}" >&2
+echo "PYTHONPATH set to: $PYTHONPATH" >&2
 
 # Run PHACTS
 python "{phacts_path}" "{input_file}" -o "{output_dir}"
