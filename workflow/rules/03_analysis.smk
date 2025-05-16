@@ -378,6 +378,7 @@ def get_phacts_samples():
 checkpoint wait_for_phacts_splits:
     input:
         split_list = f"{config['output_dir']}/03_split_proteins/split_protein_list.txt",
+        logs_ready = f"{config['output_dir']}/logs/.logs_ready", 
         phacts_ready = f"{config['output_dir']}/db/phacts/.phacts_ready"
     output:
         touch(f"{config['output_dir']}/03_phacts_results/.splits_ready")
@@ -392,7 +393,9 @@ rule check_phacts_input_files:
         # Required protein predictions
         proteins = f"{config['output_dir']}/03_orf_predictions/proteins.faa",
         # Check that split files are created
-        split_list = f"{config['output_dir']}/03_split_proteins/split_protein_list.txt"
+        split_list = f"{config['output_dir']}/03_split_proteins/split_protein_list.txt",
+        # Ensure logs dir exists
+        logs_ready = f"{config['output_dir']}/logs/.logs_ready"
     output:
         touch(f"{config['output_dir']}/03_phacts_results/.input_files_found")
     log:
@@ -417,8 +420,23 @@ rule check_phacts_input_files:
         echo "All required input files for PHACTS were found" > {log} 2>&1
         """
 
-# 5. Install PHACTS once before any predictions
+# 5. Create log directories and prepare for PHACTS
+rule prepare_phacts_directories:
+    output:
+        log_dir = directory(f"{config['output_dir']}/logs"),
+        prediction_log_dir = directory(f"{config['output_dir']}/logs/phacts_prediction"),
+        ready_flag = f"{config['output_dir']}/logs/.logs_ready"
+    shell:
+        """
+        mkdir -p {output.log_dir}
+        mkdir -p {output.prediction_log_dir}
+        touch {output.ready_flag}
+        """
+
+# 6. Install PHACTS once before any predictions
 rule install_phacts:
+    input:
+        logs_ready = f"{config['output_dir']}/logs/.logs_ready"
     output:
         phacts_dir = directory(f"{config['output_dir']}/db/phacts"),
         phacts_ready = f"{config['output_dir']}/db/phacts/.phacts_ready"
@@ -428,9 +446,6 @@ rule install_phacts:
         config["conda_envs"]["phacts"]
     shell:
         r"""
-        # Create log directory first
-        mkdir -p $(dirname {log})
-        
         # Create installation directory
         mkdir -p {output.phacts_dir}
         
@@ -450,12 +465,13 @@ rule install_phacts:
         touch {output.phacts_ready}
         """
 
-# 5a. Run PHACTS for lifestyle prediction on a single protein file batch
+# 7a. Run PHACTS for lifestyle prediction on a single protein file batch
 rule phacts_single_prediction:
     input:
         checkpoint = f"{config['output_dir']}/03_phacts_results/.splits_ready",
         input_check = f"{config['output_dir']}/03_phacts_results/.input_files_found",
         protein_file = f"{config['output_dir']}/03_split_proteins/{{sample}}.faa",
+        logs_ready = f"{config['output_dir']}/logs/.logs_ready",
         phacts_ready = f"{config['output_dir']}/db/phacts/.phacts_ready"
     output:
         result_dir = directory(f"{config['output_dir']}/03_phacts_results/tmp/{{sample}}"),
