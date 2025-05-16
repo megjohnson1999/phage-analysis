@@ -21,35 +21,14 @@ def get_phacts_path(config):
         tuple: (phacts_path, phacts_dir) where phacts_path is the path to the executable
                and phacts_dir is the directory containing PHACTS
     """
-    # First check if a path is provided in config
-    if 'databases' in config and 'phacts' in config['databases'] and 'path' in config['databases']['phacts']:
-        phacts_path = config['databases']['phacts']['path']
-        if os.path.isfile(phacts_path):
-            return phacts_path, os.path.dirname(phacts_path)
-            
-    # Next, try to find phacts.py in PATH
-    phacts_in_path = shutil.which('phacts.py')
-    if phacts_in_path:
-        return phacts_in_path, os.path.dirname(phacts_in_path)
+    # First check for workflow-installed PHACTS in the output directory
+    if 'output_dir' in config:
+        workflow_phacts = os.path.join(config['output_dir'], 'db/phacts/PHACTS/phacts.py')
+        if os.path.isfile(workflow_phacts):
+            return workflow_phacts, os.path.dirname(workflow_phacts)
     
-    # Check common installation locations
-    default_locations = [
-        "/home/luisalberto/Softwares/PHACTS/phacts.py",
-        os.path.expanduser("~/Software/PHACTS/PHACTS/phacts.py"),
-        os.path.expanduser("~/Softwares/PHACTS/phacts.py"),
-        os.path.expanduser("~/software/PHACTS/phacts.py"),
-        os.path.expanduser("~/phacts/phacts.py"),
-        # Check in conda environment
-        os.path.join(os.environ.get("CONDA_PREFIX", ""), "PHACTS/phacts.py"),
-        # Check in conda environment PHACTS subdirectory
-        os.path.join(os.environ.get("CONDA_PREFIX", ""), "PHACTS/PHACTS/phacts.py")
-    ]
-    
-    for location in default_locations:
-        if os.path.isfile(location):
-            return location, os.path.dirname(location)
-    
-    # Could not find PHACTS
+    # If we didn't find the workflow installation, we'll return None
+    # (the workflow should handle this by installing PHACTS)
     return None, None
 
 def generate_phacts_command(config, input_file, output_dir):
@@ -64,10 +43,9 @@ def generate_phacts_command(config, input_file, output_dir):
     Returns:
         str: A bash command that will properly run PHACTS
     """
-    phacts_path, phacts_dir = get_phacts_path(config)
-    
-    if not phacts_path:
-        raise ValueError("PHACTS executable not found. Please install PHACTS or specify its path in config.yaml.")
+    # Always use the workflow-installed version
+    phacts_dir = os.path.join(config['output_dir'], 'db/phacts/PHACTS')
+    phacts_path = os.path.join(phacts_dir, 'phacts.py')
     
     # Make phacts_dir an absolute path
     phacts_dir = os.path.abspath(phacts_dir)

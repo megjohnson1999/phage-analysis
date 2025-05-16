@@ -65,16 +65,10 @@ rule phacts_single_prediction:
         # Create output directory
         mkdir -p {output.result_dir}
         
-        # Get PHACTS path from config or use the installed version
-        if [ -n "{config.get('databases', {}).get('phacts', {}).get('path', '')}" ]; then
-            PHACTS_PATH="{config['databases']['phacts']['path']}"
-            PHACTS_DIR=$(dirname "$PHACTS_PATH")
-            echo "Using configured PHACTS at $PHACTS_PATH" > {log} 2>&1
-        else
-            PHACTS_PATH="{config['output_dir']}/db/phacts/PHACTS/phacts.py"
-            PHACTS_DIR="{config['output_dir']}/db/phacts/PHACTS"
-            echo "Using workflow-installed PHACTS at $PHACTS_PATH" > {log} 2>&1
-        fi
+        # Always use the workflow-installed version
+        PHACTS_PATH="{config['output_dir']}/db/phacts/PHACTS/phacts.py"
+        PHACTS_DIR="{config['output_dir']}/db/phacts/PHACTS"
+        echo "Using workflow-installed PHACTS at $PHACTS_PATH" > {log} 2>&1
         
         # Add PHACTS directory to PYTHONPATH and run
         export PYTHONPATH="$PHACTS_DIR:$PYTHONPATH"
