@@ -377,8 +377,7 @@ def get_phacts_samples():
 
 checkpoint wait_for_phacts_splits:
     input:
-        split_list = f"{config['output_dir']}/03_split_proteins/split_protein_list.txt",
-        log_dir = f"{config['output_dir']}/logs"
+        split_list = f"{config['output_dir']}/03_split_proteins/split_protein_list.txt"
     output:
         touch(f"{config['output_dir']}/03_phacts_results/.splits_ready")
     shell:
@@ -392,9 +391,7 @@ rule check_phacts_input_files:
         # Required protein predictions
         proteins = f"{config['output_dir']}/03_orf_predictions/proteins.faa",
         # Check that split files are created
-        split_list = f"{config['output_dir']}/03_split_proteins/split_protein_list.txt",
-        # Ensure logs dir exists
-        log_dir = f"{config['output_dir']}/logs"
+        split_list = f"{config['output_dir']}/03_split_proteins/split_protein_list.txt"
     output:
         touch(f"{config['output_dir']}/03_phacts_results/.input_files_found")
     log:
@@ -419,28 +416,20 @@ rule check_phacts_input_files:
         echo "All required input files for PHACTS were found" > {log} 2>&1
         """
 
-# 5. Create log directories for PHACTS
-rule prepare_log_dirs:
-    output:
-        log_dir = directory(f"{config['output_dir']}/logs"),
-        # No ready flag needed since PHACTS is installed by conda
-    shell:
-        """
-        # Create log directories
-        mkdir -p {output.log_dir}/phacts_prediction
-        """
+# We don't need a separate rule for log directories
+# Snakemake will create them automatically
 
-# 6. Run PHACTS for lifestyle prediction on a single protein file batch
+# 5. Run PHACTS for lifestyle prediction on a single protein file batch
 rule phacts_single_prediction:
     input:
         checkpoint = f"{config['output_dir']}/03_phacts_results/.splits_ready",
         input_check = f"{config['output_dir']}/03_phacts_results/.input_files_found",
-        protein_file = f"{config['output_dir']}/03_split_proteins/{{sample}}.faa",
-        log_dir = f"{config['output_dir']}/logs",
+        protein_file = f"{config['output_dir']}/03_split_proteins/{{sample}}.faa"
     output:
         result_dir = directory(f"{config['output_dir']}/03_phacts_results/tmp/{{sample}}"),
-        result = f"{config['output_dir']}/03_phacts_results/tmp/{{sample}}/{{sample}}.phacts.out",
-        log_file = f"{config['output_dir']}/logs/phacts_prediction/{{sample}}.log"
+        result = f"{config['output_dir']}/03_phacts_results/tmp/{{sample}}/{{sample}}.phacts.out"
+    log:
+        f"{config['output_dir']}/logs/phacts_prediction/{{sample}}.log"
     threads: 4
     conda:
         config["conda_envs"]["phacts"]
@@ -451,22 +440,19 @@ rule phacts_single_prediction:
         # Create output directory
         mkdir -p {params.output_dir}
         
-        # Create log file
-        touch {output.log_file}
-        
         # Get the filename without extension
         NAME=$(basename {input.protein_file} .faa)
         
         # Run PHACTS (installed via conda environment)
-        echo "Running PHACTS via conda environment" >&2
-        phacts {input.protein_file} -o {params.output_dir} >/dev/null 2>&1
+        echo "Running PHACTS via conda environment" > {log} 2>&1
+        phacts {input.protein_file} -o {params.output_dir} >> {log} 2>&1
         
         # Check if output file exists and rename it
         if [ -f "{params.output_dir}/prediction.txt" ]; then
             mv {params.output_dir}/prediction.txt {output.result}
-            echo "Prediction completed successfully" > {output.log_file}
+            echo "Prediction completed successfully" >> {log} 2>&1
         else
-            echo "PHACTS failed to produce output. Creating placeholder file." > {output.log_file}
+            echo "PHACTS failed to produce output. Creating placeholder file." >> {log} 2>&1
             echo "No prediction was made for $NAME" > {output.result}
         fi
         """
