@@ -433,33 +433,21 @@ rule phacts_single_prediction:
     threads: 4
     conda:
         config["conda_envs"]["phacts"]
-    params:
-        output_dir = lambda w, output: output.result_dir,
-        # Your coworker's PHACTS installation path
-        phacts_path = "/home/luisalberto/Softwares/PHACTS/phacts.py"
     shell:
         r"""
         # Create output directory
-        mkdir -p {params.output_dir}
+        mkdir -p {output.result_dir}
         
         # Get the filename without extension
         NAME=$(basename {input.protein_file} .faa)
         
-        # Set up the environment
-        PHACTS_PATH="{params.phacts_path}"
-        PHACTS_DIR=$(dirname "$PHACTS_PATH")
-        
-        # Add PHACTS to both PATH and PYTHONPATH
-        export PATH="$PHACTS_DIR:$PATH"
-        export PYTHONPATH="$PHACTS_DIR:$PYTHONPATH"
-        
-        # Run PHACTS directly
-        echo "Running PHACTS from: $PHACTS_PATH" > {log} 2>&1
-        python "$PHACTS_PATH" {input.protein_file} -o {params.output_dir} >> {log} 2>&1
+        # Run PHACTS exactly as in coworker's script
+        echo "Running PHACTS" > {log} 2>&1
+        python /home/luisalberto/Softwares/PHACTS/phacts.py {input.protein_file} -o {output.result_dir} >> {log} 2>&1
         
         # Check if output file exists and rename it
-        if [ -f "{params.output_dir}/prediction.txt" ]; then
-            mv {params.output_dir}/prediction.txt {output.result}
+        if [ -f "{output.result_dir}/prediction.txt" ]; then
+            mv {output.result_dir}/prediction.txt {output.result}
             echo "Prediction completed successfully" >> {log} 2>&1
         else
             echo "PHACTS failed to produce output. Creating placeholder file." >> {log} 2>&1
