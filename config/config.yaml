@@ -14,6 +14,10 @@ reads_dir: "/path/to/reads"  # Directory containing sequencing reads
 # Pipeline configuration
 do_clustering: true  # Set to false to skip clustering
 
+# PHACTS configuration
+phacts_version: "main"  # Git branch or tag for PHACTS
+phacts_url: "https://github.com/deprekate/PHACTS.git"  # PHACTS repository URL
+
 databases:
   iphop:
     db: "/ref/sahlab/data/viral_analysis_DBs/iphop_DBs/Aug_2023_pub_rw"
@@ -37,10 +41,11 @@ databases:
     db: "/ref/sahlab/data/protein_Structure_DBs/phold"
     
   phacts:
-    # Path to PHACTS script, uncomment and edit to use a specific installation
-    # Leave commented to use PATH-based installation
-    path: "/home/luisalberto/Softwares/PHACTS/phacts.py"
-  
+    # Path to PHACTS script - Optional override
+    # If not specified, PHACTS will be installed under output_dir/db/phacts/
+    # path: "/home/luisalberto/Softwares/PHACTS/phacts.py"
+    # Leave commented to use workflow-installed version
+    pass
 
 params:    
   vclust:
