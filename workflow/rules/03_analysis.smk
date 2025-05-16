@@ -428,6 +428,9 @@ rule install_phacts:
         config["conda_envs"]["phacts"]
     shell:
         r"""
+        # Create log directory first
+        mkdir -p $(dirname {log})
+        
         # Create installation directory
         mkdir -p {output.phacts_dir}
         
