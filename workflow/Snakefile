@@ -16,6 +16,7 @@ configfile: "../config/config.yaml"
 include: "rules/01_prediction.smk"
 include: "rules/02_clustering.smk"
 include: "rules/03_analysis.smk"
+include: "rules/03_analysis_phacts_fix.smk"  # Ensure PHACTS fixes are loaded
 
 # Import needed for file existence checks
 import os
@@ -59,6 +60,9 @@ use_reneo = False
 # Default target rule
 rule all:
     input:
+        # First, ensure PHACTS is installed
+        f"{config['output_dir']}/db/phacts/.installed",
+        
         # Start with appropriate filtered assembly based on whether Reneo will run
         lambda wildcards:
             [f"{config['output_dir']}/01_reneo_output/genomes_and_unresolved_edges_1KB.fasta"] 

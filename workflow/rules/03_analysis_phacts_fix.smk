@@ -62,6 +62,47 @@ EOL
         echo "PHACTS installation complete" >> {log} 2>&1
         """
 
+# Check if input files exist for PHACTS (with explicit dependency on PHACTS installation)
+rule check_phacts_input_files:
+    input:
+        # Prerequisite - splits must be ready
+        splits_ready = f"{config['output_dir']}/03_phacts_results/.splits_ready",
+        # Required protein predictions
+        proteins = f"{config['output_dir']}/03_orf_predictions/proteins.faa",
+        # Check that split files are created
+        split_list = f"{config['output_dir']}/03_split_proteins/split_protein_list.txt",
+        # Add explicit dependency on PHACTS installation
+        phacts_installed = f"{config['output_dir']}/db/phacts/.installed"
+    output:
+        touch(f"{config['output_dir']}/03_phacts_results/.input_files_found")
+    log:
+        f"{config['output_dir']}/logs/check_phacts_input_files.log"
+    shell:
+        """
+        # Check if protein file exists
+        if [ ! -f "{input.proteins}" ]; then
+            echo "Error: Protein file does not exist: {input.proteins}" > {log} 2>&1
+            exit 1
+        fi
+        
+        # Check if split list exists and has content
+        if [ ! -s "{input.split_list}" ]; then
+            echo "Warning: Split protein file list is empty or doesn't exist: {input.split_list}" > {log} 2>&1
+            echo "Creating a placeholder split list..." >> {log} 2>&1
+            mkdir -p $(dirname {input.split_list})
+            touch {input.split_list}
+        fi
+        
+        # Check if PHACTS is properly installed
+        if [ ! -f "{input.phacts_installed}" ]; then
+            echo "Error: PHACTS installation not found. Please run install_phacts rule first." > {log} 2>&1
+            exit 1
+        fi
+        
+        # Everything checked out, all input files exist
+        echo "All required input files for PHACTS were found" > {log} 2>&1
+        """
+
 # 5a. Run PHACTS for lifestyle prediction on a single protein file batch (UPDATED version)
 rule phacts_single_prediction:
     input:
@@ -133,3 +174,29 @@ rule phacts_single_prediction:
             echo "No prediction was made for this batch" > {output.result}
         fi
         """
+
+# Modified: Explicitly make sure install_phacts rule is included in the workflow
+# Helper rule to force running all phacts predictions (now includes install dependency)
+rule run_all_phacts_predictions:
+    input:
+        # Add explicit dependency on PHACTS installation
+        phacts_installed = f"{config['output_dir']}/db/phacts/.installed",
+        checkpoint = f"{config['output_dir']}/03_phacts_results/.splits_ready",
+        input_check = f"{config['output_dir']}/03_phacts_results/.input_files_found",
+        # For actual runs, get samples from the split files
+        # For dry runs, this will be an empty list, which is fine
+        samples = lambda wildcards: expand(
+            f"{config['output_dir']}/03_phacts_results/tmp/{{sample}}/{{sample}}.phacts.out",
+            sample=get_phacts_samples()
+        )
+    output:
+        touch(f"{config['output_dir']}/03_phacts_results/.all_predictions_done")
+
+# New rule to ensure PHACTS is installed as a prerequisite to any PHACTS-related rules
+rule ensure_phacts_installed:
+    input:
+        f"{config['output_dir']}/db/phacts/.installed"
+    output:
+        touch(f"{config['output_dir']}/.phacts_ready")
+    shell:
+        "echo 'PHACTS is properly installed and ready to use'"
