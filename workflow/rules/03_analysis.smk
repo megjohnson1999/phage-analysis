@@ -416,6 +416,9 @@ rule check_phacts_input_files:
         echo "All required input files for PHACTS were found" > {log} 2>&1
         """
 
+# Get auto_install setting with proper Python evaluation before it's used in the shell command
+phacts_auto_install = str(config.get('databases', {}).get('phacts', {}).get('auto_install', True)).lower()
+
 # 5a. Run PHACTS for lifestyle prediction on a single protein file batch
 # Improved version with better path handling and error recovery
 rule phacts_single_prediction:
@@ -431,6 +434,8 @@ rule phacts_single_prediction:
         f"{config['output_dir']}/logs/phacts_prediction/{{sample}}.log"
     conda:
         config["conda_envs"]["phacts"]
+    params:
+        auto_install = phacts_auto_install
     shell:
         r"""
         # Create output directory
@@ -504,7 +509,7 @@ rule phacts_single_prediction:
         fi
         
         # If still not found, try automatic installation if enabled
-        if [ -z "$PHACTS_PATH" ] && [ "{config.get('databases', {}).get('phacts', {}).get('auto_install', True)}" = "True" ]; then
+        if [ -z "$PHACTS_PATH" ] && [ "{params.auto_install}" = "true" ]; then
             echo "PHACTS not found. Attempting automatic installation..." >> {log} 2>&1
             
             # Create installation directory
