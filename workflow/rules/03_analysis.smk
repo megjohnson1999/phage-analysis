@@ -439,9 +439,9 @@ rule install_phacts:
         logs_ready = f"{config['output_dir']}/logs/.logs_ready"
     output:
         phacts_dir = directory(f"{config['output_dir']}/db/phacts"),
-        phacts_ready = f"{config['output_dir']}/db/phacts/.phacts_ready"
-    log:
-        f"{config['output_dir']}/logs/install_phacts.log"
+        phacts_ready = f"{config['output_dir']}/db/phacts/.phacts_ready",
+        # Use installation log as an output to avoid log parameter issues
+        install_log = f"{config['output_dir']}/logs/install_phacts.log"
     conda:
         config["conda_envs"]["phacts"]
     shell:
@@ -449,13 +449,16 @@ rule install_phacts:
         # Create installation directory
         mkdir -p {output.phacts_dir}
         
+        # Create log file
+        touch {output.install_log}
+        
         # Install PHACTS if not already present
         if [ ! -d "{output.phacts_dir}/PHACTS" ]; then
-            echo "Installing PHACTS to {output.phacts_dir}" > {log} 2>&1
+            echo "Installing PHACTS to {output.phacts_dir}" > {output.install_log}
             cd {output.phacts_dir}
-            git clone https://github.com/deprekate/PHACTS.git >> {log} 2>&1
+            git clone https://github.com/deprekate/PHACTS.git >> {output.install_log} 2>&1
         else
-            echo "PHACTS already installed in {output.phacts_dir}" > {log} 2>&1
+            echo "PHACTS already installed in {output.phacts_dir}" > {output.install_log}
         fi
         
         # Create __init__.py file for proper imports
