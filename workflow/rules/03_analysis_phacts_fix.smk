@@ -141,7 +141,7 @@ rule phacts_single_prediction_v2:
         echo "Using workflow-installed PHACTS at $PHACTS_PATH" > {log} 2>&1
         
         # Enhanced debugging information
-        echo $'\\n==== PHACTS DEBUG INFO ====' >> {log} 2>&1
+        echo -e "\\n==== PHACTS DEBUG INFO ====" >> {log} 2>&1
         echo "Python version: $(python --version 2>&1)" >> {log} 2>&1
         echo "PHACTS_PATH: $PHACTS_PATH" >> {log} 2>&1
         echo "PHACTS_DIR exists: $(test -d "$PHACTS_DIR" && echo "Yes" || echo "No")" >> {log} 2>&1
@@ -149,15 +149,15 @@ rule phacts_single_prediction_v2:
         echo "__init__.py exists: $(test -f "$PHACTS_DIR/__init__.py" && echo "Yes" || echo "No")" >> {log} 2>&1
         echo "Directory listing of PHACTS:" >> {log} 2>&1
         ls -la "$PHACTS_DIR" >> {log} 2>&1 2>&1 || echo "Failed to list directory" >> {log} 2>&1
-        echo $'=========================\\n' >> {log} 2>&1
+        echo -e "=========================\\n" >> {log} 2>&1
         
         # Run the debug script to diagnose import issues
-        echo $'\\n==== RUNNING DIAGNOSTIC SCRIPT ====' >> {log} 2>&1
+        echo -e "\\n==== RUNNING DIAGNOSTIC SCRIPT ====" >> {log} 2>&1
         python "$(dirname {workflow.basedir})/scripts/debug_phacts.py" --output-dir "{config['output_dir']}" >> {log} 2>&1 || true
-        echo $'=================================\\n' >> {log} 2>&1
+        echo -e "=================================\\n" >> {log} 2>&1
         
         # Add PHACTS directory to PYTHONPATH and run with enhanced setup
-        echo $'\\n==== RUNNING PHACTS WITH MODIFIED ENVIRONMENT ====' >> {log} 2>&1
+        echo -e "\\n==== RUNNING PHACTS WITH MODIFIED ENVIRONMENT ====" >> {log} 2>&1
         # Add both the PHACTS directory and its parent to PYTHONPATH
         export PYTHONPATH="$PHACTS_DIR:$PHACTS_PARENT:$PYTHONPATH"
         echo "PYTHONPATH: $PYTHONPATH" >> {log} 2>&1
@@ -174,7 +174,7 @@ rule phacts_single_prediction_v2:
             echo "Failed with direct execution, trying with -m module syntax..." >> {log} 2>&1
             cd "$PHACTS_PARENT" && python -m PHACTS.phacts "{input.protein_file}" -o "{output.result_dir}" >> {log} 2>&1 || echo "All execution attempts failed" >> {log} 2>&1
         }}
-        echo $'=================================================\\n' >> {log} 2>&1
+        echo -e "=================================================\\n" >> {log} 2>&1
         
         # Rename the output file to match expected format
         if [ -f "{output.result_dir}/prediction.txt" ]; then
