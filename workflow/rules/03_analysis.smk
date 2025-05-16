@@ -449,20 +449,21 @@ rule install_phacts:
         # Create installation directory
         mkdir -p {output.phacts_dir}
         
-        # Create log file
-        touch {output.install_log}
-        
+        # Completely avoid using log file - just redirect output to null
         # Install PHACTS if not already present
         if [ ! -d "{output.phacts_dir}/PHACTS" ]; then
-            echo "Installing PHACTS to {output.phacts_dir}" > {output.install_log}
+            echo "Installing PHACTS" >&2
             cd {output.phacts_dir}
-            git clone https://github.com/deprekate/PHACTS.git >> {output.install_log} 2>&1
+            git clone https://github.com/deprekate/PHACTS.git >/dev/null 2>&1
         else
-            echo "PHACTS already installed in {output.phacts_dir}" > {output.install_log}
+            echo "PHACTS already installed" >&2
         fi
         
         # Create __init__.py file for proper imports
         touch "{output.phacts_dir}/PHACTS/__init__.py"
+        
+        # Create empty log file as required by the output
+        touch {output.install_log}
         
         # Create ready flag
         touch {output.phacts_ready}
@@ -478,10 +479,10 @@ rule phacts_single_prediction:
         phacts_ready = f"{config['output_dir']}/db/phacts/.phacts_ready"
     output:
         result_dir = directory(f"{config['output_dir']}/03_phacts_results/tmp/{{sample}}"),
-        result = f"{config['output_dir']}/03_phacts_results/tmp/{{sample}}/{{sample}}.phacts.out"
+        result = f"{config['output_dir']}/03_phacts_results/tmp/{{sample}}/{{sample}}.phacts.out",
+        # Include log file as output to avoid issues
+        log_file = f"{config['output_dir']}/logs/phacts_prediction/{{sample}}.log"
     threads: 4
-    log:
-        f"{config['output_dir']}/logs/phacts_prediction/{{sample}}.log"
     conda:
         config["conda_envs"]["phacts"]
     params:
@@ -491,6 +492,9 @@ rule phacts_single_prediction:
         r"""
         # Create output directory
         mkdir -p {params.output_dir}
+        
+        # Create log file
+        touch {output.log_file}
         
         # Get the filename without extension
         NAME=$(basename {input.protein_file} .faa)
@@ -502,22 +506,22 @@ rule phacts_single_prediction:
         # Set PYTHONPATH for imports
         export PYTHONPATH="$PHACTS_DIR:{params.phacts_dir}:$PYTHONPATH"
         
-        # Run PHACTS
-        echo "Running PHACTS with path: $PHACTS_PATH" > {log} 2>&1
-        python "$PHACTS_PATH" {input.protein_file} -o {params.output_dir} >> {log} 2>&1
+        # Run PHACTS - redirect to stderr instead of log file
+        echo "Running PHACTS with path: $PHACTS_PATH" >&2
+        python "$PHACTS_PATH" {input.protein_file} -o {params.output_dir} >/dev/null 2>&1
         
         # If failed to run normally, try alternative method
         if [ ! -f "{params.output_dir}/prediction.txt" ]; then
-            echo "First attempt failed, trying with module path..." >> {log} 2>&1
-            cd "{params.phacts_dir}" && python -m PHACTS.phacts {input.protein_file} -o {params.output_dir} >> {log} 2>&1 || true
+            echo "First attempt failed, trying with module path..." >&2
+            cd "{params.phacts_dir}" && python -m PHACTS.phacts {input.protein_file} -o {params.output_dir} >/dev/null 2>&1 || true
         fi
         
         # Check if output file exists and rename it
         if [ -f "{params.output_dir}/prediction.txt" ]; then
             mv {params.output_dir}/prediction.txt {output.result}
-            echo "Prediction completed successfully" >> {log} 2>&1
+            echo "Prediction completed successfully" > {output.log_file}
         else
-            echo "PHACTS failed to produce output. Creating placeholder file." >> {log} 2>&1
+            echo "PHACTS failed to produce output. Creating placeholder file." > {output.log_file}
             echo "No prediction was made for $NAME" > {output.result}
         fi
         """
