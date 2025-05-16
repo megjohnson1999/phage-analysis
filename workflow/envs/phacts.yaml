@@ -15,5 +15,6 @@ dependencies:
   - pip
   - pip:
     - libsvm
-    # PHACTS is installed by the Snakemake workflow
-    # No need to install manually
+    - phacts
+    # Installing PHACTS directly through pip
+    # No more manual installation needed

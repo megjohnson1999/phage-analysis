@@ -378,8 +378,7 @@ def get_phacts_samples():
 checkpoint wait_for_phacts_splits:
     input:
         split_list = f"{config['output_dir']}/03_split_proteins/split_protein_list.txt",
-        logs_ready = f"{config['output_dir']}/logs/.logs_ready", 
-        phacts_ready = f"{config['output_dir']}/db/phacts/.phacts_ready"
+        log_dir = f"{config['output_dir']}/logs"
     output:
         touch(f"{config['output_dir']}/03_phacts_results/.splits_ready")
     shell:
@@ -395,7 +394,7 @@ rule check_phacts_input_files:
         # Check that split files are created
         split_list = f"{config['output_dir']}/03_split_proteins/split_protein_list.txt",
         # Ensure logs dir exists
-        logs_ready = f"{config['output_dir']}/logs/.logs_ready"
+        log_dir = f"{config['output_dir']}/logs"
     output:
         touch(f"{config['output_dir']}/03_phacts_results/.input_files_found")
     log:
@@ -420,74 +419,33 @@ rule check_phacts_input_files:
         echo "All required input files for PHACTS were found" > {log} 2>&1
         """
 
-# 5. Create log directories and prepare for PHACTS
-rule prepare_phacts_directories:
+# 5. Create log directories for PHACTS
+rule prepare_log_dirs:
     output:
         log_dir = directory(f"{config['output_dir']}/logs"),
-        # Don't claim the phacts_prediction directory as an output, just create it
-        ready_flag = f"{config['output_dir']}/logs/.logs_ready"
+        # No ready flag needed since PHACTS is installed by conda
     shell:
         """
-        mkdir -p {output.log_dir}
-        mkdir -p {config[output_dir]}/logs/phacts_prediction
-        touch {output.ready_flag}
+        # Create log directories
+        mkdir -p {output.log_dir}/phacts_prediction
         """
 
-# 6. Install PHACTS once before any predictions
-rule install_phacts:
-    input:
-        logs_ready = f"{config['output_dir']}/logs/.logs_ready"
-    output:
-        phacts_dir = directory(f"{config['output_dir']}/db/phacts"),
-        phacts_ready = f"{config['output_dir']}/db/phacts/.phacts_ready",
-        # Use installation log as an output to avoid log parameter issues
-        install_log = f"{config['output_dir']}/logs/install_phacts.log"
-    conda:
-        config["conda_envs"]["phacts"]
-    shell:
-        r"""
-        # Create installation directory
-        mkdir -p {output.phacts_dir}
-        
-        # Completely avoid using log file - just redirect output to null
-        # Install PHACTS if not already present
-        if [ ! -d "{output.phacts_dir}/PHACTS" ]; then
-            echo "Installing PHACTS" >&2
-            cd {output.phacts_dir}
-            git clone https://github.com/deprekate/PHACTS.git >/dev/null 2>&1
-        else
-            echo "PHACTS already installed" >&2
-        fi
-        
-        # Create __init__.py file for proper imports
-        touch "{output.phacts_dir}/PHACTS/__init__.py"
-        
-        # Create empty log file as required by the output
-        touch {output.install_log}
-        
-        # Create ready flag
-        touch {output.phacts_ready}
-        """
-
-# 7a. Run PHACTS for lifestyle prediction on a single protein file batch
+# 6. Run PHACTS for lifestyle prediction on a single protein file batch
 rule phacts_single_prediction:
     input:
         checkpoint = f"{config['output_dir']}/03_phacts_results/.splits_ready",
         input_check = f"{config['output_dir']}/03_phacts_results/.input_files_found",
         protein_file = f"{config['output_dir']}/03_split_proteins/{{sample}}.faa",
-        logs_ready = f"{config['output_dir']}/logs/.logs_ready",
-        phacts_ready = f"{config['output_dir']}/db/phacts/.phacts_ready"
+        log_dir = f"{config['output_dir']}/logs",
     output:
         result_dir = directory(f"{config['output_dir']}/03_phacts_results/tmp/{{sample}}"),
         result = f"{config['output_dir']}/03_phacts_results/tmp/{{sample}}/{{sample}}.phacts.out",
-        # Include log file as output to avoid issues
         log_file = f"{config['output_dir']}/logs/phacts_prediction/{{sample}}.log"
     threads: 4
     conda:
         config["conda_envs"]["phacts"]
     params:
-        output_dir = lambda w, output: output.result_dir,
-        phacts_dir = f"{config['output_dir']}/db/phacts"
+        output_dir = lambda w, output: output.result_dir
     shell:
         r"""
         # Create output directory
@@ -499,22 +457,9 @@ rule phacts_single_prediction:
         # Get the filename without extension
         NAME=$(basename {input.protein_file} .faa)
         
-        # Set paths to PHACTS
-        PHACTS_DIR="{params.phacts_dir}/PHACTS"
-        PHACTS_PATH="$PHACTS_DIR/phacts.py"
-        
-        # Set PYTHONPATH for imports
-        export PYTHONPATH="$PHACTS_DIR:{params.phacts_dir}:$PYTHONPATH"
-        
-        # Run PHACTS - redirect to stderr instead of log file
-        echo "Running PHACTS with path: $PHACTS_PATH" >&2
-        python "$PHACTS_PATH" {input.protein_file} -o {params.output_dir} >/dev/null 2>&1
-        
-        # If failed to run normally, try alternative method
-        if [ ! -f "{params.output_dir}/prediction.txt" ]; then
-            echo "First attempt failed, trying with module path..." >&2
-            cd "{params.phacts_dir}" && python -m PHACTS.phacts {input.protein_file} -o {params.output_dir} >/dev/null 2>&1 || true
-        fi
+        # Run PHACTS (installed via conda environment)
+        echo "Running PHACTS via conda environment" >&2
+        phacts {input.protein_file} -o {params.output_dir} >/dev/null 2>&1
         
         # Check if output file exists and rename it
         if [ -f "{params.output_dir}/prediction.txt" ]; then
@@ -531,7 +476,6 @@ rule run_all_phacts_predictions:
     input:
         checkpoint = f"{config['output_dir']}/03_phacts_results/.splits_ready",
         input_check = f"{config['output_dir']}/03_phacts_results/.input_files_found",
-        phacts_ready = f"{config['output_dir']}/db/phacts/.phacts_ready",
         # For actual runs, get samples from the split files
         # For dry runs, this will be an empty list, which is fine
         samples = lambda wildcards: expand(
@@ -541,13 +485,12 @@ rule run_all_phacts_predictions:
     output:
         touch(f"{config['output_dir']}/03_phacts_results/.all_predictions_done")
 
-# 5b. Aggregate PHACTS results
+# 7. Aggregate PHACTS results
 rule phacts_aggregate_results:
     input:
         # This is the key part that makes the parallelization work
         # Aggregation only happens after all individual predictions are done
         all_done = f"{config['output_dir']}/03_phacts_results/.all_predictions_done",
-        phacts_ready = f"{config['output_dir']}/db/phacts/.phacts_ready",
         predictions = lambda wildcards: expand(
             f"{config['output_dir']}/03_phacts_results/tmp/{{sample}}/{{sample}}.phacts.out",
             sample=get_phacts_samples()
