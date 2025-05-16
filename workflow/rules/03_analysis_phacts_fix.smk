@@ -38,6 +38,23 @@ rule install_phacts:
         echo "Installing PHACTS with pip..." >> {log} 2>&1
         pip install -e . >> {log} 2>&1
         
+        # Create __init__.py files to ensure proper package structure
+        echo "Creating __init__.py files to ensure proper package structure" >> {log} 2>&1
+        touch __init__.py
+        
+        # Create a wrapper script that sets PYTHONPATH correctly
+        echo "Creating wrapper script for reliable execution" >> {log} 2>&1
+        cat > ../run_phacts.sh << EOL
+#!/bin/bash
+
+# Set PYTHONPATH to include PHACTS directory and parent
+export PYTHONPATH="\$(dirname \$0)/PHACTS:\$(dirname \$0):\$PYTHONPATH"
+
+# Run PHACTS with all arguments passed to this script
+python "\$(dirname \$0)/PHACTS/phacts.py" "\$@"
+EOL
+        chmod +x ../run_phacts.sh
+        
         # Create flag file to indicate successful installation
         cd ..
         touch .installed
@@ -68,11 +85,44 @@ rule phacts_single_prediction:
         # Always use the workflow-installed version
         PHACTS_PATH="{config['output_dir']}/db/phacts/PHACTS/phacts.py"
         PHACTS_DIR="{config['output_dir']}/db/phacts/PHACTS"
+        PHACTS_PARENT=$(dirname "$PHACTS_DIR")
         echo "Using workflow-installed PHACTS at $PHACTS_PATH" > {log} 2>&1
         
-        # Add PHACTS directory to PYTHONPATH and run
-        export PYTHONPATH="$PHACTS_DIR:$PYTHONPATH"
-        python "$PHACTS_PATH" {input.protein_file} -o {output.result_dir} >> {log} 2>&1
+        # Enhanced debugging information
+        echo "\n==== PHACTS DEBUG INFO ====" >> {log} 2>&1
+        echo "Python version: $(python --version 2>&1)" >> {log} 2>&1
+        echo "PHACTS_PATH: $PHACTS_PATH" >> {log} 2>&1
+        echo "PHACTS_DIR exists: $(test -d "$PHACTS_DIR" && echo "Yes" || echo "No")" >> {log} 2>&1
+        echo "phacts.py exists: $(test -f "$PHACTS_PATH" && echo "Yes" || echo "No")" >> {log} 2>&1
+        echo "__init__.py exists: $(test -f "$PHACTS_DIR/__init__.py" && echo "Yes" || echo "No")" >> {log} 2>&1
+        echo "Directory listing of PHACTS:" >> {log} 2>&1
+        ls -la "$PHACTS_DIR" >> {log} 2>&1 2>&1 || echo "Failed to list directory" >> {log} 2>&1
+        echo "=========================\n" >> {log} 2>&1
+        
+        # Run the debug script to diagnose import issues
+        echo "\n==== RUNNING DIAGNOSTIC SCRIPT ====" >> {log} 2>&1
+        python "{workflow.basedir}/../scripts/debug_phacts.py" --output-dir "{config['output_dir']}" >> {log} 2>&1 || true
+        echo "=================================\n" >> {log} 2>&1
+        
+        # Add PHACTS directory to PYTHONPATH and run with enhanced setup
+        echo "\n==== RUNNING PHACTS WITH MODIFIED ENVIRONMENT ====" >> {log} 2>&1
+        # Add both the PHACTS directory and its parent to PYTHONPATH
+        export PYTHONPATH="$PHACTS_DIR:$PHACTS_PARENT:$PYTHONPATH"
+        echo "PYTHONPATH: $PYTHONPATH" >> {log} 2>&1
+        
+        # Create __init__.py if missing (this makes a directory a proper Python package)
+        if [ ! -f "$PHACTS_DIR/__init__.py" ]; then
+            echo "Creating missing __init__.py file" >> {log} 2>&1
+            touch "$PHACTS_DIR/__init__.py"
+        fi
+        
+        # Try with direct module execution
+        echo "Attempting to run PHACTS..." >> {log} 2>&1
+        python "$PHACTS_PATH" {input.protein_file} -o {output.result_dir} >> {log} 2>&1 || {{  
+            echo "Failed with direct execution, trying with -m module syntax..." >> {log} 2>&1
+            cd "$PHACTS_PARENT" && python -m PHACTS.phacts "{input.protein_file}" -o "{output.result_dir}" >> {log} 2>&1 || echo "All execution attempts failed" >> {log} 2>&1
+        }}
+        echo "=================================================\n" >> {log} 2>&1
         
         # Rename the output file to match expected format
         if [ -f "{output.result_dir}/prediction.txt" ]; then
