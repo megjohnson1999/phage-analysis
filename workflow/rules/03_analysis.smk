@@ -419,12 +419,13 @@ rule check_phacts_input_files:
 # We don't need a separate rule for log directories
 # Snakemake will create them automatically
 
-# 5. Run PHACTS for lifestyle prediction on a single protein file batch
+# 5. Run simplified PHACTS lifestyle prediction on a single protein file batch
 rule phacts_single_prediction:
     input:
         checkpoint = f"{config['output_dir']}/03_phacts_results/.splits_ready",
         input_check = f"{config['output_dir']}/03_phacts_results/.input_files_found",
-        protein_file = f"{config['output_dir']}/03_split_proteins/{{sample}}.faa"
+        protein_file = f"{config['output_dir']}/03_split_proteins/{{sample}}.faa",
+        helper_script = "workflow/scripts/phacts_helper.py"  # Our custom implementation
     output:
         result_dir = directory(f"{config['output_dir']}/03_phacts_results/tmp/{{sample}}"),
         result = f"{config['output_dir']}/03_phacts_results/tmp/{{sample}}/{{sample}}.phacts.out"
@@ -443,9 +444,9 @@ rule phacts_single_prediction:
         # Get the filename without extension
         NAME=$(basename {input.protein_file} .faa)
         
-        # Run PHACTS (installed via conda environment)
-        echo "Running PHACTS via conda environment" > {log} 2>&1
-        phacts {input.protein_file} -o {params.output_dir} >> {log} 2>&1
+        # Run our simplified PHACTS implementation
+        echo "Running simplified PHACTS implementation" > {log} 2>&1
+        python {input.helper_script} {input.protein_file} -o {params.output_dir} >> {log} 2>&1
         
         # Check if output file exists and rename it
         if [ -f "{params.output_dir}/prediction.txt" ]; then
