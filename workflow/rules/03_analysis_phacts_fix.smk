@@ -72,7 +72,8 @@ EOL
         """
 
 # Check if input files exist for PHACTS (with explicit dependency on PHACTS installation)
-rule check_phacts_input_files:
+# Renamed to avoid conflict with the rule in 03_analysis.smk
+rule check_phacts_installation:
     input:
         # Prerequisite - splits must be ready
         splits_ready = f"{config['output_dir']}/03_phacts_results/.splits_ready",
@@ -83,9 +84,9 @@ rule check_phacts_input_files:
         # Add explicit dependency on PHACTS installation
         phacts_installed = f"{config['output_dir']}/db/phacts/.installed"
     output:
-        touch(f"{config['output_dir']}/03_phacts_results/.input_files_found")
+        touch(f"{config['output_dir']}/03_phacts_results/.installation_verified")
     log:
-        f"{config['output_dir']}/logs/check_phacts_input_files.log"
+        f"{config['output_dir']}/logs/check_phacts_installation.log"
     shell:
         """
         # Check if protein file exists
@@ -109,14 +110,14 @@ rule check_phacts_input_files:
         fi
         
         # Everything checked out, all input files exist
-        echo "All required input files for PHACTS were found" > {log} 2>&1
+        echo "All required input files for PHACTS were found and installation verified" > {log} 2>&1
         """
 
 # 5a. Run PHACTS for lifestyle prediction on a single protein file batch (UPDATED version)
-rule phacts_single_prediction:
+rule phacts_single_prediction_v2:
     input:
         install_check = f"{config['output_dir']}/db/phacts/.installed",
-        checkpoint = f"{config['output_dir']}/03_phacts_results/.splits_ready",
+        installation_verified = f"{config['output_dir']}/03_phacts_results/.installation_verified",
         input_check = f"{config['output_dir']}/03_phacts_results/.input_files_found",
         protein_file = f"{config['output_dir']}/03_split_proteins/{{sample}}.faa"
     output:
@@ -139,7 +140,7 @@ rule phacts_single_prediction:
         echo "Using workflow-installed PHACTS at $PHACTS_PATH" > {log} 2>&1
         
         # Enhanced debugging information
-        echo "\\n==== PHACTS DEBUG INFO ====" >> {log} 2>&1
+        echo $'\\n==== PHACTS DEBUG INFO ====' >> {log} 2>&1
         echo "Python version: $(python --version 2>&1)" >> {log} 2>&1
         echo "PHACTS_PATH: $PHACTS_PATH" >> {log} 2>&1
         echo "PHACTS_DIR exists: $(test -d "$PHACTS_DIR" && echo "Yes" || echo "No")" >> {log} 2>&1
@@ -147,15 +148,15 @@ rule phacts_single_prediction:
         echo "__init__.py exists: $(test -f "$PHACTS_DIR/__init__.py" && echo "Yes" || echo "No")" >> {log} 2>&1
         echo "Directory listing of PHACTS:" >> {log} 2>&1
         ls -la "$PHACTS_DIR" >> {log} 2>&1 2>&1 || echo "Failed to list directory" >> {log} 2>&1
-        echo "=========================\\n" >> {log} 2>&1
+        echo $'=========================\\n' >> {log} 2>&1
         
         # Run the debug script to diagnose import issues
-        echo "\\n==== RUNNING DIAGNOSTIC SCRIPT ====" >> {log} 2>&1
+        echo $'\\n==== RUNNING DIAGNOSTIC SCRIPT ====' >> {log} 2>&1
         python "$(dirname {workflow.basedir})/scripts/debug_phacts.py" --output-dir "{config['output_dir']}" >> {log} 2>&1 || true
-        echo "=================================\\n" >> {log} 2>&1
+        echo $'=================================\\n' >> {log} 2>&1
         
         # Add PHACTS directory to PYTHONPATH and run with enhanced setup
-        echo "\\n==== RUNNING PHACTS WITH MODIFIED ENVIRONMENT ====" >> {log} 2>&1
+        echo $'\\n==== RUNNING PHACTS WITH MODIFIED ENVIRONMENT ====' >> {log} 2>&1
         # Add both the PHACTS directory and its parent to PYTHONPATH
         export PYTHONPATH="$PHACTS_DIR:$PHACTS_PARENT:$PYTHONPATH"
         echo "PYTHONPATH: $PYTHONPATH" >> {log} 2>&1
@@ -172,7 +173,7 @@ rule phacts_single_prediction:
             echo "Failed with direct execution, trying with -m module syntax..." >> {log} 2>&1
             cd "$PHACTS_PARENT" && python -m PHACTS.phacts "{input.protein_file}" -o "{output.result_dir}" >> {log} 2>&1 || echo "All execution attempts failed" >> {log} 2>&1
         }}
-        echo "=================================================\\n" >> {log} 2>&1
+        echo $'=================================================\\n' >> {log} 2>&1
         
         # Rename the output file to match expected format
         if [ -f "{output.result_dir}/prediction.txt" ]; then
@@ -186,11 +187,11 @@ rule phacts_single_prediction:
 
 # Modified: Explicitly make sure install_phacts rule is included in the workflow
 # Helper rule to force running all phacts predictions (now includes install dependency)
-rule run_all_phacts_predictions:
+rule run_all_phacts_predictions_v2:
     input:
         # Add explicit dependency on PHACTS installation
         phacts_installed = f"{config['output_dir']}/db/phacts/.installed",
-        checkpoint = f"{config['output_dir']}/03_phacts_results/.splits_ready",
+        installation_verified = f"{config['output_dir']}/03_phacts_results/.installation_verified",
         input_check = f"{config['output_dir']}/03_phacts_results/.input_files_found",
         # For actual runs, get samples from the split files
         # For dry runs, this will be an empty list, which is fine
@@ -199,7 +200,7 @@ rule run_all_phacts_predictions:
             sample=get_phacts_samples()
         )
     output:
-        touch(f"{config['output_dir']}/03_phacts_results/.all_predictions_done")
+        touch(f"{config['output_dir']}/03_phacts_results/.all_predictions_done_v2")
 
 # New rule to ensure PHACTS is installed as a prerequisite to any PHACTS-related rules
 rule ensure_phacts_installed:
