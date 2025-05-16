@@ -15,6 +15,9 @@ dependencies:
   - pip
   - pip:
     - libsvm
-    - phacts
+    - "phacts"
+  # Set environment variable to allow deprecated sklearn package
+  variables:
+    SKLEARN_ALLOW_DEPRECATED_SKLEARN_PACKAGE_INSTALL: "True"
     # Installing PHACTS directly through pip
     # No more manual installation needed
