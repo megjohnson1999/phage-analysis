@@ -424,12 +424,12 @@ rule check_phacts_input_files:
 rule prepare_phacts_directories:
     output:
         log_dir = directory(f"{config['output_dir']}/logs"),
-        prediction_log_dir = directory(f"{config['output_dir']}/logs/phacts_prediction"),
+        # Don't claim the phacts_prediction directory as an output, just create it
         ready_flag = f"{config['output_dir']}/logs/.logs_ready"
     shell:
         """
         mkdir -p {output.log_dir}
-        mkdir -p {output.prediction_log_dir}
+        mkdir -p {config[output_dir]}/logs/phacts_prediction
         touch {output.ready_flag}
         """
 
