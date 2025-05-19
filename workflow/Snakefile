@@ -16,6 +16,7 @@ configfile: "../config/config.yaml"
 include: "rules/01_prediction.smk"
 include: "rules/02_clustering.smk"
 include: "rules/03_analysis.smk"
+include: "rules/split_proteins_by_phage.smk"  # New phage-specific PHACTS analysis
 
 # Import needed for file existence checks
 import os
@@ -68,18 +69,22 @@ rule all:
         # Explicitly include splitting steps to ensure they appear in the plan
         f"{config['output_dir']}/03_split_seqs/split_file_list.txt",
         f"{config['output_dir']}/03_split_proteins/split_protein_list.txt",
+        f"{config['output_dir']}/03_split_proteins_by_phage/split_protein_list.txt",
         
         # Add checkpoint triggers
         f"{config['output_dir']}/03_iphop_results/.splits_ready",
         f"{config['output_dir']}/03_phacts_results/.splits_ready",
+        f"{config['output_dir']}/03_phacts_results_by_phage/.splits_ready",
         
         # Add the input file checkpoints
         f"{config['output_dir']}/03_iphop_results/.input_files_found",
         f"{config['output_dir']}/03_phacts_results/.input_files_found",
+        f"{config['output_dir']}/03_phacts_results_by_phage/.input_files_found",
         
         # Add helpers that run the single prediction jobs
         f"{config['output_dir']}/03_iphop_results/.all_predictions_done",
         f"{config['output_dir']}/03_phacts_results/.all_predictions_done",
+        f"{config['output_dir']}/03_phacts_results_by_phage/.all_predictions_done",
         
         # Final output files depending on whether clustering is enabled
         lambda wildcards: 
@@ -87,8 +92,14 @@ rule all:
                 "{outdir}/03_iphop_results/iphop_predictions_compiled.tsv",
                 outdir=config["output_dir"]
             ) +
+            # Original PHACTS (kept for backward compatibility)
             expand(
                 "{outdir}/03_phacts_results/phacts_predictions_compiled.tsv",
+                outdir=config["output_dir"]
+            ) +
+            # New phage-specific PHACTS
+            expand(
+                "{outdir}/03_phacts_results_by_phage/phacts_predictions_compiled.tsv",
                 outdir=config["output_dir"]
             ) +
             expand(
