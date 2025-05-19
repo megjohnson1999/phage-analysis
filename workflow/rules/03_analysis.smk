@@ -427,33 +427,51 @@ rule phacts_single_prediction:
         protein_file = f"{config['output_dir']}/03_split_proteins/{{sample}}.faa"
     output:
         result_dir = directory(f"{config['output_dir']}/03_phacts_results/tmp/{{sample}}"),
-        result = f"{config['output_dir']}/03_phacts_results/tmp/{{sample}}/{{sample}}.phacts.out"
+        result = f"{config['output_dir']}/03_phacts_results/tmp/{{sample}}/{{sample}}.phacts.out"  # Final expected output file
     log:
         f"{config['output_dir']}/logs/phacts_prediction/{{sample}}.log"
     threads: 4
     conda:
-        config["conda_envs"]["phacts"]
+        config["conda_envs"]["phacts"]  # Conda environment with dependencies
     shell:
-        r"""
+        """
+        # Set -e to stop script on first error, redirecting both stdout and stderr to the log
+        set -e
+        echo "Starting PHACTS rule" > {log} 2>&1
+
         # Create output directory
-        mkdir -p {output.result_dir}
-        
+        mkdir -p {output.result_dir} >> {log} 2>&1
+
         # Get the filename without extension
         NAME=$(basename {input.protein_file} .faa)
-        
-        # Run PHACTS exactly as in coworker's script
-        echo "Running PHACTS" > {log} 2>&1
-        python /home/luisalberto/Softwares/PHACTS/phacts.py {input.protein_file} -o {output.result_dir} >> {log} 2>&1
-        
-        # Check if output file exists and rename it
+
+        # Define the path to phacts manually
+        phacts_path=/home/megan.j/PHACTS
+
+        # Add phacts directory to PYTHONPATH
+        export PYTHONPATH="${{phacts_path}}:${{PYTHONPATH:-}}"
+        echo "PYTHONPATH is set to: $PYTHONPATH" >> {log} 2>&1  # Debugging the PYTHONPATH
+
+        # Verify that the phacts module is available by printing the Python path
+        python -c "import sys; print('Python Path:', sys.path)" >> {log} 2>&1  # Print sys.path
+
+        echo "Running PHACTS" >> {log} 2>&1
+        python /home/megan.j/PHACTS/phacts.py {input.protein_file} -o {output.result_dir}/prediction.txt >> {log} 2>&1
+
+        # Debugging: List files in result_dir to confirm if prediction.txt exists
+        echo "Listing files in {output.result_dir}:" >> {log} 2>&1
+        ls -l {output.result_dir} >> {log} 2>&1
+
+        # Check if output file exists and rename it to match the expected result name
         if [ -f "{output.result_dir}/prediction.txt" ]; then
-            mv {output.result_dir}/prediction.txt {output.result}
+            mv {output.result_dir}/prediction.txt {output.result}  # Rename prediction.txt to final output file
             echo "Prediction completed successfully" >> {log} 2>&1
         else
             echo "PHACTS failed to produce output. Creating placeholder file." >> {log} 2>&1
-            echo "No prediction was made for $NAME" > {output.result}
+            echo "No prediction was made for $NAME" > {output.result}  # Placeholder file if no prediction
         fi
         """
+
 
 # Helper rule to force running all phacts predictions
 rule run_all_phacts_predictions:
