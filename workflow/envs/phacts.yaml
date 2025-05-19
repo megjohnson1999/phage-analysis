@@ -12,5 +12,6 @@ dependencies:
   - matplotlib
   - libsvm  # Required for PHACTS
   - prodigal  # Required for ORF prediction
+  - dill
 
 # Using the existing PHACTS installation at /home/luisalberto/Softwares/PHACTS/
