@@ -17,6 +17,7 @@ include: "rules/01_prediction.smk"
 include: "rules/02_clustering.smk"
 include: "rules/03_analysis.smk"
 include: "rules/split_proteins_by_phage.smk"  # New phage-specific PHACTS analysis
+include: "rules/test_phage_specific.smk"  # Test rules for phage-specific analysis
 
 # Import needed for file existence checks
 import os

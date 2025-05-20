@@ -43,9 +43,67 @@ The workflow will now run both the original PHACTS analysis (for backward compat
 {output_dir}/03_phacts_results_by_phage/phacts_predictions_compiled.tsv
 ```
 
-You can test the phage ID extraction on a sample file using:
+You can test the phage-specific PHACTS analysis directly within the Snakemake workflow using:
+
 ```bash
-./scripts/test_phage_splitting.sh /path/to/your/proteins.part_xxx.faa
+# Navigate to the workflow directory
+cd workflow/
+
+# Run the test rule with your protein file
+snakemake --use-conda \
+    --cores 4 \
+    test_phage_specific/path/to/your/protein/file.faa/test_report.txt
+```
+
+Replace `path/to/your/protein/file.faa` with the path to your protein FASTA file.
+
+For example:
+
+```bash
+# Test with a protein file from a previous run
+snakemake --use-conda \
+    --cores 4 \
+    test_phage_specific/no_reneo_full/03_split_proteins/proteins.part_001.faa/test_report.txt
+```
+
+Detailed testing instructions are available in `workflow/test_phage_specific_instructions.md`.
+
+## Testing Instructions
+
+### What the Test Does
+
+1. Takes a protein FASTA file as input
+2. Splits the input file by phage ID using the same logic as the main workflow
+3. Runs PHACTS prediction on each phage-specific file
+4. Aggregates the results into a single TSV file
+5. Generates a test report with summary information
+
+### Test Requirements
+
+- The input protein file must be in FASTA format with headers that include the phage ID
+- Headers should be in the format: `>phage_id_number` (e.g., `>contig_123_45`)
+- Snakemake will handle the conda environments automatically with `--use-conda`
+
+### Test Output
+
+The test creates the following directory structure:
+
+```
+test_phage_specific/
+└── path/to/your/protein/file.faa/
+    ├── logs/                           # Log files
+    ├── split_list.txt                  # List of split files
+    ├── split_proteins/                 # Directory with phage-specific protein files
+    │   ├── phage1.faa
+    │   ├── phage2.faa
+    │   └── ...
+    ├── phacts_results/
+    │   ├── phacts_predictions_compiled.tsv  # Final predictions
+    │   └── tmp/                            # Temporary files
+    │       ├── phage1/
+    │       ├── phage2/
+    │       └── ...
+    └── test_report.txt                 # Summary report
 ```
 
 ## Benefits

@@ -57,38 +57,32 @@ The pipeline is organized into three main modules:
 
 ## PHACTS Integration
 
-PHACTS (Phage Classification Tool Set) is used for predicting phage lifestyle. The pipeline provides two ways to use PHACTS:
+PHACTS (Phage Classification Tool Set) is used for predicting phage lifestyle. The pipeline uses a pre-existing PHACTS installation:
 
-### Option 1: Automatic Installation (Recommended)
+### Using Existing PHACTS Installation
 
-The workflow now includes an automatic PHACTS installation:
+The workflow is configured to use an existing PHACTS installation:
 
-- PHACTS is automatically installed during pipeline execution
-- Installation happens in `output_dir/db/phacts/`
-- Version control via `phacts_version` parameter in config.yaml
+- PHACTS is accessed from a shared installation path
+- The current configuration uses the path: `/home/luisalberto/Softwares/PHACTS/phacts.py`
+- The workflow automatically sets up the necessary environment variables (PATH and PYTHONPATH)
 
-No manual installation is needed - simply run the pipeline and PHACTS will be installed and configured automatically.
+### Customizing PHACTS Location
 
-### Option 2: Manual Installation
+To use a different PHACTS installation:
 
-For users who prefer manual control:
-
-1. Run the PHACTS installation script:
+1. Edit the `phacts_path` parameter in the `phacts_single_prediction` rule in `workflow/rules/03_analysis.smk`:
+   ```python
+   params:
+       output_dir = lambda w, output: output.result_dir,
+       phacts_path = "/path/to/your/phacts/phacts.py"  # Update this path
    ```
-   bash scripts/install_phacts.sh
-   ```
 
-2. Or for custom installation path:
+2. Or, to use the installation script for a new installation:
    ```
    bash scripts/install_phacts.sh -d /path/to/install/location
    ```
-
-3. Update `config.yaml` to specify the path:
-   ```yaml
-   databases:
-     phacts:
-       path: "/path/to/phacts/phacts.py"
-   ```
+   Then update the path in the rule as above.
 
 ## Usage
 

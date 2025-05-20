@@ -20,4 +20,6 @@
 ## Notes
 - Scripts use conda environments - ensure proper environment activation
 - Pipeline integrates various bioinformatics tools (mmseqs2, checkV, genomad)
+- PHACTS uses an existing installation at `/home/luisalberto/Softwares/PHACTS/phacts.py`
+- The workflow sets PATH and PYTHONPATH variables for PHACTS access
 - Follows bioinformatics best practices for sequence analysis

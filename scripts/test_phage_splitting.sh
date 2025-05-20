@@ -2,9 +2,10 @@
 # Script to test splitting proteins by phage ID
 
 # Set up paths
-WORKFLOW_DIR="/home/megan_johnson/wustl/phage-analysis/workflow"
+CURRENT_DIR="$(pwd)"
+WORKFLOW_DIR="$(cd "$(dirname "$0")/../workflow" && pwd)"
 SCRIPTS_DIR="${WORKFLOW_DIR}/scripts"
-TEST_DIR="/home/megan_johnson/wustl/phage-analysis/test_phage_splitting"
+TEST_DIR="${CURRENT_DIR}/test_phage_splitting"
 
 # Create test directory
 mkdir -p "${TEST_DIR}"
