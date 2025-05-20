@@ -57,25 +57,39 @@ The pipeline is organized into three main modules:
 
 ## PHACTS Integration
 
-PHACTS (Phage Classification Tool Set) is used for predicting phage lifestyle. The pipeline uses a pre-existing PHACTS installation:
+PHACTS (Phage Classification Tool Set) is used for predicting phage lifestyle. The pipeline now uses a phage-specific approach that improves prediction accuracy by grouping proteins from the same phage together:
+
+### Phage-Specific PHACTS Analysis
+
+The workflow now implements phage-specific PHACTS analysis, which offers several advantages:
+
+- **Improved accuracy**: Proteins from the same phage are analyzed together, which ensures that PHACTS predictions are based on the complete protein set from each phage.
+- **Better biological relevance**: Each phage's lifestyle is predicted independently, reflecting the biological reality that different phages may have different lifestyles.
+- **Reduced noise**: Prevents proteins from multiple phages being mixed in a single batch, which could lead to conflicting signals in the predictions.
+
+The implementation:
+1. Extracts the phage ID from each protein sequence header
+2. Groups proteins by their source phage
+3. Creates separate files for each phage
+4. Runs PHACTS prediction on each phage-specific file
+5. Aggregates results with clear phage-to-lifestyle mapping
 
 ### Using Existing PHACTS Installation
 
 The workflow is configured to use an existing PHACTS installation:
 
 - PHACTS is accessed from a shared installation path
-- The current configuration uses the path: `/home/luisalberto/Softwares/PHACTS/phacts.py`
+- The current configuration uses the path: `/home/megan.j/PHACTS/phacts.py`
 - The workflow automatically sets up the necessary environment variables (PATH and PYTHONPATH)
 
 ### Customizing PHACTS Location
 
 To use a different PHACTS installation:
 
-1. Edit the `phacts_path` parameter in the `phacts_single_prediction` rule in `workflow/rules/03_analysis.smk`:
+1. Edit the `phacts_path` parameter in the `phacts_phage_prediction` rule in `workflow/rules/split_proteins_by_phage.smk`:
    ```python
-   params:
-       output_dir = lambda w, output: output.result_dir,
-       phacts_path = "/path/to/your/phacts/phacts.py"  # Update this path
+   # Define the path to phacts manually
+   phacts_path=/path/to/your/phacts  # Update this path
    ```
 
 2. Or, to use the installation script for a new installation:
@@ -170,8 +184,15 @@ The pipeline produces the following key outputs:
 - `01_phage_predictions/phageContigs.fasta`: Predicted phage contigs
 - `02_clustering/vOTU_repSeqs.fasta`: Representative sequences for viral OTUs (if clustering enabled)
 - `03_iphop_results/iphop_predictions_compiled.tsv`: Host predictions
-- `03_phacts_results/phacts_predictions_compiled.tsv`: Lifestyle predictions
+- `03_phacts_results_by_phage/phacts_predictions_compiled.tsv`: Phage-specific lifestyle predictions (improved approach)
 - `03_genomic_info/`: Taxonomic and functional annotations
+
+### Phage-Specific PHACTS Results
+
+The `03_phacts_results_by_phage/phacts_predictions_compiled.tsv` file contains lifestyle predictions with the following columns:
+- `phage_id`: The identifier of the phage (extracted from protein headers)
+- `lifestyle`: Predicted lifestyle (typically "lytic" or "temperate")
+- `probability`: Confidence score for the prediction (0-1)
 
 ## Dependencies
 
