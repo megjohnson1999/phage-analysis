@@ -537,10 +537,12 @@ rule phacts_aggregate_results:
                 fi
             done
 
-            if [ "$(wc -l < {output.predictions})" -eq 1 ]; then
+            LINECOUNT=$(wc -l < {output.predictions})
+            if [ "$LINECOUNT" -eq 1 ]; then
                 echo "No valid PHACTS results were found, only header in output file" >> {log}
             else
-                echo "Successfully compiled $(( $(wc -l < {output.predictions}) - 1 )) PHACTS results" >> {log}
+                RESULT_COUNT=$((LINECOUNT - 1))
+                echo "Successfully compiled $RESULT_COUNT PHACTS results" >> {log}
             fi
         else
             echo "No PHACTS result files found, created empty result file" >> {log}
