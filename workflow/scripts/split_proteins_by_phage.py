@@ -24,18 +24,21 @@ def extract_phage_id(header):
     Returns:
         str: The extracted phage ID
     """
-    # Extract the part before the last underscore and number
-    # For headers like "read_13355_7", this will extract "read_13355"
-    match = re.match(r'^>?([^_]+(?:_[^_]+)*?)_\d+', header)
+    # Remove leading '>' if present
+    header = header.lstrip('>')
+    
+    # Get the part before any space or # (typical Prodigal header format)
+    # Example: "contig_1_123 # start=456 end=789" -> "contig_1_123"
+    base_header = header.split()[0]
+    
+    # Extract the contig ID by removing the last numeric suffix
+    # This keeps the full contig name intact (e.g., "disjointig_1_123" -> "disjointig_1")
+    match = re.match(r'^(.+)_\d+$', base_header)
     if match:
-        return match.group(1).replace('>', '')
+        return match.group(1)
     
     # Fallback: use the entire header up to the first space/hash
-    match = re.match(r'^>?([^ #]+)', header)
-    if match:
-        return match.group(1).replace('>', '')
-        
-    return "unknown"
+    return base_header
 
 def split_proteins(input_file, output_dir):
     """
@@ -55,8 +58,10 @@ def split_proteins(input_file, output_dir):
     phage_proteins = {}
     
     # Parse the input file
+    total_records = 0
     for record in SeqIO.parse(input_file, "fasta"):
         phage_id = extract_phage_id(record.id)
+        total_records += 1
         
         if phage_id not in phage_proteins:
             phage_proteins[phage_id] = []
@@ -72,6 +77,13 @@ def split_proteins(input_file, output_dir):
         output_file = os.path.join(output_dir, f"{phage_id}.faa")
         SeqIO.write(records, output_file, "fasta")
         output_files.append(output_file)
+    
+    # Print summary stats
+    print(f"Processed {total_records} total protein sequences")
+    print(f"Created {len(output_files)} phage-specific files")
+    if 1 <= len(phage_proteins) <= 2:
+        print(f"WARNING: Only {len(phage_proteins)} phage IDs detected: {', '.join(phage_proteins.keys())}")
+        print("This may indicate an issue with contig naming or header parsing.")
     
     return output_files
 
