@@ -522,8 +522,8 @@ rule phacts_aggregate_results:
                         # Extract the contig information from the PHACTS output
                         # Look for lines containing >contig identifiers in the first part of the file
                         phage_ids=$(grep "^>" "$file" | head -n 10 | sed 's/^>//g' | cut -d "_" -f 1 | sort -u)
-                        lifestyle=$(grep "Lifestyle:" "$file" | awk '{{print $2}}')
-                        probability=$(grep "Probability:" "$file" | awk '{{print $2}}')
+                        lifestyle=$(grep "Lifestyle:" "$file" | awk '{print $2}')
+                        probability=$(grep "Probability:" "$file" | awk '{print $2}')
                         
                         # Add prediction for each phage in the batch
                         for phage_id in $phage_ids; do
@@ -558,7 +558,8 @@ rule mmseqs_phage_taxonomy:
     input:
         phage_seqs = get_phage_input
     output:
-        results_dir = directory(f"{config['output_dir']}/03_genomic_info/mmseqs_output"),
+        # Change the output path to match the actual file naming pattern
+        lca_output = f"{config['output_dir']}/03_genomic_info/mmseqs_output_lca.tsv",
         taxonomy = f"{config['output_dir']}/03_genomic_info/mmseqs_taxonomy.tsv"
     log:
         f"{config['output_dir']}/logs/mmseqs_phage_taxonomy.log"
@@ -570,9 +571,9 @@ rule mmseqs_phage_taxonomy:
         # Create temporary directory
         TMP_DIR=$(mktemp -d)
         
-        # Run mmseqs2 for taxonomy assignment
+        # Run mmseqs2 for taxonomy assignment with output prefix that produces files matching existing naming pattern
         mmseqs easy-taxonomy {input.phage_seqs} {config[databases][mmseqs2][db]} \
-            {output.results_dir} $TMP_DIR \
+            {config['output_dir']}/03_genomic_info/mmseqs_output $TMP_DIR \
             --min-length 30 \
             -e 1e-15 \
             --search-type 2 \
@@ -587,8 +588,8 @@ rule mmseqs_phage_taxonomy:
             --orf-filter 1 \
             > {log} 2>&1
             
-        # Copy and format the taxonomy results
-        cp {output.results_dir}/lca.tsv {output.taxonomy}
+        # Copy and format the taxonomy results - use the correct file path
+        cp {output.lca_output} {output.taxonomy}
             
         # Clean up
         rm -rf $TMP_DIR

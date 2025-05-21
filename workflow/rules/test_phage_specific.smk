@@ -132,8 +132,8 @@ rule test_phage_aggregate_results:
                     if grep -q "Lifestyle:" "$file" && grep -q "Probability:" "$file"; then
                         # Extract phage ID from the filename
                         phage_id=$(basename "$(dirname "$file")")
-                        lifestyle=$(grep "Lifestyle:" "$file" | awk '{{print $2}}')
-                        probability=$(grep "Probability:" "$file" | awk '{{print $2}}')
+                        lifestyle=$(grep "Lifestyle:" "$file" | awk '{print $2}')
+                        probability=$(grep "Probability:" "$file" | awk '{print $2}')
                         
                         # Each file corresponds to a single phage
                         echo -e "$phage_id\t$lifestyle\t$probability" >> {output.predictions}
