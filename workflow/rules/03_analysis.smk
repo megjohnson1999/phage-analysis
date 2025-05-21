@@ -573,7 +573,7 @@ rule mmseqs_phage_taxonomy:
         
         # Run mmseqs2 for taxonomy assignment with output prefix that produces files matching existing naming pattern
         mmseqs easy-taxonomy {input.phage_seqs} {config[databases][mmseqs2][db]} \
-            {config['output_dir']}/03_genomic_info/mmseqs_output $TMP_DIR \
+            {config[output_dir]}/03_genomic_info/mmseqs_output $TMP_DIR \
             --min-length 30 \
             -e 1e-15 \
             --search-type 2 \
