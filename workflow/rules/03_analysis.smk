@@ -278,282 +278,156 @@ rule prodigal_orf_prediction:
         """
 
 # 4. Split protein files for PHACTS array processing
-rule split_protein_files:
-    input:
-        proteins = f"{config['output_dir']}/03_orf_predictions/proteins.faa"
-    output:
-        split_dir = directory(f"{config['output_dir']}/03_split_proteins"),
-        split_list = f"{config['output_dir']}/03_split_proteins/split_protein_list.txt"
-    params:
-        # Use larger chunk size
-        chunk_size = 1000,
-        # Maximum number of batches (prevents too many files)
-        max_batches = 100
-    log:
-        f"{config['output_dir']}/logs/split_protein_files.log"
-    conda:
-        config["conda_envs"]["seqkit"]
-    shell:
-        """
-        # Create output directory
-        mkdir -p {output.split_dir}
-        
-        # Count total sequences
-        TOTAL_SEQS=$(grep -c ">" {input.proteins})
-        echo "Total protein sequences: $TOTAL_SEQS" > {log} 2>&1
-        
-        # Determine optimal batch count - use proper Python syntax
-        BATCH_COUNT=$(python -c "print(min({params.max_batches}, max(1, (int($TOTAL_SEQS) // {params.chunk_size}) + 1)))")
-        echo "Will create $BATCH_COUNT batches" >> {log} 2>&1
-        
-        # Use seqkit split with part option instead of complex AWK
-        seqkit split -p $BATCH_COUNT {input.proteins} -O {output.split_dir} >> {log} 2>&1
-        
-        # Create list of split files
-        find {output.split_dir} -name "*.faa" | sort > {output.split_list}
-        ACTUAL_BATCH_COUNT=$(wc -l < {output.split_list})
-        echo "Created $ACTUAL_BATCH_COUNT protein batch files" >> {log} 2>&1
-        
-        # If no files were created (empty input), create an empty placeholder
-        if [ "$ACTUAL_BATCH_COUNT" -eq 0 ]; then
-            echo "Input was empty, creating placeholder file" >> {log} 2>&1
-            touch "{output.split_dir}/empty.faa"
-            echo "{output.split_dir}/empty.faa" > {output.split_list}
-        fi
-        """
+# NOTE: This rule is disabled in favor of phage-specific splitting
+# See split_proteins_by_phage.smk for the improved implementation
+# rule split_protein_files:
+#     input:
+#         proteins = f"{config['output_dir']}/03_orf_predictions/proteins.faa"
+#     output:
+#         split_dir = directory(f"{config['output_dir']}/03_split_proteins"),
+#         split_list = f"{config['output_dir']}/03_split_proteins/split_protein_list.txt"
+#     params:
+#         # Use larger chunk size
+#         chunk_size = 1000,
+#         # Maximum number of batches (prevents too many files)
+#         max_batches = 100
+#     log:
+#         f"{config['output_dir']}/logs/split_protein_files.log"
+#     conda:
+#         config["conda_envs"]["seqkit"]
+#     shell:
+#         """
+#         # Create output directory
+#         mkdir -p {output.split_dir}
+#         
+#         # Count total sequences
+#         TOTAL_SEQS=$(grep -c ">" {input.proteins})
+#         echo "Total protein sequences: $TOTAL_SEQS" > {log} 2>&1
+#         
+#         # Determine optimal batch count - use proper Python syntax
+#         BATCH_COUNT=$(python -c "print(min({params.max_batches}, max(1, (int($TOTAL_SEQS) // {params.chunk_size}) + 1)))")
+#         echo "Will create $BATCH_COUNT batches" >> {log} 2>&1
+#         
+#         # Use seqkit split with part option instead of complex AWK
+#         seqkit split -p $BATCH_COUNT {input.proteins} -O {output.split_dir} >> {log} 2>&1
+#         
+#         # Create list of split files
+#         find {output.split_dir} -name "*.faa" | sort > {output.split_list}
+#         ACTUAL_BATCH_COUNT=$(wc -l < {output.split_list})
+#         echo "Created $ACTUAL_BATCH_COUNT protein batch files" >> {log} 2>&1
+#         
+#         # If no files were created (empty input), create an empty placeholder
+#         if [ "$ACTUAL_BATCH_COUNT" -eq 0 ]; then
+#             echo "Input was empty, creating placeholder file" >> {log} 2>&1
+#             touch "{output.split_dir}/empty.faa"
+#             echo "{output.split_dir}/empty.faa" > {output.split_list}
+#         fi
+#         """
 
-# List all samples for phacts from split protein files
-def get_phacts_samples():
-    # After split_protein_files is run, this reads the split file list
-    split_list = f"{config['output_dir']}/03_split_proteins/split_protein_list.txt"
-    
-    # Make sure the required modules are imported
-    import os
-    import glob
-    
-    # Primary method: read from the split file list if it exists
-    if os.path.exists(split_list):
-        try:
-            with open(split_list, "r") as f:
-                files = [line.strip() for line in f if line.strip()]
-            # Extract filenames without extension and ensure unique values
-            samples = [os.path.splitext(os.path.basename(file))[0] for file in files]
-            # Filter out any empty strings
-            samples = [s for s in samples if s]
-            # If we found samples, return them
-            if samples:
-                return samples
-        except Exception as e:
-            print(f"Warning: Error reading split file list: {e}")
-            # Continue to fallback methods
-    
-    # Fallback method 1: Use glob to find faa files directly
-    try:
-        split_dir = f"{config['output_dir']}/03_split_proteins"
-        if os.path.exists(split_dir) and os.path.isdir(split_dir):
-            samples = [os.path.splitext(os.path.basename(f))[0] 
-                    for f in glob.glob(f"{split_dir}/*.faa")]
-            # Filter out any empty strings
-            samples = [s for s in samples if s]
-            if samples:
-                return samples
-    except Exception as e:
-        print(f"Warning: Error using glob to find faa files: {e}")
-    
-    # Fallback method 2: Check tmp dir for existing predictions
-    try:
-        tmp_dir = f"{config['output_dir']}/03_phacts_results/tmp"
-        if os.path.exists(tmp_dir) and os.path.isdir(tmp_dir):
-            # Look for directories in the tmp directory
-            samples = [d for d in os.listdir(tmp_dir)
-                      if os.path.isdir(os.path.join(tmp_dir, d))]
-            if samples:
-                return samples
-    except Exception as e:
-        print(f"Warning: Error checking tmp dir for predictions: {e}")
-    
-    # If all methods fail, return empty list
-    return []
+# NOTE: This function is disabled in favor of phage-specific splitting
+# See split_proteins_by_phage.smk for the improved implementation
+# # List all samples for phacts from split protein files
+# def get_phacts_samples():
+#     # After split_protein_files is run, this reads the split file list
+#     split_list = f"{config['output_dir']}/03_split_proteins/split_protein_list.txt"
+#     
+#     # Make sure the required modules are imported
+#     import os
+#     import glob
+#     
+#     # Primary method: read from the split file list if it exists
+#     if os.path.exists(split_list):
+#         try:
+#             with open(split_list, "r") as f:
+#                 files = [line.strip() for line in f if line.strip()]
+#             # Extract filenames without extension and ensure unique values
+#             samples = [os.path.splitext(os.path.basename(file))[0] for file in files]
+#             # Filter out any empty strings
+#             samples = [s for s in samples if s]
+#             # If we found samples, return them
+#             if samples:
+#                 return samples
+#         except Exception as e:
+#             print(f"Warning: Error reading split file list: {e}")
+#             # Continue to fallback methods
+#     
+#     # Fallback method 1: Use glob to find faa files directly
+#     try:
+#         split_dir = f"{config['output_dir']}/03_split_proteins"
+#         if os.path.exists(split_dir) and os.path.isdir(split_dir):
+#             samples = [os.path.splitext(os.path.basename(f))[0] 
+#                     for f in glob.glob(f"{split_dir}/*.faa")]
+#             # Filter out any empty strings
+#             samples = [s for s in samples if s]
+#             if samples:
+#                 return samples
+#     except Exception as e:
+#         print(f"Warning: Error using glob to find faa files: {e}")
+#     
+#     # Fallback method 2: Check tmp dir for existing predictions
+#     try:
+#         tmp_dir = f"{config['output_dir']}/03_phacts_results/tmp"
+#         if os.path.exists(tmp_dir) and os.path.isdir(tmp_dir):
+#             # Look for directories in the tmp directory
+#             samples = [d for d in os.listdir(tmp_dir)
+#                       if os.path.isdir(os.path.join(tmp_dir, d))]
+#             if samples:
+#                 return samples
+#     except Exception as e:
+#         print(f"Warning: Error checking tmp dir for predictions: {e}")
+#     
+#     # If all methods fail, return empty list
+#     return []
 
-checkpoint wait_for_phacts_splits:
-    input:
-        split_list = f"{config['output_dir']}/03_split_proteins/split_protein_list.txt"
-    output:
-        touch(f"{config['output_dir']}/03_phacts_results/.splits_ready")
-    shell:
-        "mkdir -p $(dirname {output})"
+# NOTE: These rules are disabled in favor of phage-specific splitting
+# See split_proteins_by_phage.smk for the improved implementation
+# checkpoint wait_for_phacts_splits:
+#     input:
+#         split_list = f"{config['output_dir']}/03_split_proteins/split_protein_list.txt"
+#     output:
+#         touch(f"{config['output_dir']}/03_phacts_results/.splits_ready")
+#     shell:
+#         "mkdir -p $(dirname {output})"
 
-# Check if input files exist for PHACTS
-rule check_phacts_input_files:
-    input:
-        # Prerequisite - splits must be ready
-        splits_ready = f"{config['output_dir']}/03_phacts_results/.splits_ready",
-        # Required protein predictions
-        proteins = f"{config['output_dir']}/03_orf_predictions/proteins.faa",
-        # Check that split files are created
-        split_list = f"{config['output_dir']}/03_split_proteins/split_protein_list.txt"
-    output:
-        touch(f"{config['output_dir']}/03_phacts_results/.input_files_found")
-    log:
-        f"{config['output_dir']}/logs/check_phacts_input_files.log"
-    shell:
-        """
-        # Check if protein file exists
-        if [ ! -f "{input.proteins}" ]; then
-            echo "Error: Protein file does not exist: {input.proteins}" > {log} 2>&1
-            exit 1
-        fi
-        
-        # Check if split list exists and has content
-        if [ ! -s "{input.split_list}" ]; then
-            echo "Warning: Split protein file list is empty or doesn't exist: {input.split_list}" > {log} 2>&1
-            echo "Creating a placeholder split list..." >> {log} 2>&1
-            mkdir -p $(dirname {input.split_list})
-            touch {input.split_list}
-        fi
-        
-        # Everything checked out, all input files exist
-        echo "All required input files for PHACTS were found" > {log} 2>&1
-        """
+# # Check if input files exist for PHACTS
+# rule check_phacts_input_files:
+#     input:
+#         # Prerequisite - splits must be ready
+#         splits_ready = f"{config['output_dir']}/03_phacts_results/.splits_ready",
+#         # Required protein predictions
+#         proteins = f"{config['output_dir']}/03_orf_predictions/proteins.faa",
+#         # Check that split files are created
+#         split_list = f"{config['output_dir']}/03_split_proteins/split_protein_list.txt"
+#     output:
+#         touch(f"{config['output_dir']}/03_phacts_results/.input_files_found")
+#     log:
+#         f"{config['output_dir']}/logs/check_phacts_input_files.log"
+#     shell:
+#         """
+#         # Check if protein file exists
+#         if [ ! -f "{input.proteins}" ]; then
+#             echo "Error: Protein file does not exist: {input.proteins}" > {log} 2>&1
+#             exit 1
+#         fi
+#         
+#         # Check if split list exists and has content
+#         if [ ! -s "{input.split_list}" ]; then
+#             echo "Warning: Split protein file list is empty or doesn't exist: {input.split_list}" > {log} 2>&1
+#             echo "Creating a placeholder split list..." >> {log} 2>&1
+#             mkdir -p $(dirname {input.split_list})
+#             touch {input.split_list}
+#         fi
+#         
+#         # Everything checked out, all input files exist
+#         echo "All required input files for PHACTS were found" > {log} 2>&1
+#         """
 
 # We don't need a separate rule for log directories
 # Snakemake will create them automatically
 
-# 5. Run PHACTS lifestyle prediction using existing installation
-rule phacts_single_prediction:
-    input:
-        checkpoint = f"{config['output_dir']}/03_phacts_results/.splits_ready",
-        input_check = f"{config['output_dir']}/03_phacts_results/.input_files_found",
-        protein_file = f"{config['output_dir']}/03_split_proteins/{{sample}}.faa"
-    output:
-        result_dir = directory(f"{config['output_dir']}/03_phacts_results/tmp/{{sample}}"),
-        result = f"{config['output_dir']}/03_phacts_results/tmp/{{sample}}/{{sample}}.phacts.out"  # Final expected output file
-    log:
-        f"{config['output_dir']}/logs/phacts_prediction/{{sample}}.log"
-    threads: 4
-    conda:
-        config["conda_envs"]["phacts"]  # Conda environment with dependencies
-    shell:
-        """
-        # Set -e to stop script on first error, redirecting both stdout and stderr to the log
-        set -e
-        echo "Starting PHACTS rule" > {log} 2>&1
-
-        # Create output directory
-        mkdir -p {output.result_dir} >> {log} 2>&1
-
-        # Get the filename without extension
-        NAME=$(basename {input.protein_file} .faa)
-
-        # Define the path to phacts manually
-        phacts_path=/home/megan.j/PHACTS
-
-        # Add phacts directory to PYTHONPATH
-        export PYTHONPATH="${{phacts_path}}:${{PYTHONPATH:-}}"
-        echo "PYTHONPATH is set to: $PYTHONPATH" >> {log} 2>&1  # Debugging the PYTHONPATH
-
-        # Verify that the phacts module is available by printing the Python path
-        python -c "import sys; print('Python Path:', sys.path)" >> {log} 2>&1  # Print sys.path
-
-        echo "Running PHACTS" >> {log} 2>&1
-        python /home/megan.j/PHACTS/phacts.py {input.protein_file} -o {output.result_dir}/prediction.txt >> {log} 2>&1
-
-        # Debugging: List files in result_dir to confirm if prediction.txt exists
-        echo "Listing files in {output.result_dir}:" >> {log} 2>&1
-        ls -l {output.result_dir} >> {log} 2>&1
-
-        # Check if output file exists and rename it to match the expected result name
-        if [ -f "{output.result_dir}/prediction.txt" ]; then
-            mv {output.result_dir}/prediction.txt {output.result}  # Rename prediction.txt to final output file
-            echo "Prediction completed successfully" >> {log} 2>&1
-        else
-            echo "PHACTS failed to produce output. Creating placeholder file." >> {log} 2>&1
-            echo "No prediction was made for $NAME" > {output.result}  # Placeholder file if no prediction
-        fi
-        """
-
-
-# Helper rule to force running all phacts predictions
-rule run_all_phacts_predictions:
-    input:
-        checkpoint = f"{config['output_dir']}/03_phacts_results/.splits_ready",
-        input_check = f"{config['output_dir']}/03_phacts_results/.input_files_found",
-        # For actual runs, get samples from the split files
-        # For dry runs, this will be an empty list, which is fine
-        samples = lambda wildcards: expand(
-            f"{config['output_dir']}/03_phacts_results/tmp/{{sample}}/{{sample}}.phacts.out",
-            sample=get_phacts_samples()
-        )
-    output:
-        touch(f"{config['output_dir']}/03_phacts_results/.all_predictions_done")
-
-# 7. Aggregate PHACTS results
-rule phacts_aggregate_results:
-    input:
-        # This is the key part that makes the parallelization work
-        # Aggregation only happens after all individual predictions are done
-        all_done = f"{config['output_dir']}/03_phacts_results/.all_predictions_done",
-        predictions = lambda wildcards: expand(
-            f"{config['output_dir']}/03_phacts_results/tmp/{{sample}}/{{sample}}.phacts.out",
-            sample=get_phacts_samples()
-        )
-    output:
-        predictions = f"{config['output_dir']}/03_phacts_results/phacts_predictions_compiled.tsv"
-    log:
-        f"{config['output_dir']}/logs/phacts_aggregate_results.log"
-    conda:
-        config["conda_envs"]["phacts"]
-    shell:
-        """
-        # Ensure results directory exists
-        RESULTS_DIR=$(dirname {output.predictions})
-        mkdir -p $RESULTS_DIR
-        
-        # Compile results
-        echo "Compiling PHACTS results" > {log}
-        echo -e "phage_id\tlifestyle\tprobability" > {output.predictions}
-
-        if [ -n "$(ls -A $RESULTS_DIR/tmp 2>/dev/null)" ]; then
-            # Process each phacts output file if it exists
-            for file in $RESULTS_DIR/tmp/*/*.phacts.out; do
-                if [ -f "$file" ]; then
-                    # Check if the file contains useful predictions
-                    if grep -q "Lifestyle:" "$file" && grep -q "Probability:" "$file"; then
-                        # Extract the contig information from the PHACTS output
-                        # Look for lines containing >contig identifiers in the first part of the file
-                        phage_ids=$(grep "^>" "$file" | head -n 10 | sed 's/^>//g' | cut -d "_" -f 1 | sort -u)
-                        lifestyle=$(grep "Lifestyle:" "$file" | awk '{print $2}')
-                        probability=$(grep "Probability:" "$file" | awk '{print $2}')
-                        
-                        # Add prediction for each phage in the batch
-                        for phage_id in $phage_ids; do
-                            echo -e "$phage_id\t$lifestyle\t$probability" >> {output.predictions}
-                        done
-                    else
-                        # Extract batch number from filename
-                        batch_id=$(basename "$file" .phacts.out)
-                        echo "Warning: No valid prediction in $batch_id" >> {log}
-                    fi
-                fi
-            done
-
-            LINECOUNT=$(wc -l < {output.predictions})
-            if [ "$LINECOUNT" -eq 1 ]; then
-                echo "No valid PHACTS results were found, only header in output file" >> {log}
-            else
-                RESULT_COUNT=$((LINECOUNT - 1))
-                echo "Successfully compiled $RESULT_COUNT PHACTS results" >> {log}
-            fi
-        else
-            echo "No PHACTS result files found, created empty result file" >> {log}
-        fi
-
-        # Clean up temporary directory after successful compilation
-        if [ -d "$RESULTS_DIR/tmp" ]; then
-            echo "Cleaning up temporary directory" >> {log}
-            rm -rf "$RESULTS_DIR/tmp"
-        fi
-        """
+# NOTE: Old PHACTS rules removed - using phage-specific implementation in split_proteins_by_phage.smk
+# These rules used random protein splitting which caused poor predictions (~0.5 probability)
+# The new phage-specific approach groups proteins by phage ID for accurate lifestyle prediction
 
 # 6. Run mmseqs2 taxonomy assignment on phage genomes
 rule mmseqs_phage_taxonomy:
