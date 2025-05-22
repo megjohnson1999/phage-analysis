@@ -102,6 +102,20 @@ rule all:
                 "{outdir}/03_genomic_info/mmseqs_taxonomy.tsv",
                 outdir=config["output_dir"]
             ) +
+            # Add Phabox2 outputs (taxonomy and lifestyle prediction)
+            expand(
+                "{outdir}/03_genomic_info/phabox_output/taxonomy.tsv",
+                outdir=config["output_dir"]
+            ) +
+            expand(
+                "{outdir}/03_genomic_info/phabox_output/lifestyle.tsv", 
+                outdir=config["output_dir"]
+            ) +
+            # Add vContact3 output (gene-content based taxonomy)
+            expand(
+                "{outdir}/03_genomic_info/vc3_output/genome_by_genome_overview.csv",
+                outdir=config["output_dir"]
+            ) +
             (["{outdir}/02_clustering/vOTU_repSeqs.fasta".format(
                 outdir=config["output_dir"]
              )] if config.get("do_clustering", True) else [])
