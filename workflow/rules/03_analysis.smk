@@ -511,7 +511,8 @@ rule phabox_prediction:
 # 8. Run vContact3 for phage taxonomy based on gene content
 rule vcontact3_taxonomy:
     input:
-        proteins = f"{config['output_dir']}/03_orf_predictions/proteins.faa"
+        proteins = f"{config['output_dir']}/03_orf_predictions/proteins.faa",
+        phage_seqs = get_phage_input
     output:
         results_dir = directory(f"{config['output_dir']}/03_genomic_info/vc3_output"),
         gene2genome = f"{config['output_dir']}/03_genomic_info/vc3_output/gene2genome.csv",
@@ -529,7 +530,7 @@ rule vcontact3_taxonomy:
         awk -F " # " '{{split($1,a,"_"); print $1"\t"a[1]}}' >> {output.gene2genome}
         
         # Run vContact3
-        vcontact3 run --nucleotide $(dirname {input.proteins})/../{get_phage_input(None).split('/')[-1]} \
+        vcontact3 run --nucleotide {input.phage_seqs} \
             --output {output.results_dir} \
             --db-domain "prokaryotes" \
             --db-version 223 \
