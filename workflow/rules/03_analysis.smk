@@ -515,7 +515,7 @@ rule phacts_aggregate_results:
 
         if [ -n "$(ls -A $RESULTS_DIR/tmp 2>/dev/null)" ]; then
             # Process each phacts output file if it exists
-            for file in $RESULTS_DIR/tmp/*/*.phacts.out 2>/dev/null; do
+            for file in $RESULTS_DIR/tmp/*/*.phacts.out; do
                 if [ -f "$file" ]; then
                     # Check if the file contains useful predictions
                     if grep -q "Lifestyle:" "$file" && grep -q "Probability:" "$file"; then
