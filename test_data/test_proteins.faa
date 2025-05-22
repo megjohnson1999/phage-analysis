@@ -1,0 +1,12 @@
+>contig_01_lambda_phage_1 # 1 # 60 # 1 # ID=1_1;partial=00;start_type=ATG;rbs_motif=GGAG/GAGG;rbs_spacer=5-10bp;gc_cont=0.500
+MGFGKVTFGGSNPDLTEGTEIVRINMYGNGRTRSVSNYTRGGIGYLNFG
+>contig_01_lambda_phage_2 # 61 # 120 # 1 # ID=1_2;partial=00;start_type=ATG;rbs_motif=GGAG/GAGG;rbs_spacer=5-10bp;gc_cont=0.500
+ASIGRTGGFVRVRIGFVTDIGSRDIGDAYGGYITFGNEGIGTDYTDGYI
+>contig_01_lambda_phage_3 # 121 # 180 # 1 # ID=1_3;partial=00;start_type=ATG;rbs_motif=GGAG/GAGG;rbs_spacer=5-10bp;gc_cont=0.500
+GDAYGGYITFGNEGIGTDYTDGYIGDAYGGYITFGNEGIGTDYTDGYIG
+>contig_02_temperate_phage_1 # 1 # 60 # 1 # ID=2_1;partial=00;start_type=ATG;rbs_motif=GGAG/GAGG;rbs_spacer=5-10bp;gc_cont=0.500
+MKDLVRTRGIGIFRGDAYGGYTFGNEGIGTDYTDGYIGDAYGGYITFGN
+>contig_02_temperate_phage_2 # 61 # 120 # 1 # ID=2_2;partial=00;start_type=ATG;rbs_motif=GGAG/GAGG;rbs_spacer=5-10bp;gc_cont=0.500
+EGIGTDYTDGYIGDAYGGYITFGNEGIGTDYTDGYIGDAYGGYITFGNE
+>contig_04_bacterial_1 # 1 # 60 # 1 # ID=4_1;partial=00;start_type=ATG;rbs_motif=GGAG/GAGG;rbs_spacer=5-10bp;gc_cont=0.500
+LALTDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDD
