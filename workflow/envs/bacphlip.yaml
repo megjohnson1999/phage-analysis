@@ -1,0 +1,11 @@
+name: bacphlip
+channels:
+  - conda-forge
+  - bioconda
+  - defaults
+dependencies:
+  - python>=3.8
+  - bacphlip>=1.0.0
+  - pandas
+  - numpy
+  - biopython

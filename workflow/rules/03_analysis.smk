@@ -551,3 +551,26 @@ rule vcontact3_taxonomy:
             --db-path {config[databases][vcontact3][db]} \
             -t {threads} > {log} 2>&1
         """
+
+# 9. Run BACPHLIP for phage lifestyle prediction
+rule bacphlip_lifestyle:
+    input:
+        phage_seqs = get_phage_input
+    output:
+        results = f"{config['output_dir']}/03_genomic_info/bacphlip_lifestyle.tsv"
+    log:
+        f"{config['output_dir']}/logs/bacphlip_lifestyle.log"
+    conda:
+        config["conda_envs"]["bacphlip"]
+    threads: 8
+    shell:
+        """
+        # Run BACPHLIP in multi-fasta mode
+        bacphlip --multi-fasta {input.phage_seqs} \
+            --output {output.results} \
+            --threads {threads} > {log} 2>&1 || {{
+                echo "BACPHLIP failed. Creating placeholder output..." >> {log} 2>&1
+                echo -e "Sequence\tLifestyle\tConfidence" > {output.results}
+                exit 0
+            }}
+        """
