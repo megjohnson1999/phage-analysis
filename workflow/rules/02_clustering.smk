@@ -85,31 +85,40 @@ rule cluster_phages:
             --qcov {config[params][vclust][coverage]} \
             --rcov {config[params][vclust][coverage]} >> {log} 2>&1
             
-        # Extract lengths of the sequences
-        echo "Extracting sequence lengths..." >> {log} 2>&1
-        seqkit fx2tab --length --name {input.phage_contigs} > {output.clustering_dir}/seq_lengths.tsv 2>> {log}
-        
-        # Sort the clusters and lengths data files before joining
-        sort -k1,1 {output.clustering_dir}/vclust_clusters.tsv > {output.clustering_dir}/vclust_sorted_clusters.tsv
-        sort -k1,1 {output.clustering_dir}/seq_lengths.tsv > {output.clustering_dir}/sorted_seq_lengths.tsv
-        
-        # Join the sorted files
-        join -1 1 -2 1 -t $'\t' {output.clustering_dir}/vclust_sorted_clusters.tsv {output.clustering_dir}/sorted_seq_lengths.tsv > {output.clustering_dir}/joined_Clusters_length.tsv
-        
-        # Use awk to find the longest sequence in each cluster
-        echo "Selecting longest sequence per cluster as representative..." >> {log} 2>&1
-        awk -F'\t' '{{
-            if (!($2 in max_len) || max_len[$2] < $3) {{
-                max_len[$2] = $3;
-                max_seq[$2] = $1;
-            }}
-        }} END {{
-            for (c in max_seq)
-                print max_seq[c];
-        }}' {output.clustering_dir}/joined_Clusters_length.tsv > {output.rep_seqs_list}
-        
-        # Copy clusters file to expected output location
-        cp {output.clustering_dir}/vclust_clusters.tsv {output.clusters}
+        # Check if clustering produced any clusters
+        if [ ! -s {output.clustering_dir}/vclust_clusters.tsv ]; then
+            echo "WARNING: No clusters formed. Creating single-sequence clusters for all input sequences." >> {log} 2>&1
+            # Create a clusters file where each sequence is its own cluster
+            grep "^>" {input.phage_contigs} | sed 's/>//g' | awk '{{print $1"\t"$1}}' > {output.clusters}
+            # All sequences are representatives
+            grep "^>" {input.phage_contigs} | sed 's/>//g' | awk '{{print $1}}' > {output.rep_seqs_list}
+        else
+            # Extract lengths of the sequences
+            echo "Extracting sequence lengths..." >> {log} 2>&1
+            seqkit fx2tab --length --name {input.phage_contigs} > {output.clustering_dir}/seq_lengths.tsv 2>> {log}
+            
+            # Sort the clusters and lengths data files before joining
+            sort -k1,1 {output.clustering_dir}/vclust_clusters.tsv > {output.clustering_dir}/vclust_sorted_clusters.tsv
+            sort -k1,1 {output.clustering_dir}/seq_lengths.tsv > {output.clustering_dir}/sorted_seq_lengths.tsv
+            
+            # Join the sorted files
+            join -1 1 -2 1 -t $'\t' {output.clustering_dir}/vclust_sorted_clusters.tsv {output.clustering_dir}/sorted_seq_lengths.tsv > {output.clustering_dir}/joined_Clusters_length.tsv
+            
+            # Use awk to find the longest sequence in each cluster
+            echo "Selecting longest sequence per cluster as representative..." >> {log} 2>&1
+            awk -F'\t' '{{
+                if (!($2 in max_len) || max_len[$2] < $3) {{
+                    max_len[$2] = $3;
+                    max_seq[$2] = $1;
+                }}
+            }} END {{
+                for (c in max_seq)
+                    print max_seq[c];
+            }}' {output.clustering_dir}/joined_Clusters_length.tsv > {output.rep_seqs_list}
+            
+            # Copy clusters file to expected output location
+            cp {output.clustering_dir}/vclust_clusters.tsv {output.clusters}
+        fi
         
         echo "Clustering complete. Found $(wc -l < {output.rep_seqs_list}) vOTU representatives." >> {log} 2>&1
         """
