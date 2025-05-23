@@ -11,4 +11,4 @@ dependencies:
   - biopython
   - scikit-learn
   - pip:
-    - bacphlip>=1.0.0
+    - bacphlip>=0.9.6
