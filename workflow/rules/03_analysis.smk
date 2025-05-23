@@ -576,9 +576,8 @@ rule bacphlip_lifestyle:
         
         # Run BACPHLIP in multi-fasta mode
         echo "Running BACPHLIP on all sequences..." > {log} 2>&1
-        bacphlip --multi-fasta {input.phage_seqs} \
-            --output $TMP_DIR/bacphlip_raw.tsv \
-            --threads {threads} >> {log} 2>&1 || {{
+        bacphlip -i {input.phage_seqs} --multi_fasta \
+            > $TMP_DIR/bacphlip_raw.tsv 2>> {log} || {{
                 echo "BACPHLIP failed. Creating placeholder output..." >> {log} 2>&1
                 echo -e "Sequence\tLifestyle\tConfidence" > {output.results}
                 echo -e "Sequence\tLifestyle\tConfidence\tCompleteness\tCheckV_quality" > {output.with_completeness}
