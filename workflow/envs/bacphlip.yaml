@@ -6,9 +6,11 @@ channels:
 dependencies:
   - python=3.10
   - pip
-  - pandas
-  - numpy
-  - biopython
-  - scikit-learn
+  - pandas>=1.0
+  - numpy>=1.20
+  - biopython>=1.78
+  - scikit-learn>=0.24
+  - setuptools
+  - wheel
   - pip:
     - bacphlip>=0.9.6
