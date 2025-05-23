@@ -553,11 +553,14 @@ rule vcontact3_taxonomy:
         """
 
 # 9. Run BACPHLIP for phage lifestyle prediction
+# NOTE: BACPHLIP assumes complete phage genomes. Results include CheckV completeness flags.
 rule bacphlip_lifestyle:
     input:
-        phage_seqs = get_phage_input
+        phage_seqs = get_phage_input,
+        checkv_quality = f"{config['output_dir']}/01_phage_predictions/quality_summary.tsv"
     output:
-        results = f"{config['output_dir']}/03_genomic_info/bacphlip_lifestyle.tsv"
+        results = f"{config['output_dir']}/03_genomic_info/bacphlip_lifestyle.tsv",
+        with_completeness = f"{config['output_dir']}/03_genomic_info/bacphlip_lifestyle_with_completeness.tsv"
     log:
         f"{config['output_dir']}/logs/bacphlip_lifestyle.log"
     conda:
@@ -565,12 +568,56 @@ rule bacphlip_lifestyle:
     threads: 8
     shell:
         """
+        # Create temporary directory
+        TMP_DIR=$(mktemp -d)
+        
         # Run BACPHLIP in multi-fasta mode
+        echo "Running BACPHLIP on all sequences..." > {log} 2>&1
         bacphlip --multi-fasta {input.phage_seqs} \
-            --output {output.results} \
-            --threads {threads} > {log} 2>&1 || {{
+            --output $TMP_DIR/bacphlip_raw.tsv \
+            --threads {threads} >> {log} 2>&1 || {{
                 echo "BACPHLIP failed. Creating placeholder output..." >> {log} 2>&1
                 echo -e "Sequence\tLifestyle\tConfidence" > {output.results}
+                echo -e "Sequence\tLifestyle\tConfidence\tCompleteness\tCheckV_quality" > {output.with_completeness}
+                rm -rf $TMP_DIR
                 exit 0
             }}
+        
+        # Copy raw results
+        cp $TMP_DIR/bacphlip_raw.tsv {output.results}
+        
+        # Join with CheckV completeness data
+        echo "Adding completeness information..." >> {log} 2>&1
+        
+        # Create header
+        echo -e "Sequence\tLifestyle\tConfidence\tCompleteness\tCheckV_quality" > {output.with_completeness}
+        
+        # Process BACPHLIP results and join with CheckV data
+        # Note: CheckV quality_summary.tsv has columns: contig_id, various metrics..., checkv_quality
+        tail -n +2 $TMP_DIR/bacphlip_raw.tsv | while IFS=$'\t' read -r seq lifestyle conf; do
+            # Look up this sequence in CheckV results
+            checkv_line=$(grep "^${{seq}}\t" {input.checkv_quality} || echo "")
+            
+            if [ -n "$checkv_line" ]; then
+                # Extract completeness (column 10) and quality (column 8) from CheckV
+                completeness=$(echo "$checkv_line" | cut -f10)
+                quality=$(echo "$checkv_line" | cut -f8)
+            else
+                completeness="Unknown"
+                quality="Not_found_in_CheckV"
+            fi
+            
+            echo -e "${{seq}}\t${{lifestyle}}\t${{conf}}\t${{completeness}}\t${{quality}}"
+        done >> {output.with_completeness}
+        
+        # Log summary statistics
+        echo "BACPHLIP analysis complete. Summary:" >> {log} 2>&1
+        echo "Total sequences: $(tail -n +2 {output.results} | wc -l)" >> {log} 2>&1
+        echo "Complete genomes: $(grep -E "\tComplete\t|\tHigh-quality\t" {output.with_completeness} | wc -l)" >> {log} 2>&1
+        echo "Medium-quality: $(grep "\tMedium-quality\t" {output.with_completeness} | wc -l)" >> {log} 2>&1
+        echo "Low-quality: $(grep "\tLow-quality\t" {output.with_completeness} | wc -l)" >> {log} 2>&1
+        echo "Not-determined: $(grep "\tNot-determined\t" {output.with_completeness} | wc -l)" >> {log} 2>&1
+        
+        # Clean up
+        rm -rf $TMP_DIR
         """

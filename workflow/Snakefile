@@ -104,6 +104,10 @@ rule all:
                 outdir=config["output_dir"]
             ) +
             expand(
+                "{outdir}/03_genomic_info/bacphlip_lifestyle_with_completeness.tsv",
+                outdir=config["output_dir"]
+            ) +
+            expand(
                 "{outdir}/03_genomic_info/mmseqs_taxonomy.tsv",
                 outdir=config["output_dir"]
             ) +
