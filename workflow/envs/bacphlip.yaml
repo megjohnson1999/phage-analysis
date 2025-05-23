@@ -5,7 +5,10 @@ channels:
   - defaults
 dependencies:
   - python>=3.8
-  - bacphlip>=1.0.0
+  - pip
   - pandas
   - numpy
   - biopython
+  - scikit-learn
+  - pip:
+    - bacphlip>=1.0.0
