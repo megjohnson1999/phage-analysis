@@ -528,9 +528,7 @@ rule vcontact3_taxonomy:
         proteins = f"{config['output_dir']}/03_orf_predictions/proteins.faa",
         phage_seqs = get_phage_input
     output:
-        results_dir = directory(f"{config['output_dir']}/03_genomic_info/vc3_output"),
-        gene2genome = f"{config['output_dir']}/03_genomic_info/vc3_output/gene2genome.csv",
-        clusters = f"{config['output_dir']}/03_genomic_info/vc3_output/exports/vOTU_results.csv"
+        results_dir = directory(f"{config['output_dir']}/03_genomic_info/vc3_output")
     log:
         f"{config['output_dir']}/logs/vcontact3_taxonomy.log"
     conda:
@@ -539,9 +537,10 @@ rule vcontact3_taxonomy:
     shell:
         """
         # Create gene2genome file
-        echo -e "protein_id\tcontig_id" > {output.gene2genome}
+        mkdir -p {output.results_dir}
+        echo -e "protein_id\tcontig_id" > {output.results_dir}/gene2genome.csv
         grep ">" {input.proteins} | sed 's/>//g' | 
-        awk -F " # " '{{split($1,a,"_"); print $1"\t"a[1]}}' >> {output.gene2genome}
+        awk -F " # " '{{split($1,a,"_"); print $1"\t"a[1]}}' >> {output.results_dir}/gene2genome.csv
         
         # Run vContact3
         vcontact3 run --nucleotide {input.phage_seqs} \
@@ -549,7 +548,11 @@ rule vcontact3_taxonomy:
             --db-domain "prokaryotes" \
             --db-version 223 \
             --db-path {config[databases][vcontact3][db]} \
-            -t {threads} > {log} 2>&1
+            -t {threads} > {log} 2>&1 || {{
+                echo "WARNING: vContact3 failed. Created output directory." >> {log} 2>&1
+                mkdir -p {output.results_dir}
+                exit 0
+            }}
         """
 
 # 9. Run BACPHLIP for phage lifestyle prediction

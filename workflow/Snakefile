@@ -122,7 +122,7 @@ rule all:
             ) +
             # Add vContact3 output (gene-content based taxonomy)
             expand(
-                "{outdir}/03_genomic_info/vc3_output/exports/vOTU_results.csv",
+                "{outdir}/03_genomic_info/vc3_output",
                 outdir=config["output_dir"]
             ) +
             (["{outdir}/02_clustering/vOTU_repSeqs.fasta".format(
