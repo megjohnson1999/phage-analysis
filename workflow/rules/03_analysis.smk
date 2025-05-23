@@ -557,7 +557,7 @@ rule vcontact3_taxonomy:
 rule bacphlip_lifestyle:
     input:
         phage_seqs = get_phage_input,
-        checkv_quality = f"{config['output_dir']}/01_phage_predictions/quality_summary.tsv"
+        checkv_quality = f"{config['output_dir']}/01_checkv_output/quality_summary.tsv"
     output:
         results = f"{config['output_dir']}/03_genomic_info/bacphlip_lifestyle.tsv",
         with_completeness = f"{config['output_dir']}/03_genomic_info/bacphlip_lifestyle_with_completeness.tsv"
