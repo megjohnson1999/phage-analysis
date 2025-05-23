@@ -574,9 +574,12 @@ rule bacphlip_lifestyle:
         # Create temporary directory
         TMP_DIR=$(mktemp -d)
         
+        # Clean up any existing BACPHLIP directory
+        rm -rf {input.phage_seqs}.BACPHLIP_DIR/
+        
         # Run BACPHLIP in multi-fasta mode
         echo "Running BACPHLIP on all sequences..." > {log} 2>&1
-        bacphlip -i {input.phage_seqs} --multi_fasta \
+        bacphlip -i {input.phage_seqs} --multi_fasta -f \
             > $TMP_DIR/bacphlip_raw.tsv 2>> {log} || {{
                 echo "BACPHLIP failed. Creating placeholder output..." >> {log} 2>&1
                 echo -e "Sequence\tLifestyle\tConfidence" > {output.results}
@@ -622,4 +625,5 @@ rule bacphlip_lifestyle:
         
         # Clean up
         rm -rf $TMP_DIR
+        rm -rf {input.phage_seqs}.BACPHLIP_DIR/
         """
