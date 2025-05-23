@@ -83,7 +83,10 @@ rule cluster_phages:
             --ids {output.clustering_dir}/vclust_ani.ids.tsv \
             --ani {config[params][vclust][identity]} \
             --qcov {config[params][vclust][coverage]} \
-            --rcov {config[params][vclust][coverage]} >> {log} 2>&1
+            --rcov {config[params][vclust][coverage]} >> {log} 2>&1 || {{
+                echo "WARNING: vclust cluster failed or produced no clusters." >> {log} 2>&1
+                touch {output.clustering_dir}/vclust_clusters.tsv
+            }}
             
         # Check if clustering produced any clusters
         if [ ! -s {output.clustering_dir}/vclust_clusters.tsv ]; then
