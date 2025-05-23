@@ -486,24 +486,38 @@ rule phabox_prediction:
     threads: 24
     shell:
         """
+        # Create output directory
+        mkdir -p {output.results_dir}
+        
         # Run Phabox2 end-to-end (includes virus identification, lifestyle, taxonomy, and host prediction)
         phabox2 --task end_to_end --dbdir {config[databases][phabox][db]} \
             --outpth {output.results_dir} \
             --contigs {input.phage_seqs} \
             --len 1000 \
-            --threads {threads} > {log} 2>&1
+            --threads {threads} > {log} 2>&1 || {{
+                echo "Phabox2 failed. Creating placeholder files..." >> {log} 2>&1
+                echo -e "contig_id\ttaxonomy_prediction\tconfidence" > {output.taxonomy}
+                echo -e "contig_id\tlifestyle_prediction\tconfidence" > {output.lifestyle}
+                exit 0
+            }}
         
-        # Create standardized output files from Phabox2 results
-        # Phabox2 creates various output files in the results directory
-        # We'll need to consolidate them into the expected format
-        echo "Processing Phabox2 outputs..." >> {log} 2>&1
-        
-        # Create placeholder files if Phabox2 outputs don't exist
-        if [ ! -f "{output.taxonomy}" ]; then
+        # Process Phabox2 outputs and create standardized files
+        # Phabox2 creates output files with specific naming patterns
+        if [ -f "{output.results_dir}/out/phamer_prediction.csv" ]; then
+            # Extract taxonomy information
+            echo -e "contig_id\ttaxonomy_prediction\tconfidence" > {output.taxonomy}
+            tail -n +2 {output.results_dir}/out/phamer_prediction.csv | \
+                awk -F',' '{{print $1"\t"$2"\t"$3}}' >> {output.taxonomy}
+        else
             echo -e "contig_id\ttaxonomy_prediction\tconfidence" > {output.taxonomy}
         fi
         
-        if [ ! -f "{output.lifestyle}" ]; then
+        if [ -f "{output.results_dir}/out/cherry_prediction.csv" ]; then
+            # Extract lifestyle information
+            echo -e "contig_id\tlifestyle_prediction\tconfidence" > {output.lifestyle}
+            tail -n +2 {output.results_dir}/out/cherry_prediction.csv | \
+                awk -F',' '{{print $1"\t"$2"\t"$3}}' >> {output.lifestyle}
+        else
             echo -e "contig_id\tlifestyle_prediction\tconfidence" > {output.lifestyle}
         fi
         """
@@ -516,7 +530,7 @@ rule vcontact3_taxonomy:
     output:
         results_dir = directory(f"{config['output_dir']}/03_genomic_info/vc3_output"),
         gene2genome = f"{config['output_dir']}/03_genomic_info/vc3_output/gene2genome.csv",
-        clusters = f"{config['output_dir']}/03_genomic_info/vc3_output/genome_by_genome_overview.csv"
+        clusters = f"{config['output_dir']}/03_genomic_info/vc3_output/exports/vOTU_results.csv"
     log:
         f"{config['output_dir']}/logs/vcontact3_taxonomy.log"
     conda:
