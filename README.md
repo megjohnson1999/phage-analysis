@@ -7,8 +7,8 @@ A Snakemake workflow for phage prediction, clustering, and characterization.
 - Phage prediction using multiple tools (Jaeger, geNomad, Phold, CheckV)
 - Viral contig clustering into vOTUs (optional)
 - Host prediction using iPhop
-- Lifestyle prediction using BACPHLIP
-- Taxonomic classification using multiple approaches
+- Lifestyle prediction using BACPHLIP and Phabox2
+- Taxonomic classification using Phabox2 and vContact3
 
 For a detailed overview of the entire workflow, see [WORKFLOW_SUMMARY.md](WORKFLOW_SUMMARY.md).
 
@@ -54,14 +54,26 @@ The pipeline is organized into three main modules:
 
 3. **Analysis** (03_analysis.smk)
    - Host prediction with iPhop
-   - Lifestyle prediction with BACPHLIP
-   - Taxonomic classification and annotation
+   - Lifestyle prediction with BACPHLIP and Phabox2
+   - Taxonomic classification using Phabox2 and vContact3
+   - Functional annotation
 
-## BACPHLIP Integration
+## Key Analysis Tools
 
-BACPHLIP (Bacteriophage lifestyle prediction tool) is used for predicting phage lifestyle using a machine learning approach. It analyzes genomic features to classify phages as either temperate or virulent.
+### BACPHLIP
+BACPHLIP (Bacteriophage lifestyle prediction tool) predicts phage lifestyle using a machine learning approach. It analyzes genomic features to classify phages as either temperate or virulent.
 
-The workflow runs BACPHLIP on predicted phage contigs to determine their lifestyle, providing valuable insights into the ecological roles of identified phages.
+### Phabox2
+Phabox2 provides comprehensive phage analysis including:
+- Taxonomic classification at multiple levels
+- Lifestyle prediction (lytic/lysogenic)
+- Machine learning-based predictions from genomic features
+
+### vContact3
+vContact3 performs gene-content based taxonomic classification:
+- Creates gene-sharing networks from protein sequences
+- Assigns taxonomy based on network clustering
+- Provides complementary classification to sequence-based methods
 
 ## Usage
 
@@ -149,7 +161,9 @@ The pipeline produces the following key outputs:
 - `02_clustering/vOTU_repSeqs.fasta`: Representative sequences for viral OTUs (if clustering enabled)
 - `03_iphop_results/iphop_predictions_compiled.tsv`: Host predictions
 - `03_bacphlip/bacphlip.predictions.tsv`: Lifestyle predictions from BACPHLIP
-- `03_genomic_info/`: Taxonomic and functional annotations
+- `03_genomic_info/phabox_output/`: Phabox2 taxonomy and lifestyle predictions
+- `03_genomic_info/vc3_output/`: vContact3 gene-content based taxonomy
+- `03_genomic_info/`: Additional taxonomic and functional annotations
 
 ## Dependencies
 
