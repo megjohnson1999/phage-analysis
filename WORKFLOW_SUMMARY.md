@@ -15,8 +15,8 @@ The pipeline consists of three main stages:
 ## Stage 1: Prediction
 
 ### Input Options
-- **Assembly File**: Direct input of assembled contigs (FASTA)
-- **Assembly Graph**: For graph-based assembly refinement with Reneo
+- **Assembly File**: Direct input of assembled contigs (FASTA) - **Currently recommended**
+- **Assembly Graph**: For graph-based assembly refinement with Reneo - *Currently being troubleshooted*
 - **Reads Directory**: Required for Reneo and coverage analysis
 
 ### Processing Steps
@@ -94,20 +94,20 @@ Characterize phages by predicting host relationships, lifestyle, and taxonomy
    - Uses metagenome mode for higher sensitivity
    - Outputs protein and gene sequences
 
-4. **Lifestyle Prediction (PHACTS)**
-   - **Phage-Specific Approach** (default):
-     - Splits proteins by phage using `split_proteins_by_phage.py`
-     - Each PHACTS prediction uses only proteins from one phage
-     - Improves prediction accuracy significantly
-     - Robust error handling for failed predictions
-   - **Original Approach** (legacy):
-     - Processes protein batches without phage-specific separation
-     - Less accurate due to mixing proteins from different phages
+4. **Lifestyle Prediction**
+   - **BACPHLIP**: Machine learning-based lifestyle prediction
+     - Analyzes genomic features to classify phages as temperate or virulent
+     - Runs directly on phage contigs
+   - **Phabox2**: Comprehensive phage analysis including lifestyle prediction
+     - Provides lytic/lysogenic classification
+     - Integrates multiple prediction approaches
 
 5. **Taxonomic Classification**
    - **MMSeqs2**: Detailed sequence-based taxonomic classification
-   - **Phabox2**: Phage-specific taxonomy and lifestyle analysis
-   - **vContact3**: Gene content-based taxonomy using protein clustering
+   - **Phabox2**: Machine learning-based phage taxonomy at multiple levels
+   - **vContact3**: Gene content-based taxonomy using network clustering
+     - Creates gene-sharing networks from protein sequences
+     - Assigns taxonomy based on network relationships
 
 ## Implementation Details
 
@@ -117,7 +117,8 @@ The workflow implements efficient parallelization:
 
 1. **Smart Chunking**
    - Divides large tasks into manageable pieces
-   - Particularly important for PHOLD, iPhop, and PHACTS analyses
+   - Particularly important for PHOLD and iPhop analyses
+   - Default chunk size: 100 sequences per batch
 
 2. **Checkpoint System**
    - Uses Snakemake checkpoints for handling dynamic file generation
@@ -125,6 +126,7 @@ The workflow implements efficient parallelization:
      ```
      .splits_ready → .input_files_found → .all_predictions_done
      ```
+   - Particularly important for iPhop and PHOLD batch processing
 
 3. **Results Aggregation**
    - Merges individual results with proper header handling
@@ -172,22 +174,17 @@ Comprehensive error handling throughout:
    - Prevents version conflicts
    - Defined in workflow/envs/ directory
 
-2. **PHACTS Configuration**
-   - Special handling for PHACTS path
-   - Sets PYTHONPATH to ensure modules are found:
-     ```bash
-     # Define the path to phacts manually
-     phacts_path=/home/megan.j/PHACTS
-     
-     # Add phacts directory to PYTHONPATH
-     export PYTHONPATH="${phacts_path}:${PYTHONPATH:-}"
-     ```
+2. **Database Requirements**
+   - Each tool requires specific databases
+   - Configured in the config.yaml file
+   - Includes paths for MMSeqs2, geNomad, CheckV, PHOLD, iPhop, Phabox2, and vContact3
 
 ## Key Features and Improvements
 
-1. **Phage-Specific PHACTS Analysis**
-   - Runs PHACTS on each phage separately for improved accuracy
-   - Implemented as default analysis method
+1. **Multiple Lifestyle Prediction Tools**
+   - BACPHLIP for machine learning-based predictions
+   - Phabox2 for integrated analysis
+   - Provides complementary predictions for higher confidence
 
 2. **Flexible Input Options**
    - Supports both direct assembly files and assembly graphs
@@ -201,10 +198,10 @@ Comprehensive error handling throughout:
      lca_output = f"{config[output_dir]}/03_genomic_info/mmseqs_output_lca.tsv"
      ```
 
-4. **Comprehensive Testing Framework**
-   - Dedicated test rules for validating functionality
-   - Special focus on phage-specific PHACTS analysis
-   - Well-documented testing procedures in workflow/TEST_INSTRUCTIONS.md
+4. **Comprehensive Tool Integration**
+   - Seamless integration of multiple prediction and analysis tools
+   - Unified output format for easy downstream analysis
+   - Parallel processing for computationally intensive steps
 
 ## Configuration
 
@@ -257,16 +254,18 @@ snakemake --use-conda --cores 24 results/02_clustering/vOTU_repSeqs.fasta
 # Run host prediction
 snakemake --use-conda --cores 24 results/03_iphop_results/iphop_predictions_compiled.tsv
 
-# Run phage-specific PHACTS analysis
-snakemake --use-conda --cores 24 results/03_phacts_results_by_phage/phacts_predictions_compiled.tsv
+# Run BACPHLIP lifestyle prediction
+snakemake --use-conda --cores 24 results/03_bacphlip/bacphlip.predictions.tsv
+
+# Run Phabox2 analysis
+snakemake --use-conda --cores 24 results/03_genomic_info/phabox_output/lifestyle.tsv
 ```
 
-### Testing Phage-Specific PHACTS
+### Running Complete Analysis
 ```bash
 # Navigate to workflow directory
 cd workflow/
 
-# Run test with a protein file
-snakemake --configfile ../test_data/test_config.yaml --use-conda --cores 4 \
-  test_phage_specific/results/test_report.txt
+# Run full pipeline with FASTA input (recommended)
+snakemake --profile ../profile/slurm --config assembly_file="/path/to/assembly.fasta" reads_dir="/path/to/reads/" output_dir="/path/to/output/"
 ```
