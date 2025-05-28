@@ -1,8 +1,8 @@
 # Test configuration for phage-analysis pipeline
 # Input files/directories
 assembly_file: ""  # Leave empty when using assembly_graph
-assembly_graph: "test_data/assemblies/test_sample.gfa"  # Path to assembly graph file for Reneo
-reads_dir: "test_data/reads"
+assembly_graph: "../test_data/assemblies/test_sample.gfa"  # Path to assembly graph file for Reneo
+reads_dir: "../test_data/reads"
 
 # Database paths (use actual database paths)
 databases:
@@ -32,7 +32,7 @@ params:
     coverage: 85
 
 # Output directory
-output_dir: "test_data/results"
+output_dir: "../test_data/results"
 
 # Conda environments
 # Use existing envs from main config
