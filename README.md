@@ -7,7 +7,7 @@ A Snakemake workflow for phage prediction, clustering, and characterization.
 - Phage prediction using multiple tools (Jaeger, geNomad, Phold, CheckV)
 - Viral contig clustering into vOTUs (optional)
 - Host prediction using iPhop
-- Lifestyle prediction using PHACTS (with improved phage-specific analysis)
+- Lifestyle prediction using BACPHLIP
 - Taxonomic classification using multiple approaches
 
 For a detailed overview of the entire workflow, see [WORKFLOW_SUMMARY.md](WORKFLOW_SUMMARY.md).
@@ -54,57 +54,14 @@ The pipeline is organized into three main modules:
 
 3. **Analysis** (03_analysis.smk)
    - Host prediction with iPhop
-   - Lifestyle prediction with PHACTS
+   - Lifestyle prediction with BACPHLIP
    - Taxonomic classification and annotation
 
-## PHACTS Integration
+## BACPHLIP Integration
 
-PHACTS (Phage Classification Tool Set) is used for predicting phage lifestyle. The pipeline uses a phage-specific approach that improves prediction accuracy by grouping proteins from the same phage together:
+BACPHLIP (Bacteriophage lifestyle prediction tool) is used for predicting phage lifestyle using a machine learning approach. It analyzes genomic features to classify phages as either temperate or virulent.
 
-### Phage-Specific PHACTS Analysis
-
-The workflow implements phage-specific PHACTS analysis, which offers several advantages:
-
-- **Improved accuracy**: Proteins from the same phage are analyzed together, which ensures that PHACTS predictions are based on the complete protein set from each phage.
-- **Better biological relevance**: Each phage's lifestyle is predicted independently, reflecting the biological reality that different phages may have different lifestyles.
-- **Reduced noise**: Prevents proteins from multiple phages being mixed in a single batch, which could lead to conflicting signals in the predictions.
-
-The implementation:
-1. Extracts the phage ID from each protein sequence header (now with improved handling of contig names containing underscores)
-2. Groups proteins by their source phage
-3. Creates separate files for each phage
-4. Runs PHACTS prediction on each phage-specific file
-5. Aggregates results with clear phage-to-lifestyle mapping
-
-#### Recent Improvements
-
-- **Robust phage ID extraction**: Fixed the extraction of phage IDs to properly handle contig names with multiple underscores (e.g., "disjointig_1_123" is now correctly identified as "disjointig_1")
-- **Improved error handling**: Added better error detection and graceful failure recovery for PHACTS predictions
-- **Enhanced testing framework**: Added comprehensive testing capabilities for validating the phage-specific analysis (see [PHAGE_SPECIFIC_TESTING.md](PHAGE_SPECIFIC_TESTING.md) for details)
-
-### Using Existing PHACTS Installation
-
-The workflow is configured to use an existing PHACTS installation:
-
-- PHACTS is accessed from a shared installation path
-- The current configuration uses the path: `/home/megan.j/PHACTS/phacts.py`
-- The workflow automatically sets up the necessary environment variables (PATH and PYTHONPATH)
-
-### Customizing PHACTS Location
-
-To use a different PHACTS installation:
-
-1. Edit the `phacts_path` parameter in the `phacts_phage_prediction` rule in `workflow/rules/split_proteins_by_phage.smk`:
-   ```python
-   # Define the path to phacts manually
-   phacts_path=/path/to/your/phacts  # Update this path
-   ```
-
-2. Or, to use the installation script for a new installation:
-   ```
-   bash scripts/install_phacts.sh -d /path/to/install/location
-   ```
-   Then update the path in the rule as above.
+The workflow runs BACPHLIP on predicted phage contigs to determine their lifestyle, providing valuable insights into the ecological roles of identified phages.
 
 ## Usage
 
@@ -118,9 +75,6 @@ To use a different PHACTS installation:
    assembly_graph: "/path/to/graph.gfa"      # Optional for Reneo graph-based workflow
    reads_dir: "/path/to/reads/"              # Directory containing reads
    do_clustering: true                       # Set to false to skip clustering
-   
-   # PHACTS configuration 
-   phacts_version: "main"                    # Git branch or tag for PHACTS
    ```
 
 2. Edit SLURM profile in `profile/slurm/config.yaml` if needed for your computing environment
@@ -140,19 +94,21 @@ snakemake --profile ../profile/slurm
 
 ### Input Options
 
+**Note: The FASTA-only workflow is currently recommended.** The Reneo graph-based processing is undergoing troubleshooting and may have issues.
+
 The pipeline supports different input configurations:
 
-- **FASTA only**: Provide `assembly_file` parameter (skips Reneo)
+- **FASTA only (Recommended)**: Provide `assembly_file` parameter (skips Reneo)
   ```
   snakemake --profile profile/slurm --config assembly_file="/path/to/assembly.fasta" reads_dir="/path/to/reads/" output_dir="/path/to/output/"
   ```
 
-- **Assembly graph only**: Provide `assembly_graph` parameter (uses Reneo)
+- **Assembly graph only**: Provide `assembly_graph` parameter (uses Reneo) - *Currently being troubleshooted*
   ```
   snakemake --profile profile/slurm --config assembly_graph="/path/to/graph.gfa" reads_dir="/path/to/reads/" output_dir="/path/to/output/"
   ```
 
-- **Both files**: Provide both `assembly_file` and `assembly_graph` (uses Reneo and original FASTA)
+- **Both files**: Provide both `assembly_file` and `assembly_graph` (uses Reneo and original FASTA) - *Currently being troubleshooted*
   ```
   snakemake --profile profile/slurm --config assembly_file="/path/to/assembly.fasta" assembly_graph="/path/to/graph.gfa" reads_dir="/path/to/reads/" output_dir="/path/to/output/"
   ```
@@ -192,33 +148,24 @@ The pipeline produces the following key outputs:
 - `01_phage_predictions/phageContigs.fasta`: Predicted phage contigs
 - `02_clustering/vOTU_repSeqs.fasta`: Representative sequences for viral OTUs (if clustering enabled)
 - `03_iphop_results/iphop_predictions_compiled.tsv`: Host predictions
-- `03_phacts_results_by_phage/phacts_predictions_compiled.tsv`: Phage-specific lifestyle predictions (improved approach)
+- `03_bacphlip/bacphlip.predictions.tsv`: Lifestyle predictions from BACPHLIP
 - `03_genomic_info/`: Taxonomic and functional annotations
-
-### Phage-Specific PHACTS Results
-
-The `03_phacts_results_by_phage/phacts_predictions_compiled.tsv` file contains lifestyle predictions with the following columns:
-- `phage_id`: The identifier of the phage (extracted from protein headers)
-- `lifestyle`: Predicted lifestyle (typically "lytic" or "temperate")
-- `probability`: Confidence score for the prediction (0-1)
 
 ## Dependencies
 
-The workflow automatically handles all dependencies through conda environments defined in the `workflow/envs/` directory, including PHACTS which is now installed as part of the workflow execution.
+The workflow automatically handles all dependencies through conda environments defined in the `workflow/envs/` directory.
 
 ## Recent Updates and Fixes
 
-- **Fixed Phage ID Extraction**: Updated `split_proteins_by_phage.py` to correctly handle contig names with multiple underscores
+- **Replaced PHACTS with BACPHLIP**: Updated lifestyle prediction to use BACPHLIP for more accurate and efficient predictions
 - **Improved Error Handling**: Enhanced PHOLD rule to handle prediction failures gracefully
 - **Fixed Script Syntax**: Corrected shell script syntax in various pipeline rules
 - **Added Comprehensive Documentation**: Created a detailed `WORKFLOW_SUMMARY.md` document explaining the entire pipeline
-- **Enhanced Testing Framework**: Added `PHAGE_SPECIFIC_TESTING.md` with instructions for validating the phage-specific PHACTS analysis
 
 ## Documentation
 
 - **README.md**: This file - basic usage and setup instructions
 - **WORKFLOW_SUMMARY.md**: Comprehensive overview of the entire workflow and implementation details
-- **PHAGE_SPECIFIC_TESTING.md**: Testing instructions for the phage-specific PHACTS analysis
 - **workflow/TEST_INSTRUCTIONS.md**: General testing instructions for the workflow
 
 ## License

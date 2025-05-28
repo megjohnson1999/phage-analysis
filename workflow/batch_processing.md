@@ -10,7 +10,7 @@ For tools that process individual sequences or have high computational requireme
 2. Processes each chunk in parallel
 3. Aggregates results back into a single output file
 
-This approach is particularly valuable for tools like PHOLD, iPhop, and PHACTS that can create thousands of jobs when processing large metagenomic datasets.
+This approach is particularly valuable for tools like PHOLD and iPhop that can create thousands of jobs when processing large metagenomic datasets.
 
 ## Implementation Strategy
 
@@ -147,8 +147,7 @@ rule aggregate_results:
 Batch processing has been implemented for:
 
 1. **PHOLD**: Phage protein function annotation
-2. **iPhop**: Phage host prediction 
-3. **PHACTS**: Phage lifestyle prediction
+2. **iPhop**: Phage host prediction
 
 Each implementation follows the same pattern but with tool-specific adjustments for input/output formats and resource requirements.
 
