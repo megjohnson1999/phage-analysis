@@ -14,9 +14,6 @@ reads_dir: "/path/to/reads"  # Directory containing sequencing reads
 # Pipeline configuration
 do_clustering: true  # Set to false to skip clustering
 
-# PHACTS installation path
-phacts: "/home/megan.j/PHACTS"
-
 databases:
   iphop:
     db: "/ref/sahlab/data/viral_analysis_DBs/iphop_DBs/Aug_2023_pub_rw"
@@ -58,7 +55,6 @@ conda_envs:
    r: "../envs/r.yaml"
    vclust: "../envs/vclust.yaml"
    iphop: "../envs/iphop.yaml"
-   phacts: "../envs/phacts.yaml"
    bacphlip: "../envs/bacphlip.yaml"
    phabox2: "../envs/phabox2.yaml"
    seqkit: "../envs/seqkit.yaml"
