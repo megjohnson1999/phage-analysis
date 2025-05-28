@@ -1,7 +1,7 @@
 # Test configuration for phage-analysis pipeline
 # Input files/directories
-assembly_file: "test_data/assemblies/test_sample.fasta"
-assembly_graph: ""  # Path to assembly graph file (leave empty to skip Reneo)
+assembly_file: ""  # Leave empty when using assembly_graph
+assembly_graph: "test_data/assemblies/test_sample.gfa"  # Path to assembly graph file for Reneo
 reads_dir: "test_data/reads"
 
 # Database paths (use actual database paths)
