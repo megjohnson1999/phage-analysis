@@ -204,7 +204,7 @@ rule iphop_aggregate_results:
     log:
         f"{config['output_dir']}/logs/iphop_aggregate_results.log"
     conda:
-        config["conda_envs"]["phacts"]
+        config["conda_envs"]["python"]
     shell:
         """
         # Ensure results directory exists
@@ -264,7 +264,7 @@ rule prodigal_orf_prediction:
     log:
         f"{config['output_dir']}/logs/prodigal_orf_prediction.log"
     conda:
-        config["conda_envs"]["phacts"]
+        config["conda_envs"]["vcontact3"]
     shell:
         """
         # Create output directory
