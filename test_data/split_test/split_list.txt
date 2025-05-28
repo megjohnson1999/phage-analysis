@@ -1,0 +1,3 @@
+test_data/split_test/contig_01_lambda_phage.faa
+test_data/split_test/contig_02_temperate_phage.faa
+test_data/split_test/contig_04_bacterial.faa

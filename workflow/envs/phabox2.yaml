@@ -4,8 +4,11 @@ channels:
   - bioconda
   - defaults
 dependencies:
+  - python=3.10
   - phabox>=2.0.0
   - pandas
   - numpy
   - biopython
   - seqkit
+  - transformers<4.30.0
+  - pytorch

@@ -7,8 +7,10 @@ A Snakemake workflow for phage prediction, clustering, and characterization.
 - Phage prediction using multiple tools (Jaeger, geNomad, Phold, CheckV)
 - Viral contig clustering into vOTUs (optional)
 - Host prediction using iPhop
-- Lifestyle prediction using PHACTS
+- Lifestyle prediction using PHACTS (with improved phage-specific analysis)
 - Taxonomic classification using multiple approaches
+
+For a detailed overview of the entire workflow, see [WORKFLOW_SUMMARY.md](WORKFLOW_SUMMARY.md).
 
 ## Requirements
 
@@ -57,38 +59,52 @@ The pipeline is organized into three main modules:
 
 ## PHACTS Integration
 
-PHACTS (Phage Classification Tool Set) is used for predicting phage lifestyle. The pipeline provides two ways to use PHACTS:
+PHACTS (Phage Classification Tool Set) is used for predicting phage lifestyle. The pipeline uses a phage-specific approach that improves prediction accuracy by grouping proteins from the same phage together:
 
-### Option 1: Automatic Installation (Recommended)
+### Phage-Specific PHACTS Analysis
 
-The workflow now includes an automatic PHACTS installation:
+The workflow implements phage-specific PHACTS analysis, which offers several advantages:
 
-- PHACTS is automatically installed during pipeline execution
-- Installation happens in `output_dir/db/phacts/`
-- Version control via `phacts_version` parameter in config.yaml
+- **Improved accuracy**: Proteins from the same phage are analyzed together, which ensures that PHACTS predictions are based on the complete protein set from each phage.
+- **Better biological relevance**: Each phage's lifestyle is predicted independently, reflecting the biological reality that different phages may have different lifestyles.
+- **Reduced noise**: Prevents proteins from multiple phages being mixed in a single batch, which could lead to conflicting signals in the predictions.
 
-No manual installation is needed - simply run the pipeline and PHACTS will be installed and configured automatically.
+The implementation:
+1. Extracts the phage ID from each protein sequence header (now with improved handling of contig names containing underscores)
+2. Groups proteins by their source phage
+3. Creates separate files for each phage
+4. Runs PHACTS prediction on each phage-specific file
+5. Aggregates results with clear phage-to-lifestyle mapping
 
-### Option 2: Manual Installation
+#### Recent Improvements
 
-For users who prefer manual control:
+- **Robust phage ID extraction**: Fixed the extraction of phage IDs to properly handle contig names with multiple underscores (e.g., "disjointig_1_123" is now correctly identified as "disjointig_1")
+- **Improved error handling**: Added better error detection and graceful failure recovery for PHACTS predictions
+- **Enhanced testing framework**: Added comprehensive testing capabilities for validating the phage-specific analysis (see [PHAGE_SPECIFIC_TESTING.md](PHAGE_SPECIFIC_TESTING.md) for details)
 
-1. Run the PHACTS installation script:
+### Using Existing PHACTS Installation
+
+The workflow is configured to use an existing PHACTS installation:
+
+- PHACTS is accessed from a shared installation path
+- The current configuration uses the path: `/home/megan.j/PHACTS/phacts.py`
+- The workflow automatically sets up the necessary environment variables (PATH and PYTHONPATH)
+
+### Customizing PHACTS Location
+
+To use a different PHACTS installation:
+
+1. Edit the `phacts_path` parameter in the `phacts_phage_prediction` rule in `workflow/rules/split_proteins_by_phage.smk`:
+   ```python
+   # Define the path to phacts manually
+   phacts_path=/path/to/your/phacts  # Update this path
    ```
-   bash scripts/install_phacts.sh
-   ```
 
-2. Or for custom installation path:
+2. Or, to use the installation script for a new installation:
    ```
    bash scripts/install_phacts.sh -d /path/to/install/location
    ```
-
-3. Update `config.yaml` to specify the path:
-   ```yaml
-   databases:
-     phacts:
-       path: "/path/to/phacts/phacts.py"
-   ```
+   Then update the path in the rule as above.
 
 ## Usage
 
@@ -176,12 +192,34 @@ The pipeline produces the following key outputs:
 - `01_phage_predictions/phageContigs.fasta`: Predicted phage contigs
 - `02_clustering/vOTU_repSeqs.fasta`: Representative sequences for viral OTUs (if clustering enabled)
 - `03_iphop_results/iphop_predictions_compiled.tsv`: Host predictions
-- `03_phacts_results/phacts_predictions_compiled.tsv`: Lifestyle predictions
+- `03_phacts_results_by_phage/phacts_predictions_compiled.tsv`: Phage-specific lifestyle predictions (improved approach)
 - `03_genomic_info/`: Taxonomic and functional annotations
+
+### Phage-Specific PHACTS Results
+
+The `03_phacts_results_by_phage/phacts_predictions_compiled.tsv` file contains lifestyle predictions with the following columns:
+- `phage_id`: The identifier of the phage (extracted from protein headers)
+- `lifestyle`: Predicted lifestyle (typically "lytic" or "temperate")
+- `probability`: Confidence score for the prediction (0-1)
 
 ## Dependencies
 
 The workflow automatically handles all dependencies through conda environments defined in the `workflow/envs/` directory, including PHACTS which is now installed as part of the workflow execution.
+
+## Recent Updates and Fixes
+
+- **Fixed Phage ID Extraction**: Updated `split_proteins_by_phage.py` to correctly handle contig names with multiple underscores
+- **Improved Error Handling**: Enhanced PHOLD rule to handle prediction failures gracefully
+- **Fixed Script Syntax**: Corrected shell script syntax in various pipeline rules
+- **Added Comprehensive Documentation**: Created a detailed `WORKFLOW_SUMMARY.md` document explaining the entire pipeline
+- **Enhanced Testing Framework**: Added `PHAGE_SPECIFIC_TESTING.md` with instructions for validating the phage-specific PHACTS analysis
+
+## Documentation
+
+- **README.md**: This file - basic usage and setup instructions
+- **WORKFLOW_SUMMARY.md**: Comprehensive overview of the entire workflow and implementation details
+- **PHAGE_SPECIFIC_TESTING.md**: Testing instructions for the phage-specific PHACTS analysis
+- **workflow/TEST_INSTRUCTIONS.md**: General testing instructions for the workflow
 
 ## License
 

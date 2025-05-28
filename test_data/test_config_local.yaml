@@ -1,0 +1,52 @@
+# Local test configuration for phage-analysis pipeline
+# Input files/directories
+assembly_file: "test_data/assemblies/test_sample.fasta"
+assembly_graph: ""  # Path to assembly graph file (leave empty to skip Reneo)
+reads_dir: "test_data/reads"
+
+# Database paths - using mock databases for testing
+databases:
+  iphop:
+    db: "test_data/db/iphop"
+  phabox:
+    db: "test_data/db/phabox2"
+  vcontact3:
+    db: "test_data/db/vcontact3"
+  mmseqs2:
+    db: "test_data/db/mmseqs2"
+  genomad:
+    db: "test_data/db/genomad"
+  checkv:
+    db: "test_data/db/checkv"
+  phold:
+    db: "test_data/db/phold"
+
+# Pipeline configuration
+do_clustering: false  # Set to false for simpler testing
+
+# Analysis parameters
+params:
+  vclust:
+    min_length: 1000  # Lower for test data
+    identity: 95
+    coverage: 85
+
+# Output directory
+output_dir: "test_data/results_local"
+
+# Local conda environments - these will be created automatically by snakemake
+conda_envs:
+  reneo: "workflow/envs/reneo.yaml"
+  mmseqs2: "workflow/envs/mmseqs2.yaml"
+  jaeger: "workflow/envs/jaeger.yaml"
+  genomad: "workflow/envs/genomad.yaml"
+  phold: "workflow/envs/phold.yaml"
+  checkv: "workflow/envs/checkv.yaml"
+  r: "workflow/envs/r.yaml"
+  vclust: "workflow/envs/vclust.yaml"
+  iphop: "workflow/envs/iphop.yaml"
+  phacts: "workflow/envs/phacts.yaml"
+  phabox2: "workflow/envs/phabox2.yaml"
+  seqkit: "workflow/envs/seqkit.yaml"
+  vcontact3: "workflow/envs/vcontact3.yaml"
+  python: "workflow/envs/python.yaml"

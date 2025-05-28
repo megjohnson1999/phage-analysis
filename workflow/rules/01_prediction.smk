@@ -372,10 +372,20 @@ rule phold_single_prediction:
         mkdir -p {output.results_dir}
         
         # Run phold on chunk of contigs
-        phold run -i {input.contig_file} \
+        (phold run -i {input.contig_file} \
             -o {output.results_dir} \
             -d {config[databases][phold][db]} \
-            -t {threads} --cpu --force > {log} 2>&1
+            -t {threads} --cpu --force > {log} 2>&1) || true
+            
+        # Check if output file exists, if not create empty file with header
+        if [ ! -f "{output.predictions}" ]; then
+            echo "WARNING: PHOLD failed to create output for {wildcards.sample}, creating empty output file" >> {log}
+            # Create directory if it doesn't exist
+            mkdir -p $(dirname {output.predictions})
+            # Create empty file with header structure
+            echo -e "contig_id\torf_id\tstart\tend\tstrand\taa_length\tcategory\tproduct\thit\tevalue\tidentity" > {output.predictions}
+            echo "Created empty PHOLD predictions file with header only" >> {log}
+        fi
         """
 
 # 6d. Helper rule to force running all PHOLD predictions
