@@ -45,8 +45,9 @@ if workflow.globals["use_reneo"]:
             """
             mkdir -p {config[output_dir]}/01_reneo_output
 
-            # Run Reneo for binning
-            reneo run --input {input.assembly_graph} \
+            # Run Reneo using wrapper script that handles expected failures
+            bash {workflow.basedir}/scripts/run_reneo_wrapper.sh \
+                --input {input.assembly_graph} \
                 --reads {input.reads_dir} \
                 --minlength 1000 \
                 --output {config[output_dir]}/01_reneo_output \
