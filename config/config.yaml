@@ -1,12 +1,18 @@
 # Phage Analysis Pipeline Configuration
 
+# NOTE: Default configuration uses HTCF setup
+# To adapt for your own system:
+# 1. Change conda_base_path to your conda installation (or set to "" for Snakemake handling)
+# 2. Update database paths to your local copies
+# 3. Adjust output_dir and input file paths
+
 # Directory configuration
 output_dir: "/path/to/your/project/outputs"  # Change to your actual output directory
 
 # Optional: Conda configuration for existing environments
 # If using existing conda environments (e.g., for Reneo with Gurobi license),
 # specify the base path of your conda/mamba installation
-conda_base_path: ""  # e.g., "/ref/sahlab/software/miniforge3"
+conda_base_path: "/ref/sahlab/software/miniforge3"  # Set to "" to use Snakemake's conda handling
 
 # Input files/directories
 # Note: At least one of assembly_file or assembly_graph must be provided
@@ -50,7 +56,7 @@ params:
 
 # Conda environments
 conda_envs:
-   reneo: "/ref/sahlab/software/miniforge3/envs/reneo"
+   reneo: "reneo"  # Environment name when using conda_base_path
    #reneo: "../envs/reneo.yaml"  # Alternative: create new env (requires Gurobi license setup)
    mmseqs2: "../envs/mmseqs2.yaml"
    jaeger: "../envs/jaeger.yaml"
