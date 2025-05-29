@@ -175,13 +175,34 @@ Comprehensive error handling throughout:
          --threads {threads}
      ```
 
-3. **Fallback Methods**
+4. **Conda Environment Handling**
+   - Flexible configuration via `conda_base_path` setting
+   - Supports both existing environments and YAML-based creation
+   - Special handling for Reneo due to Gurobi license requirements
+   - Manual activation for existing environments when needed
+
+5. **DAG Construction Fixes**
+   - All rules always defined to prevent MissingInputException
+   - Input functions re-evaluate conditions during DAG construction
+   - Handles workflow.globals state not being available during DAG building
+   - Example fix in get_reneo_input():
+     ```python
+     def get_reneo_input(wildcards):
+         # Re-evaluate whether to use reneo based on current config
+         use_reneo_local = not should_skip_reneo(wildcards)
+         if use_reneo_local:
+             return {"assembly_graph": config["assembly_graph"], "reads_dir": config["reads_dir"]}
+         else:
+             return {"assembly_graph": "/dev/null", "reads_dir": "/dev/null"}
+     ```
+
+6. **Fallback Methods**
    - Multi-level sample identification:
      - Primary: Read from split file list
      - Fallback 1: Use glob to find files directly
      - Fallback 2: Check tmp directory for existing outputs
 
-4. **Detailed Logging**
+7. **Detailed Logging**
    - Each step generates comprehensive logs
    - Captures both stdout and stderr
    - Organized in logs/ directory for easy troubleshooting

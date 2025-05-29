@@ -201,27 +201,42 @@ The workflow automatically handles all dependencies through conda environments d
 - **Improved Error Handling**: Enhanced PHOLD rule to handle prediction failures gracefully
 - **Fixed Script Syntax**: Corrected shell script syntax in various pipeline rules
 - **Added Comprehensive Documentation**: Created a detailed `WORKFLOW_SUMMARY.md` document explaining the entire pipeline
-- **Enhanced Reneo Integration**: Added wrapper script to handle Reneo's expected failures gracefully
-- **Fixed DAG Construction**: Resolved issues with dry-run when using GFA-only input
+- **Enhanced Reneo Integration**: 
+  - Added wrapper script to handle Reneo's expected failures gracefully
+  - Fixed conda environment configuration for systems with existing Reneo/Gurobi setup
+  - Resolved workflow.globals state issue during DAG construction
+- **Fixed DAG Construction**: 
+  - Resolved issues with dry-run when using GFA-only input
+  - All rules now always defined with conditional execution logic
+  - Input functions re-evaluate conditions during DAG construction
 - **Automatic Placeholder Detection**: Pipeline now automatically detects and clears placeholder paths from default config
+- **Flexible Conda Configuration**: Added `conda_base_path` option for using existing conda environments
 
 ## Troubleshooting
 
 ### Common Issues
 
-1. **MissingInputException with GFA files during dry-run**
-   - **Cause**: DAG construction issues with conditional rules
-   - **Solution**: Update to the latest version which includes fixes for DAG construction
+1. **"Skipping Reneo - not configured for this run" despite providing GFA file**
+   - **Cause**: workflow.globals state not available during DAG construction
+   - **Solution**: Fixed in latest version - input functions now re-evaluate conditions locally
 
-2. **Placeholder paths causing errors**
+2. **Conda environment export error for Reneo**
+   - **Cause**: Snakemake trying to export existing conda environment with full path as name
+   - **Solution**: Configure `conda_base_path` in config.yaml for existing environments, or use YAML file for new environments
+
+3. **MissingInputException with GFA files during dry-run**
+   - **Cause**: DAG construction issues with conditional rules
+   - **Solution**: All rules now always defined; conditional logic moved to input functions
+
+4. **Placeholder paths causing errors**
    - **Cause**: Default config contains placeholder paths like `/path/to/assembly.fasta`
    - **Solution**: The pipeline now automatically detects and clears these. No manual intervention needed.
 
-3. **Reneo fails but pipeline stops**
+5. **Reneo fails but pipeline stops**
    - **Cause**: Reneo may fail on certain inputs but still produce partial outputs
    - **Solution**: The wrapper script now handles this by creating empty output files if needed
 
-4. **PHOLD or iPhop failing on large datasets**
+6. **PHOLD or iPhop failing on large datasets**
    - **Cause**: Memory or time limits exceeded
    - **Solution**: The pipeline chunks these analyses automatically. Adjust chunk sizes in the code if needed.
 
