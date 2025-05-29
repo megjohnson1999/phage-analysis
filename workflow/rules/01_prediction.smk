@@ -13,7 +13,14 @@ def should_skip_reneo(wildcards):
 
 # Define a flag for skipping Reneo
 # Set the global variable in the workflow module
+import sys
+import os
+print(f"DEBUG: assembly_graph = {config.get('assembly_graph')}", file=sys.stderr)
+print(f"DEBUG: Current dir = {os.getcwd()}", file=sys.stderr)
+if config.get('assembly_graph'):
+    print(f"DEBUG: assembly_graph exists = {os.path.exists(config.get('assembly_graph'))}", file=sys.stderr)
 workflow.globals["use_reneo"] = not should_skip_reneo(None)
+print(f"DEBUG: use_reneo = {workflow.globals['use_reneo']}", file=sys.stderr)
 
 # Helper function to determine which assembly file to use
 def get_assembly_input(wildcards):
