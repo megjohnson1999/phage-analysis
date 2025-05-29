@@ -106,24 +106,31 @@ snakemake --profile ../profile/slurm
 
 ### Input Options
 
-**Note: The FASTA-only workflow is currently recommended.** The Reneo graph-based processing is undergoing troubleshooting and may have issues.
-
 The pipeline supports different input configurations:
 
-- **FASTA only (Recommended)**: Provide `assembly_file` parameter (skips Reneo)
+- **FASTA only (Standard workflow)**: Provide `assembly_file` parameter (skips Reneo)
   ```
   snakemake --profile profile/slurm --config assembly_file="/path/to/assembly.fasta" reads_dir="/path/to/reads/" output_dir="/path/to/output/"
   ```
 
-- **Assembly graph only**: Provide `assembly_graph` parameter (uses Reneo) - *Currently being troubleshooted*
+- **Assembly graph only (Reneo workflow)**: Provide `assembly_graph` parameter
   ```
   snakemake --profile profile/slurm --config assembly_graph="/path/to/graph.gfa" reads_dir="/path/to/reads/" output_dir="/path/to/output/"
   ```
+  
+  **Note**: When using GFA files, you don't need to explicitly set `assembly_file=""` - the pipeline automatically detects and clears placeholder paths from the default config.
 
-- **Both files**: Provide both `assembly_file` and `assembly_graph` (uses Reneo and original FASTA) - *Currently being troubleshooted*
+- **Both files**: Provide both `assembly_file` and `assembly_graph` (uses Reneo for graph-based processing but falls back to FASTA if needed)
   ```
   snakemake --profile profile/slurm --config assembly_file="/path/to/assembly.fasta" assembly_graph="/path/to/graph.gfa" reads_dir="/path/to/reads/" output_dir="/path/to/output/"
   ```
+
+#### Reneo Integration
+
+The pipeline includes a wrapper script (`workflow/scripts/run_reneo_wrapper.sh`) that handles Reneo execution. This wrapper:
+- Manages Reneo's expected failures gracefully
+- Creates empty output files if Reneo fails, allowing the pipeline to continue
+- Logs detailed information about Reneo's execution status
 
 ### Additional Options
 
@@ -175,6 +182,35 @@ The workflow automatically handles all dependencies through conda environments d
 - **Improved Error Handling**: Enhanced PHOLD rule to handle prediction failures gracefully
 - **Fixed Script Syntax**: Corrected shell script syntax in various pipeline rules
 - **Added Comprehensive Documentation**: Created a detailed `WORKFLOW_SUMMARY.md` document explaining the entire pipeline
+- **Enhanced Reneo Integration**: Added wrapper script to handle Reneo's expected failures gracefully
+- **Fixed DAG Construction**: Resolved issues with dry-run when using GFA-only input
+- **Automatic Placeholder Detection**: Pipeline now automatically detects and clears placeholder paths from default config
+
+## Troubleshooting
+
+### Common Issues
+
+1. **MissingInputException with GFA files during dry-run**
+   - **Cause**: DAG construction issues with conditional rules
+   - **Solution**: Update to the latest version which includes fixes for DAG construction
+
+2. **Placeholder paths causing errors**
+   - **Cause**: Default config contains placeholder paths like `/path/to/assembly.fasta`
+   - **Solution**: The pipeline now automatically detects and clears these. No manual intervention needed.
+
+3. **Reneo fails but pipeline stops**
+   - **Cause**: Reneo may fail on certain inputs but still produce partial outputs
+   - **Solution**: The wrapper script now handles this by creating empty output files if needed
+
+4. **PHOLD or iPhop failing on large datasets**
+   - **Cause**: Memory or time limits exceeded
+   - **Solution**: The pipeline chunks these analyses automatically. Adjust chunk sizes in the code if needed.
+
+### Getting Help
+
+- Check the logs in `<output_dir>/logs/` for detailed error messages
+- Review `WORKFLOW_SUMMARY.md` for implementation details
+- Submit issues to the GitHub repository with log files attached
 
 ## Documentation
 

@@ -139,6 +139,7 @@ Comprehensive error handling throughout:
 1. **Input Validation**
    - Checks for existence of required files
    - Validates configuration settings
+   - Automatically detects and clears placeholder paths from default config
 
 2. **Robust Failure Recovery**
    - Creates empty outputs with proper headers when tools fail
@@ -154,6 +155,24 @@ Comprehensive error handling throughout:
          echo "WARNING: PHOLD failed to create output for {wildcards.sample}" >> {log}
          echo -e "contig_id\torf_id\tstart\tend\tstrand\taa_length\tcategory\tproduct\thit\tevalue\tidentity" > {output.predictions}
      fi
+     ```
+
+3. **Reneo Wrapper Script**
+   - Special handling for Reneo's expected failures
+   - Located at `workflow/scripts/run_reneo_wrapper.sh`
+   - Features:
+     - Captures Reneo exit codes
+     - Checks for expected output files
+     - Creates empty outputs if Reneo fails, allowing pipeline continuation
+     - Detailed logging of Reneo's execution status
+   - Example usage:
+     ```bash
+     bash {workflow.basedir}/scripts/run_reneo_wrapper.sh \
+         --input {input.assembly_graph} \
+         --reads {input.reads_dir} \
+         --minlength 1000 \
+         --output {output_dir} \
+         --threads {threads}
      ```
 
 3. **Fallback Methods**
@@ -189,6 +208,10 @@ Comprehensive error handling throughout:
 2. **Flexible Input Options**
    - Supports both direct assembly files and assembly graphs
    - Conditional workflow paths based on input types
+   - Fixed DAG construction for GFA-only inputs:
+     - All rules are always defined (no conditional rule definitions)
+     - Uses input helper functions that return dummy inputs when rules shouldn't run
+     - Rules check for dummy inputs and create empty outputs when skipped
 
 3. **Robust Output Handling**
    - Properly manages file naming and paths
