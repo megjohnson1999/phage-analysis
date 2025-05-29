@@ -28,108 +28,68 @@ def get_assembly_input(wildcards):
     # Fallback case - this should never happen as the validation checks should catch it
     raise ValueError("Neither assembly_file nor valid assembly_graph were provided")
 
-# Helper function to get input for reneo_binning
-def get_reneo_input(wildcards):
-    if workflow.globals["use_reneo"]:
-        return {
-            "assembly_graph": config["assembly_graph"],
-            "reads_dir": config["reads_dir"]
-        }
-    else:
-        # Return dummy inputs that will never be used
-        return {
-            "assembly_graph": "/dev/null",
-            "reads_dir": "/dev/null"
-        }
+# 1. Run Reneo for binning (only if workflow.globals["use_reneo"] is True)
+if workflow.globals["use_reneo"]:
+    rule reneo_binning:
+        input:
+            assembly_graph = config["assembly_graph"],
+            reads_dir = config["reads_dir"]
+        output:
+            f"{config['output_dir']}/01_reneo_output/genomes_and_unresolved_edges.fasta"
+        log:
+            f"{config['output_dir']}/logs/reneo_binning.log"
+        conda:
+            config["conda_envs"]["reneo"]
+        threads: 24
+        shell:
+            """
+            mkdir -p {config[output_dir]}/01_reneo_output
 
-# Helper function to get input for direct_contig_filter
-def get_direct_filter_input(wildcards):
-    if not workflow.globals["use_reneo"] and config.get("assembly_file") and config.get("assembly_file") != "":
-        return {"assembly": config["assembly_file"]}
-    else:
-        # Return dummy input that will never be used
-        return {"assembly": "/dev/null"}
+            # Run Reneo using wrapper script that handles expected failures
+            bash {workflow.basedir}/scripts/run_reneo_wrapper.sh \
+                --input {input.assembly_graph} \
+                --reads {input.reads_dir} \
+                --minlength 1000 \
+                --output {config[output_dir]}/01_reneo_output \
+                --threads {threads} > {log} 2>&1
+            """
 
-# 1. Run Reneo for binning
-# Always define this rule, but it will only run when use_reneo is True
-rule reneo_binning:
-    input:
-        unpack(get_reneo_input)
-    output:
-        f"{config['output_dir']}/01_reneo_output/genomes_and_unresolved_edges.fasta"
-    log:
-        f"{config['output_dir']}/logs/reneo_binning.log"
-    conda:
-        config["conda_envs"]["reneo"]
-    threads: 24
-    shell:
-        """
-        if [ "{wildcards.assembly_graph}" = "/dev/null" ]; then
-            echo "Skipping Reneo - not configured for this run" > {log}
-            touch {output}
-            exit 0
-        fi
-        
-        mkdir -p {config[output_dir]}/01_reneo_output
-
-        # Run Reneo using wrapper script that handles expected failures
-        bash {workflow.basedir}/scripts/run_reneo_wrapper.sh \
-            --input {input.assembly_graph} \
-            --reads {input.reads_dir} \
-            --minlength 1000 \
-            --output {config[output_dir]}/01_reneo_output \
-            --threads {threads} > {log} 2>&1
-        """
-
-# 1b. Filter contigs by length (1KB) from Reneo output
-# Always define this rule
-rule contig_length_filter:
-    input:
-        f"{config['output_dir']}/01_reneo_output/genomes_and_unresolved_edges.fasta"
-    output:
-        f"{config['output_dir']}/01_reneo_output/genomes_and_unresolved_edges_1KB.fasta"
-    log:
-        f"{config['output_dir']}/logs/contig_length_filter.log"
-    conda:
-        config["conda_envs"]["seqkit"]
-    threads: 8
-    shell:
-        """
-        if [ ! -s "{input}" ]; then
-            echo "Input file is empty or missing, creating empty output" > {log}
-            touch {output}
-            exit 0
-        fi
-        
-        seqkit seq --min-len 1000 -g \
-            "{input}" > "{output}"
-        """
+    # 1b. Filter contigs by length (1KB)
+    rule contig_length_filter:
+        input:
+            f"{config['output_dir']}/01_reneo_output/genomes_and_unresolved_edges.fasta"
+        output:
+            f"{config['output_dir']}/01_reneo_output/genomes_and_unresolved_edges_1KB.fasta"
+        log:
+            f"{config['output_dir']}/logs/contig_length_filter.log"
+        conda:
+            config["conda_envs"]["seqkit"]
+        threads: 8
+        shell:
+            """   
+            seqkit seq --min-len 1000 -g \
+                "{input}" > "{output}"
+            """
 
 # 1c. Filter assembly directly (when not using Reneo)
-# Always define this rule
-rule direct_contig_filter:
-    input:
-        unpack(get_direct_filter_input)
-    output:
-        filtered_assembly = f"{config['output_dir']}/01_filtered_assembly/filtered_assembly_1KB.fasta"
-    log:
-        f"{config['output_dir']}/logs/direct_contig_filter.log"
-    conda:
-        config["conda_envs"]["seqkit"]
-    threads: 8
-    shell:
-        """
-        if [ "{input.assembly}" = "/dev/null" ]; then
-            echo "Skipping direct filter - not configured for this run" > {log}
+# This is only defined when assembly_file is provided
+if not workflow.globals["use_reneo"] and config.get("assembly_file") and config.get("assembly_file") != "":
+    rule direct_contig_filter:
+        input:
+            assembly = config["assembly_file"]
+        output:
+            filtered_assembly = f"{config['output_dir']}/01_filtered_assembly/filtered_assembly_1KB.fasta"
+        log:
+            f"{config['output_dir']}/logs/direct_contig_filter.log"
+        conda:
+            config["conda_envs"]["seqkit"]
+        threads: 8
+        shell:
+            """
             mkdir -p {config[output_dir]}/01_filtered_assembly
-            touch {output.filtered_assembly}
-            exit 0
-        fi
-        
-        mkdir -p {config[output_dir]}/01_filtered_assembly
-        seqkit seq --min-len 1000 -g \
-            "{input.assembly}" > "{output.filtered_assembly}"
-        """
+            seqkit seq --min-len 1000 -g \
+                "{input.assembly}" > "{output.filtered_assembly}"
+            """
 
 # 2. Run mmseqs2 for taxonomy assignment
 rule mmseqs_taxonomy:
