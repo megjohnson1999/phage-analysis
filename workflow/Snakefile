@@ -34,34 +34,28 @@ if is_placeholder_path(config.get("assembly_file")):
 if is_placeholder_path(config.get("assembly_graph")):
     config["assembly_graph"] = ""
 
-# Validate required inputs
+# Validate required inputs - must provide exactly one
 if not config.get("assembly_file") and not config.get("assembly_graph"):
-    raise ValueError("At least one of 'assembly_file' or 'assembly_graph' must be provided in the config.")
+    raise ValueError("Either 'assembly_file' or 'assembly_graph' must be provided in the config.")
 
-# Handle case where only assembly_file is provided (no assembly_graph)
-if (not config.get("assembly_graph") or config.get("assembly_graph") == "") and config.get("assembly_file"):
+if config.get("assembly_file") and config.get("assembly_graph"):
+    raise ValueError("Please provide either 'assembly_file' OR 'assembly_graph', not both. Use 'assembly_file' for FASTA-only workflow or 'assembly_graph' for Reneo workflow.")
+
+# Validate assembly_file input
+if config.get("assembly_file"):
     # Check if assembly_file exists
     if not os.path.exists(config.get("assembly_file", "")):
         raise ValueError(f"The specified assembly_file '{config.get('assembly_file')}' does not exist.")
 
-# Handle case where only assembly_graph is provided (no assembly_file)
-if (not config.get("assembly_file") or config.get("assembly_file") == "") and config.get("assembly_graph") and config.get("assembly_graph") != "":
-    # Ensure assembly_graph value is valid
+# Validate assembly_graph input  
+if config.get("assembly_graph"):
+    # Check if assembly_graph file exists
     if not os.path.exists(config.get("assembly_graph", "")):
         raise ValueError(f"The specified assembly_graph file '{config.get('assembly_graph')}' does not exist.")
     
     # Ensure reads_dir is provided (required for Reneo)
     if not config.get("reads_dir"):
-        raise ValueError("When using only 'assembly_graph' (without assembly_file), 'reads_dir' must also be provided for Reneo to work.")
-
-# If assembly_graph is provided (regardless of assembly_file), validate it
-if config.get("assembly_graph") and config.get("assembly_graph") != "":
-    if not config.get("reads_dir"):
-        raise ValueError("When using 'assembly_graph', 'reads_dir' must also be provided for Reneo to work.")
-    
-    # Check if the assembly_graph file exists
-    if not os.path.exists(config.get("assembly_graph", "")):
-        raise ValueError(f"The specified assembly_graph file '{config.get('assembly_graph')}' does not exist.")
+        raise ValueError("When using 'assembly_graph', 'reads_dir' must be provided for Reneo to work.")
 
 # Make sure reads_dir is provided in all cases
 if not config.get("reads_dir"):

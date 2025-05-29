@@ -106,24 +106,21 @@ snakemake --profile ../profile/slurm
 
 ### Input Options
 
-The pipeline supports different input configurations:
+The pipeline supports two mutually exclusive input modes:
 
-- **FASTA only (Standard workflow)**: Provide `assembly_file` parameter (skips Reneo)
+- **FASTA-only workflow**: Provide `assembly_file` parameter (skips Reneo)
   ```
   snakemake --profile profile/slurm --config assembly_file="/path/to/assembly.fasta" reads_dir="/path/to/reads/" output_dir="/path/to/output/"
   ```
 
-- **Assembly graph only (Reneo workflow)**: Provide `assembly_graph` parameter
+- **Reneo workflow**: Provide `assembly_graph` parameter (runs Reneo for graph-based binning)
   ```
   snakemake --profile profile/slurm --config assembly_graph="/path/to/graph.gfa" reads_dir="/path/to/reads/" output_dir="/path/to/output/"
   ```
   
   **Note**: When using GFA files, you don't need to explicitly set `assembly_file=""` - the pipeline automatically detects and clears placeholder paths from the default config.
 
-- **Both files**: Provide both `assembly_file` and `assembly_graph` (uses Reneo for graph-based processing but falls back to FASTA if needed)
-  ```
-  snakemake --profile profile/slurm --config assembly_file="/path/to/assembly.fasta" assembly_graph="/path/to/graph.gfa" reads_dir="/path/to/reads/" output_dir="/path/to/output/"
-  ```
+**Important**: You must provide either `assembly_file` OR `assembly_graph`, not both. The pipeline will give an error if you try to provide both.
 
 #### Reneo Integration
 

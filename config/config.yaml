@@ -15,11 +15,9 @@ output_dir: "/path/to/your/project/outputs"  # Change to your actual output dire
 conda_base_path: "/ref/sahlab/software/miniforge3"  # Set to "" to use Snakemake's conda handling
 
 # Input files/directories
-# Note: At least one of assembly_file or assembly_graph must be provided
-assembly_file: "/path/to/assembly.fasta"  # Path to the assembly file (FASTA)
-                                         # Can be left empty if using only assembly_graph
-assembly_graph: ""   # Path to assembly graph file (leave empty to skip Reneo)
-                     # Required if assembly_file is not provided
+# Note: Provide either assembly_file OR assembly_graph (not both)
+assembly_file: "/path/to/assembly.fasta"  # Path to assembly file for FASTA-only workflow
+assembly_graph: ""   # Path to assembly graph file for Reneo workflow
 reads_dir: "/path/to/reads"  # Directory containing sequencing reads
 
 # Pipeline configuration
