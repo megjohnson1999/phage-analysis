@@ -20,6 +20,20 @@ include: "rules/03_analysis.smk"
 # Import needed for file existence checks
 import os
 
+# Helper function to check if a path is a placeholder
+def is_placeholder_path(path):
+    """Check if a path is likely a placeholder that should be ignored."""
+    if not path:
+        return True
+    placeholder_indicators = ["/path/to/", "PLACEHOLDER", "YOUR_", "CHANGE_ME"]
+    return any(indicator in str(path) for indicator in placeholder_indicators)
+
+# Clean up placeholder paths in config
+if is_placeholder_path(config.get("assembly_file")):
+    config["assembly_file"] = ""
+if is_placeholder_path(config.get("assembly_graph")):
+    config["assembly_graph"] = ""
+
 # Validate required inputs
 if not config.get("assembly_file") and not config.get("assembly_graph"):
     raise ValueError("At least one of 'assembly_file' or 'assembly_graph' must be provided in the config.")

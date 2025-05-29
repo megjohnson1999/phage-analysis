@@ -44,11 +44,13 @@ def get_reneo_input(wildcards):
 
 # Helper function to get input for direct_contig_filter
 def get_direct_filter_input(wildcards):
+    import os
     if not workflow.globals["use_reneo"] and config.get("assembly_file") and config.get("assembly_file") != "":
-        return {"assembly": config["assembly_file"]}
-    else:
-        # Return dummy input that will never be used
-        return {"assembly": "/dev/null"}
+        # Check if the assembly file actually exists
+        if os.path.exists(config["assembly_file"]):
+            return {"assembly": config["assembly_file"]}
+    # Return dummy input for all other cases
+    return {"assembly": "/dev/null"}
 
 # 1. Run Reneo for binning
 # Always define this rule, but it will only run when use_reneo is True
@@ -64,7 +66,7 @@ rule reneo_binning:
     threads: 24
     shell:
         """
-        if [ "{wildcards.assembly_graph}" = "/dev/null" ]; then
+        if [ "{input.assembly_graph}" = "/dev/null" ]; then
             echo "Skipping Reneo - not configured for this run" > {log}
             touch {output}
             exit 0
