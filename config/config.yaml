@@ -3,6 +3,11 @@
 # Directory configuration
 output_dir: "/path/to/your/project/outputs"  # Change to your actual output directory
 
+# Optional: Conda configuration for existing environments
+# If using existing conda environments (e.g., for Reneo with Gurobi license),
+# specify the base path of your conda/mamba installation
+conda_base_path: ""  # e.g., "/ref/sahlab/software/miniforge3"
+
 # Input files/directories
 # Note: At least one of assembly_file or assembly_graph must be provided
 assembly_file: "/path/to/assembly.fasta"  # Path to the assembly file (FASTA)
@@ -45,8 +50,8 @@ params:
 
 # Conda environments
 conda_envs:
-   #reneo: "/ref/sahlab/software/miniforge3/envs/reneo"
-   reneo: "../envs/reneo.yaml"
+   reneo: "/ref/sahlab/software/miniforge3/envs/reneo"
+   #reneo: "../envs/reneo.yaml"  # Alternative: create new env (requires Gurobi license setup)
    mmseqs2: "../envs/mmseqs2.yaml"
    jaeger: "../envs/jaeger.yaml"
    #jaeger: "/ref/sahlab/software/miniforge3/envs/jaeger"

@@ -62,7 +62,10 @@ rule reneo_binning:
     log:
         f"{config['output_dir']}/logs/reneo_binning.log"
     conda:
-        config["conda_envs"]["reneo"]
+        config["conda_envs"]["reneo"] if not config.get("conda_base_path") else None
+    params:
+        conda_env = config["conda_envs"]["reneo"],
+        conda_base = config.get("conda_base_path", "")
     threads: 24
     shell:
         """
@@ -73,6 +76,35 @@ rule reneo_binning:
         fi
         
         mkdir -p {config[output_dir]}/01_reneo_output
+
+        # Handle conda environment activation
+        if [ -n "{params.conda_base}" ]; then
+            # Use manually specified conda installation
+            echo "Using conda base path: {params.conda_base}" >> {log} 2>&1
+            
+            # Check if this is a path to an existing environment or just environment name
+            if [[ "{params.conda_env}" == /* ]]; then
+                # Full path to environment
+                source {params.conda_base}/bin/activate
+                conda activate {params.conda_env}
+            else
+                # Just environment name
+                source {params.conda_base}/bin/activate
+                conda activate {params.conda_env}
+            fi
+        else
+            # Rely on Snakemake's conda handling or current environment
+            echo "Using Snakemake's conda environment handling" >> {log} 2>&1
+            
+            # Check if reneo is available
+            if ! command -v reneo &> /dev/null; then
+                echo "ERROR: reneo not found in environment. Please ensure:" >> {log}
+                echo "1. Reneo is installed in the conda environment specified in config" >> {log}
+                echo "2. Or set conda_base_path in config to use an existing Reneo environment" >> {log}
+                echo "3. Reneo requires a Gurobi license - see documentation" >> {log}
+                exit 1
+            fi
+        fi
 
         # Run Reneo using wrapper script that handles expected failures
         bash {workflow.basedir}/scripts/run_reneo_wrapper.sh \

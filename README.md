@@ -132,6 +132,25 @@ The pipeline includes a wrapper script (`workflow/scripts/run_reneo_wrapper.sh`)
 - Creates empty output files if Reneo fails, allowing the pipeline to continue
 - Logs detailed information about Reneo's execution status
 
+**Important: Reneo requires a Gurobi license.** There are two ways to configure Reneo:
+
+1. **Use an existing Reneo environment** (recommended if you already have Reneo with Gurobi set up):
+   ```yaml
+   # In config/config.yaml:
+   conda_base_path: "/path/to/your/conda"  # e.g., "/ref/sahlab/software/miniforge3"
+   conda_envs:
+     reneo: "reneo"  # or full path: "/path/to/conda/envs/reneo"
+   ```
+
+2. **Let Snakemake create the environment** (requires Gurobi license setup):
+   ```yaml
+   # In config/config.yaml:
+   conda_base_path: ""  # Leave empty
+   conda_envs:
+     reneo: "../envs/reneo.yaml"
+   ```
+   You'll need to set up the Gurobi license in the created environment.
+
 ### Additional Options
 
 - Skip the clustering step:
