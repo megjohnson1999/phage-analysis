@@ -60,10 +60,9 @@ use_reneo = False
 rule all:
     input:
         # Start with appropriate filtered assembly based on whether Reneo will run
-        lambda wildcards:
-            [f"{config['output_dir']}/01_reneo_output/genomes_and_unresolved_edges_1KB.fasta"] 
-            if workflow.globals["use_reneo"] else 
-            [f"{config['output_dir']}/01_filtered_assembly/filtered_assembly_1KB.fasta"],
+        [f"{config['output_dir']}/01_reneo_output/genomes_and_unresolved_edges_1KB.fasta"] 
+        if workflow.globals["use_reneo"] else 
+        [f"{config['output_dir']}/01_filtered_assembly/filtered_assembly_1KB.fasta"],
             
         # Explicitly include splitting steps to ensure they appear in the plan
         f"{config['output_dir']}/03_split_seqs/split_file_list.txt",

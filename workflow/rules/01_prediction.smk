@@ -95,8 +95,8 @@ if not workflow.globals["use_reneo"] and config.get("assembly_file") and config.
 rule mmseqs_taxonomy:
     input:
         # Use the appropriate filtered contigs based on whether Reneo is enabled
-        filtered_contigs = lambda wildcards: 
-            f"{config['output_dir']}/01_reneo_output/genomes_and_unresolved_edges_1KB.fasta" 
+        # During DAG construction, we need to specify the exact file that will exist
+        filtered_contigs = f"{config['output_dir']}/01_reneo_output/genomes_and_unresolved_edges_1KB.fasta" 
             if workflow.globals["use_reneo"] else 
             f"{config['output_dir']}/01_filtered_assembly/filtered_assembly_1KB.fasta"
     output:
@@ -146,8 +146,7 @@ rule mmseqs_taxonomy:
 rule filter_mmseqs_lca:
     input:
         lca_table = f"{config['output_dir']}/01_mmseqs_output/genomes_and_unresolved_edges_mmseqs_lca.tsv",
-        contigs = lambda wildcards: 
-            f"{config['output_dir']}/01_reneo_output/genomes_and_unresolved_edges_1KB.fasta" 
+        contigs = f"{config['output_dir']}/01_reneo_output/genomes_and_unresolved_edges_1KB.fasta" 
             if workflow.globals["use_reneo"] else 
             f"{config['output_dir']}/01_filtered_assembly/filtered_assembly_1KB.fasta"
     output:
@@ -174,8 +173,7 @@ rule filter_mmseqs_lca:
 # 3b. Extract passing viral contigs
 rule extract_viral_contigs:
     input:
-        contigs = lambda wildcards: 
-            f"{config['output_dir']}/01_reneo_output/genomes_and_unresolved_edges_1KB.fasta" 
+        contigs = f"{config['output_dir']}/01_reneo_output/genomes_and_unresolved_edges_1KB.fasta" 
             if workflow.globals["use_reneo"] else 
             f"{config['output_dir']}/01_filtered_assembly/filtered_assembly_1KB.fasta",
         passing_ids = f"{config['output_dir']}/01_filtered_mmseqs/passing_contig_ids.txt"
