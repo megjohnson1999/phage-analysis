@@ -15,12 +15,7 @@ def should_skip_reneo(wildcards):
 # Set the global variable in the workflow module
 import sys
 import os
-print(f"DEBUG: assembly_graph = {config.get('assembly_graph')}", file=sys.stderr)
-print(f"DEBUG: Current dir = {os.getcwd()}", file=sys.stderr)
-if config.get('assembly_graph'):
-    print(f"DEBUG: assembly_graph exists = {os.path.exists(config.get('assembly_graph'))}", file=sys.stderr)
 workflow.globals["use_reneo"] = not should_skip_reneo(None)
-print(f"DEBUG: use_reneo = {workflow.globals['use_reneo']}", file=sys.stderr)
 
 # Helper function to determine which assembly file to use
 def get_assembly_input(wildcards):
@@ -37,18 +32,19 @@ def get_assembly_input(wildcards):
 
 # Helper function to get input for reneo_binning
 def get_reneo_input(wildcards):
-    print(f"DEBUG get_reneo_input: use_reneo = {workflow.globals.get('use_reneo', 'NOT SET')}", file=sys.stderr)
-    print(f"DEBUG get_reneo_input: assembly_graph = {config.get('assembly_graph')}", file=sys.stderr)
-    if workflow.globals["use_reneo"]:
+    # Re-evaluate whether to use reneo based on current config
+    # This is necessary because workflow.globals might not be set during DAG construction
+    use_reneo_local = not should_skip_reneo(wildcards)
+    
+    
+    if use_reneo_local:
         result = {
             "assembly_graph": config["assembly_graph"],
             "reads_dir": config["reads_dir"]
         }
-        print(f"DEBUG get_reneo_input: returning real inputs: {result}", file=sys.stderr)
         return result
     else:
         # Return dummy inputs that will never be used
-        print(f"DEBUG get_reneo_input: returning dummy inputs", file=sys.stderr)
         return {
             "assembly_graph": "/dev/null",
             "reads_dir": "/dev/null"

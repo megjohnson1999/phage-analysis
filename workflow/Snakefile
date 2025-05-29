@@ -29,14 +29,10 @@ def is_placeholder_path(path):
     return any(indicator in str(path) for indicator in placeholder_indicators)
 
 # Clean up placeholder paths in config
-print(f"DEBUG Snakefile: assembly_file before cleanup = {config.get('assembly_file')}")
-print(f"DEBUG Snakefile: assembly_graph before cleanup = {config.get('assembly_graph')}")
 if is_placeholder_path(config.get("assembly_file")):
     config["assembly_file"] = ""
 if is_placeholder_path(config.get("assembly_graph")):
     config["assembly_graph"] = ""
-print(f"DEBUG Snakefile: assembly_file after cleanup = {config.get('assembly_file')}")
-print(f"DEBUG Snakefile: assembly_graph after cleanup = {config.get('assembly_graph')}")
 
 # Validate required inputs
 if not config.get("assembly_file") and not config.get("assembly_graph"):
