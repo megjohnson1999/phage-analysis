@@ -45,7 +45,8 @@ params:
 
 # Conda environments
 conda_envs:
-   reneo: "/ref/sahlab/software/miniforge3/envs/reneo"
+   #reneo: "/ref/sahlab/software/miniforge3/envs/reneo"
+   reneo: "../envs/reneo.yaml"
    mmseqs2: "../envs/mmseqs2.yaml"
    jaeger: "../envs/jaeger.yaml"
    #jaeger: "/ref/sahlab/software/miniforge3/envs/jaeger"
