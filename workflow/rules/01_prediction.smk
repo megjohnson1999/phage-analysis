@@ -242,7 +242,7 @@ rule filter_mmseqs_lca:
     shell:
         """
         # Use python script to filter mmseqs2 results
-        python ../scripts/01_filterMmseqsLca.py \
+        python {workflow.basedir}/scripts/01_filterMmseqsLca.py \
             --mmseqs_LCA_table {input.lca_table} \
             --contigs {input.contigs} \
             --o_filtered_LCA_table {output.filtered_lca} \
@@ -584,7 +584,7 @@ rule integrate_phage_predictions:
     conda:
         config["conda_envs"]["r"]
     script:
-        "../scripts/01_phagePrediction.R"
+        "scripts/01_phagePrediction.R"
 
 # 9. Extract phage contigs
 rule extract_phage_contigs:
