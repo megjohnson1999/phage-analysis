@@ -72,12 +72,19 @@ fi
 echo "Setting up monitoring for Reneo intermediate outputs..."
 WORKFLOW_DIR="$OUTPUT_DIR/work"
 
+# Check if we should skip koverage step for large datasets
+SKIP_KOVERAGE=""
+if [ -n "$RENEO_SKIP_KOVERAGE" ] && [ "$RENEO_SKIP_KOVERAGE" = "true" ]; then
+    echo "Adding --skip-koverage flag as requested"
+    SKIP_KOVERAGE="--skip-koverage"
+fi
+
 # Run Reneo but trap specific known failure patterns
 reneo run --input "$INPUT_GRAPH" \
     --reads "$READS_DIR" \
     --minlength "$MINLENGTH" \
     --output "$OUTPUT_DIR" \
-    --threads "$THREADS" 2>&1 | tee reneo_output.log || true
+    --threads "$THREADS" $SKIP_KOVERAGE 2>&1 | tee reneo_output.log || true
 
 # Check the log for specific koverage_genomes error
 if grep -q "koverage_genomes" reneo_output.log; then
@@ -128,24 +135,8 @@ if [ -f "$EXPECTED_OUTPUT" ]; then
         echo "Reneo completed successfully (output files generated despite exit code)"
         exit 0
     else
-        echo "WARNING: Output file exists but is empty"
-        echo "Attempting fallback: using original assembly graph as output..."
-        
-        # If Reneo failed to produce output, we can fall back to using the assembly graph directly
-        # This is not ideal but allows the pipeline to continue
-        if [ -f "$INPUT_GRAPH" ] && [ -s "$INPUT_GRAPH" ]; then
-            echo "Copying original assembly graph to output location as fallback..."
-            cp "$INPUT_GRAPH" "$EXPECTED_OUTPUT"
-            
-            # Verify the copy worked
-            if [ -s "$EXPECTED_OUTPUT" ]; then
-                echo "Fallback successful - using original assembly graph"
-                echo "Note: This bypasses Reneo's assembly enhancement, but allows pipeline to continue"
-                exit 0
-            fi
-        fi
-        
-        echo "ERROR: All attempts to generate output failed"
+        echo "ERROR: Output file exists but is empty"
+        echo "Reneo failed to produce valid output"
         exit 1
     fi
 else
@@ -155,19 +146,6 @@ else
     # List what files were created
     echo "Files in output directory:"
     ls -la "$OUTPUT_DIR/" || echo "Could not list output directory"
-    
-    # Try the same fallback here
-    echo "Attempting fallback: using original assembly graph as output..."
-    if [ -f "$INPUT_GRAPH" ] && [ -s "$INPUT_GRAPH" ]; then
-        echo "Copying original assembly graph to output location as fallback..."
-        mkdir -p "$(dirname "$EXPECTED_OUTPUT")"
-        cp "$INPUT_GRAPH" "$EXPECTED_OUTPUT"
-        
-        if [ -s "$EXPECTED_OUTPUT" ]; then
-            echo "Fallback successful - using original assembly graph"
-            exit 0
-        fi
-    fi
     
     exit 1
 fi
