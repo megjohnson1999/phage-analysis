@@ -1,0 +1,28 @@
+# Enhanced test configuration with improved sequence data
+# Use assembly_graph to test Reneo functionality
+assembly_file: ""  # Empty to use Reneo output
+assembly_graph: "test_data/assemblies/test_sample_enhanced.gfa"
+reads_dir: "test_data/reads"
+output_dir: "test_data/results_enhanced"
+
+# Database paths (adjust these to your actual database locations)
+databases:
+  mmseqs2:
+    db: "/path/to/mmseqs2/db"
+  genomad:
+    db: "/path/to/genomad/db"  
+  checkv:
+    db: "/path/to/checkv/db"
+  phold:
+    db: "/path/to/phold/db"
+
+# Conda environments
+conda_envs:
+  python: "workflow/envs/python.yaml"
+  r: "workflow/envs/r.yaml" 
+  seqkit: "workflow/envs/seqkit.yaml"
+  mmseqs2: "workflow/envs/mmseqs2.yaml"
+  jaeger: "workflow/envs/jaeger.yaml"
+  genomad: "workflow/envs/genomad.yaml"
+  phold: "workflow/envs/phold.yaml"
+  checkv: "workflow/envs/checkv.yaml"
