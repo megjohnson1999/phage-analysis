@@ -59,6 +59,51 @@ echo "  Output directory: $OUTPUT_DIR"
 echo "  Threads: $THREADS"
 echo "  Minimum length: $MINLENGTH"
 
+# Pre-flight checks
+echo ""
+echo "=== Pre-flight checks ==="
+
+# Check input files
+echo "Input graph info:"
+if [ -f "$INPUT_GRAPH" ]; then
+    FILE_SIZE=$(wc -c < "$INPUT_GRAPH")
+    LINE_COUNT=$(wc -l < "$INPUT_GRAPH")
+    echo "  Size: $FILE_SIZE bytes"
+    echo "  Lines: $LINE_COUNT"
+    echo "  First few lines:"
+    head -5 "$INPUT_GRAPH" | sed 's/^/    /'
+else
+    echo "  ERROR: Input graph file not found!"
+fi
+
+# Check reads directory
+echo ""
+echo "Reads directory contents:"
+if [ -d "$READS_DIR" ]; then
+    FASTQ_COUNT=$(find "$READS_DIR" -name "*.fastq" -o -name "*.fq" -o -name "*.fastq.gz" -o -name "*.fq.gz" | wc -l)
+    echo "  Found $FASTQ_COUNT FASTQ files"
+    find "$READS_DIR" -name "*.fastq*" -o -name "*.fq*" | head -5 | while read f; do
+        echo "  - $f ($(wc -c < "$f") bytes)"
+    done
+else
+    echo "  ERROR: Reads directory not found!"
+fi
+
+# Check Reneo version and dependencies
+echo ""
+echo "Reneo environment check:"
+which reneo || echo "  ERROR: reneo not found in PATH"
+reneo --version 2>&1 || echo "  Could not get version"
+
+# Check if Gurobi is available (required by Reneo)
+echo ""
+echo "Checking for Gurobi (required by Reneo):"
+python -c "import gurobipy; print('  Gurobi version:', gurobipy.gurobi.version())" 2>&1 || echo "  WARNING: Gurobi not found or not licensed"
+
+echo ""
+echo "=== End pre-flight checks ==="
+echo ""
+
 # Run Reneo, capturing the exit code
 echo "Starting Reneo run..."
 
@@ -95,14 +140,53 @@ if [ -n "$RENEO_SKIP_KOVERAGE" ] && [ "$RENEO_SKIP_KOVERAGE" = "true" ]; then
 fi
 
 # Run Reneo but trap specific known failure patterns
+echo "Running Reneo command:"
+echo "reneo run --input $INPUT_GRAPH --reads $READS_DIR --minlength $MINLENGTH --output $OUTPUT_DIR --threads $THREADS $SKIP_KOVERAGE"
+
+# Create a detailed log directory
+mkdir -p "$OUTPUT_DIR/debug_logs"
+
+# Run Reneo with verbose output
 reneo run --input "$INPUT_GRAPH" \
     --reads "$READS_DIR" \
     --minlength "$MINLENGTH" \
     --output "$OUTPUT_DIR" \
     --threads "$THREADS" $SKIP_KOVERAGE 2>&1 | tee reneo_output.log || true
 
+RENEO_EXIT_CODE=${PIPESTATUS[0]}
+echo "Reneo exit code: $RENEO_EXIT_CODE"
+
 # Kill the monitor process
 kill $MONITOR_PID 2>/dev/null || true
+
+# Look for Snakemake logs if Reneo failed
+if [ $RENEO_EXIT_CODE -ne 0 ]; then
+    echo "Reneo failed, searching for detailed error logs..."
+    
+    # Find and display any Snakemake log files
+    if [ -d "$OUTPUT_DIR/.snakemake/log" ]; then
+        echo "Found Snakemake logs:"
+        find "$OUTPUT_DIR/.snakemake/log" -name "*.log" -type f | while read logfile; do
+            echo "=== Log: $logfile ==="
+            tail -50 "$logfile" | tee "$OUTPUT_DIR/debug_logs/$(basename $logfile)"
+        done
+    fi
+    
+    # Check for any error files in the work directory
+    if [ -d "$OUTPUT_DIR/work" ]; then
+        echo "Checking work directory for error logs..."
+        find "$OUTPUT_DIR/work" -name "*.err" -o -name "*.error" -o -name "*log*" 2>/dev/null | while read errfile; do
+            if [ -s "$errfile" ]; then
+                echo "=== Error file: $errfile ==="
+                tail -20 "$errfile"
+            fi
+        done
+    fi
+    
+    # Show last 100 lines of main log with context
+    echo "=== Last 100 lines of Reneo output ==="
+    tail -100 reneo_output.log
+fi
 
 # If we have a backup, restore it
 if [ -f "$OUTPUT_DIR/genomes_and_unresolved_edges.fasta.backup" ] && [ ! -s "$OUTPUT_DIR/genomes_and_unresolved_edges.fasta" ]; then
