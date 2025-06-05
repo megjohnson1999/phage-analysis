@@ -584,7 +584,7 @@ rule integrate_phage_predictions:
     conda:
         config["conda_envs"]["r"]
     script:
-        "scripts/01_phagePrediction.R"
+        "../scripts/01_phagePrediction.R"
 
 # 9. Extract phage contigs
 rule extract_phage_contigs:
