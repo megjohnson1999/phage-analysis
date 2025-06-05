@@ -72,6 +72,21 @@ fi
 echo "Setting up monitoring for Reneo intermediate outputs..."
 WORKFLOW_DIR="$OUTPUT_DIR/work"
 
+# Start a background process to monitor for the assembly file
+(
+    while true; do
+        # Check if genomes_and_unresolved_edges.fasta has been created
+        if [ -f "$OUTPUT_DIR/genomes_and_unresolved_edges.fasta" ] && [ -s "$OUTPUT_DIR/genomes_and_unresolved_edges.fasta" ]; then
+            echo "[Monitor] Found target output file with size $(wc -c < "$OUTPUT_DIR/genomes_and_unresolved_edges.fasta") bytes"
+            # Make a backup copy immediately
+            cp "$OUTPUT_DIR/genomes_and_unresolved_edges.fasta" "$OUTPUT_DIR/genomes_and_unresolved_edges.fasta.backup"
+            break
+        fi
+        sleep 10
+    done
+) &
+MONITOR_PID=$!
+
 # Check if we should skip koverage step for large datasets
 SKIP_KOVERAGE=""
 if [ -n "$RENEO_SKIP_KOVERAGE" ] && [ "$RENEO_SKIP_KOVERAGE" = "true" ]; then
@@ -86,6 +101,15 @@ reneo run --input "$INPUT_GRAPH" \
     --output "$OUTPUT_DIR" \
     --threads "$THREADS" $SKIP_KOVERAGE 2>&1 | tee reneo_output.log || true
 
+# Kill the monitor process
+kill $MONITOR_PID 2>/dev/null || true
+
+# If we have a backup, restore it
+if [ -f "$OUTPUT_DIR/genomes_and_unresolved_edges.fasta.backup" ] && [ ! -s "$OUTPUT_DIR/genomes_and_unresolved_edges.fasta" ]; then
+    echo "Restoring from backup..."
+    mv "$OUTPUT_DIR/genomes_and_unresolved_edges.fasta.backup" "$OUTPUT_DIR/genomes_and_unresolved_edges.fasta"
+fi
+
 # Check the log for specific koverage_genomes error
 if grep -q "koverage_genomes" reneo_output.log; then
     echo "WARNING: Detected koverage_genomes error"
@@ -97,20 +121,32 @@ if grep -q "koverage_genomes" reneo_output.log; then
         echo "Searching for intermediate assembly files in work directory..."
         
         # Find any fasta files in the work directory
-        INTERMEDIATE_ASSEMBLIES=$(find "$OUTPUT_DIR/work" -name "*.fasta" -o -name "*.fa" 2>/dev/null | head -5)
+        INTERMEDIATE_ASSEMBLIES=$(find "$OUTPUT_DIR/work" -name "*.fasta" -o -name "*.fa" 2>/dev/null)
         
         if [ -n "$INTERMEDIATE_ASSEMBLIES" ]; then
             echo "Found intermediate assemblies:"
             echo "$INTERMEDIATE_ASSEMBLIES"
             
-            # Look specifically for the enhanced assembly before koverage
-            ENHANCED_ASSEMBLY=$(find "$OUTPUT_DIR/work" -name "*enhanced*.fasta" -o -name "*assembled*.fasta" 2>/dev/null | head -1)
+            # Look for the most recent/largest assembly file
+            BEST_ASSEMBLY=$(find "$OUTPUT_DIR/work" -name "*.fasta" -o -name "*.fa" 2>/dev/null | xargs ls -S 2>/dev/null | head -1)
             
-            if [ -n "$ENHANCED_ASSEMBLY" ] && [ -s "$ENHANCED_ASSEMBLY" ]; then
-                echo "Found enhanced assembly at: $ENHANCED_ASSEMBLY"
+            if [ -n "$BEST_ASSEMBLY" ] && [ -s "$BEST_ASSEMBLY" ]; then
+                echo "Found best candidate assembly at: $BEST_ASSEMBLY (size: $(wc -c < "$BEST_ASSEMBLY") bytes)"
                 echo "Copying it to expected output location..."
-                cp "$ENHANCED_ASSEMBLY" "$OUTPUT_DIR/genomes_and_unresolved_edges.fasta"
+                cp "$BEST_ASSEMBLY" "$OUTPUT_DIR/genomes_and_unresolved_edges.fasta"
             fi
+        fi
+    fi
+    
+    # Check Reneo's log for the last successful step
+    echo "Analyzing Reneo log for last successful operation..."
+    if grep -q "Writing enhanced assembly" reneo_output.log; then
+        echo "Reneo reported writing enhanced assembly - searching for it..."
+        # Look in main output directory first
+        if [ -f "$OUTPUT_DIR/enhanced_assembly.fasta" ]; then
+            cp "$OUTPUT_DIR/enhanced_assembly.fasta" "$OUTPUT_DIR/genomes_and_unresolved_edges.fasta"
+        elif [ -f "$OUTPUT_DIR/resolved_assembly.fasta" ]; then
+            cp "$OUTPUT_DIR/resolved_assembly.fasta" "$OUTPUT_DIR/genomes_and_unresolved_edges.fasta"
         fi
     fi
     
@@ -118,6 +154,11 @@ if grep -q "koverage_genomes" reneo_output.log; then
     if [ -d "$OUTPUT_DIR" ]; then
         echo "Checking main output directory for any generated files..."
         ls -la "$OUTPUT_DIR/" | grep -E "\.(fasta|fa)$" || true
+        
+        # Check subdirectories too
+        find "$OUTPUT_DIR" -maxdepth 2 -name "*.fasta" -o -name "*.fa" 2>/dev/null | while read f; do
+            echo "Found: $f (size: $(wc -c < "$f" 2>/dev/null || echo 0) bytes)"
+        done
     fi
 fi
 
