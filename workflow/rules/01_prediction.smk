@@ -115,12 +115,23 @@ rule reneo_binning:
         fi
 
         # Run Reneo using wrapper script that handles expected failures
+        # The wrapper script will handle koverage_genomes failures gracefully
         bash {workflow.basedir}/scripts/run_reneo_wrapper.sh \
             --input {input.assembly_graph} \
             --reads {input.reads_dir} \
             --minlength 1000 \
             --output {config[output_dir]}/01_reneo_output \
-            --threads {threads} > {log} 2>&1
+            --threads {threads} > {log} 2>&1 || {{
+                echo "Reneo wrapper reported failure, checking for partial output..." >> {log}
+                # Check if we got the output we need despite the failure
+                if [ -f "{output}" ] && [ -s "{output}" ]; then
+                    echo "Found valid output file despite Reneo failure, continuing..." >> {log}
+                    exit 0
+                else
+                    echo "No valid output found, failing the rule" >> {log}
+                    exit 1
+                fi
+            }}
         """
 
 # 1b. Filter contigs by length (1KB) from Reneo output
