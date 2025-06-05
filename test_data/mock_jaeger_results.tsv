@@ -1,0 +1,4 @@
+contig_id	length	fragment_count	prediction	realiability_score
+contig_01_lambda_phage	48502	1	Phage	0.95
+contig_02_temperate_phage	35000	1	Phage	0.87
+contig_04_bacterial	8000	1	Bacteria	0.23

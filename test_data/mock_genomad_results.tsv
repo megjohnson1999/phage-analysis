@@ -1,0 +1,4 @@
+seq_name	length	topology	coordinates	n_genes	genetic_code	virus_score	fdr	n_hallmarks	marker_enrichment	taxonomy
+contig_01_lambda_phage	48502	Linear	1-48502	85	11	0.95	1.2e-05	12	2.1	Caudoviricetes;Caudovirales;Siphoviridae
+contig_02_temperate_phage	35000	Provirus	1-35000	62	11	0.88	3.4e-04	8	1.8	Caudoviricetes;Caudovirales;Siphoviridae
+contig_04_bacterial	8000	Linear	1-8000	15	11	0.12	0.85	0	0.1	Bacteria

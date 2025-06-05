@@ -1,0 +1,4 @@
+contig_id	contig_length	provirus	proviral_length	gene_count	viral_genes	host_genes	checkv_quality	miuvig_quality	completeness	completeness_method	contamination	kmer_freq	warnings
+contig_01_lambda_phage	48502	No	NA	85	82	3	High-quality	High-quality	95.2	AAI-based	1.2	1.0	none
+contig_02_temperate_phage	35000	Yes	32000	62	58	4	Medium-quality	Medium-quality	78.5	AAI-based	2.8	1.0	none
+contig_04_bacterial	8000	No	NA	15	2	13	Not-determined	Genome-fragment	5.1	AAI-based	85.2	1.0	high contamination
