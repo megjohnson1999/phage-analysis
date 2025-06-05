@@ -159,33 +159,64 @@ echo "Reneo exit code: $RENEO_EXIT_CODE"
 # Kill the monitor process
 kill $MONITOR_PID 2>/dev/null || true
 
-# Look for Snakemake logs if Reneo failed
-if [ $RENEO_EXIT_CODE -ne 0 ]; then
-    echo "Reneo failed, searching for detailed error logs..."
-    
-    # Find and display any Snakemake log files
-    if [ -d "$OUTPUT_DIR/.snakemake/log" ]; then
-        echo "Found Snakemake logs:"
-        find "$OUTPUT_DIR/.snakemake/log" -name "*.log" -type f | while read logfile; do
-            echo "=== Log: $logfile ==="
-            tail -50 "$logfile" | tee "$OUTPUT_DIR/debug_logs/$(basename $logfile)"
-        done
+# Look for Snakemake logs regardless of exit code
+echo "Searching for detailed logs..."
+
+# Find and display any Snakemake log files
+if [ -d "$OUTPUT_DIR/.snakemake/log" ]; then
+    echo "Found Snakemake logs:"
+    find "$OUTPUT_DIR/.snakemake/log" -name "*.log" -type f | while read logfile; do
+        echo "=== Log: $logfile ==="
+        tail -50 "$logfile" | tee "$OUTPUT_DIR/debug_logs/$(basename $logfile)"
+    done
+fi
+
+# Check for any error files in the work directory
+if [ -d "$OUTPUT_DIR/work" ]; then
+    echo "Checking work directory for error logs..."
+    find "$OUTPUT_DIR/work" -name "*.err" -o -name "*.error" -o -name "*log*" 2>/dev/null | while read errfile; do
+        if [ -s "$errfile" ]; then
+            echo "=== Error file: $errfile ==="
+            tail -20 "$errfile"
+        fi
+    done
+fi
+
+# Check Reneo's log directory
+if [ -d "$OUTPUT_DIR/logs" ]; then
+    echo "Checking Reneo logs directory..."
+    find "$OUTPUT_DIR/logs" -name "*.err" -o -name "*.log" 2>/dev/null | while read logfile; do
+        if [ -s "$logfile" ]; then
+            echo "=== Reneo log: $logfile ==="
+            tail -20 "$logfile"
+        fi
+    done
+fi
+
+# Show the Reneo pipeline status
+echo "=== Checking Reneo pipeline files ==="
+echo "Key output files status:"
+for f in "resolved_paths.fasta" "unresolved_virus_like_edges.fasta" "virus_like_edges.fasta" "edges.fasta"; do
+    if [ -f "$OUTPUT_DIR/$f" ]; then
+        SIZE=$(wc -c < "$OUTPUT_DIR/$f")
+        LINES=$(wc -l < "$OUTPUT_DIR/$f" 2>/dev/null || echo "0")
+        echo "  $f: $SIZE bytes, $LINES lines"
+        if [ $SIZE -gt 0 ] && [ $SIZE -lt 1000 ]; then
+            echo "    Content preview:"
+            cat "$OUTPUT_DIR/$f" | sed 's/^/      /'
+        fi
     fi
-    
-    # Check for any error files in the work directory
-    if [ -d "$OUTPUT_DIR/work" ]; then
-        echo "Checking work directory for error logs..."
-        find "$OUTPUT_DIR/work" -name "*.err" -o -name "*.error" -o -name "*log*" 2>/dev/null | while read errfile; do
-            if [ -s "$errfile" ]; then
-                echo "=== Error file: $errfile ==="
-                tail -20 "$errfile"
-            fi
-        done
-    fi
-    
-    # Show last 100 lines of main log with context
-    echo "=== Last 100 lines of Reneo output ==="
-    tail -100 reneo_output.log
+done
+
+# Check for intermediate virus detection results
+echo ""
+echo "=== Checking virus detection results ==="
+if [ -f "$OUTPUT_DIR/genome_graph.lts" ]; then
+    echo "Found genome graph file ($(wc -c < "$OUTPUT_DIR/genome_graph.lts") bytes)"
+fi
+if [ -f "$OUTPUT_DIR/virus_score.tsv" ]; then
+    echo "Found virus score file:"
+    head -10 "$OUTPUT_DIR/virus_score.tsv"
 fi
 
 # If we have a backup, restore it
@@ -242,6 +273,11 @@ if grep -q "koverage_genomes" reneo_output.log; then
         # Check subdirectories too
         find "$OUTPUT_DIR" -maxdepth 2 -name "*.fasta" -o -name "*.fa" 2>/dev/null | while read f; do
             echo "Found: $f (size: $(wc -c < "$f" 2>/dev/null || echo 0) bytes)"
+            # If edges.fasta has content but others are empty, use it
+            if [[ "$f" == *"edges.fasta" ]] && [ -s "$f" ] && [ ! -s "$OUTPUT_DIR/genomes_and_unresolved_edges.fasta" ]; then
+                echo "Using edges.fasta as fallback since other files are empty"
+                cp "$f" "$OUTPUT_DIR/genomes_and_unresolved_edges.fasta"
+            fi
         done
     fi
 fi
