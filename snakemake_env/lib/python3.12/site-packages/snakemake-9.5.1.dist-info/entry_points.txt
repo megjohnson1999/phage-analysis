@@ -1,0 +1,2 @@
+[console_scripts]
+snakemake = snakemake.cli:main

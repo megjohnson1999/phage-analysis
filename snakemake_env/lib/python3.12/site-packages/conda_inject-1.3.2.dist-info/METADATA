@@ -1,0 +1,19 @@
+Metadata-Version: 2.1
+Name: conda-inject
+Version: 1.3.2
+Summary: Helper functions for injecting a conda environment into the current python environment (by modifying sys.path, without actually changing the current python environment).
+Author: Johannes Köster
+Author-email: johannes.koester@uni-due.de
+Requires-Python: >=3.9,<4.0
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Requires-Dist: pyyaml (>=6.0,<7.0)
+Description-Content-Type: text/markdown
+
+# conda-inject
+
+Helper functions for injecting a conda environment into the current python environment.
+This happens by modifying sys.path, without actually changing the current python environment.

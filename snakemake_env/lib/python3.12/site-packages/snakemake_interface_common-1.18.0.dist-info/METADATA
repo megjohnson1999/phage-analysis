@@ -1,0 +1,15 @@
+Metadata-Version: 2.4
+Name: snakemake-interface-common
+Version: 1.18.0
+Summary: Common functions and classes for Snakemake and its plugins
+Author-email: Johannes Koester <johannes.koester@uni-due.de>
+Requires-Python: >=3.8
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Requires-Dist: argparse-dataclass>=2.0.0
+Requires-Dist: ConfigArgParse>=1.7
+Dynamic: license-file
+
+# snakemake-interface-common
+
+Common functions and classes for Snakemake and its plugins.

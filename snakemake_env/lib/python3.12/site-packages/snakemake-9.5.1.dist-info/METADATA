@@ -1,0 +1,68 @@
+Metadata-Version: 2.4
+Name: snakemake
+Version: 9.5.1
+Summary: Workflow management system to create reproducible and scalable data analyses
+Author-email: Johannes Köster <johannes.koester@uni-due.de>
+License-Expression: MIT
+Project-URL: Homepage, https://snakemake.github.io
+Project-URL: Documentation, https://snakemake.readthedocs.io
+Project-URL: Source, https://github.com/snakemake/snakemake
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Environment :: Console
+Classifier: Intended Audience :: Science/Research
+Classifier: Natural Language :: English
+Classifier: Programming Language :: Python :: 3 :: Only
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Topic :: Scientific/Engineering
+Requires-Python: >=3.11
+Description-Content-Type: text/markdown
+License-File: LICENSE.md
+Requires-Dist: appdirs
+Requires-Dist: immutables
+Requires-Dist: configargparse
+Requires-Dist: connection_pool>=0.0.3
+Requires-Dist: docutils
+Requires-Dist: gitpython
+Requires-Dist: humanfriendly
+Requires-Dist: jinja2<4.0,>=3.0
+Requires-Dist: jsonschema
+Requires-Dist: nbformat
+Requires-Dist: packaging
+Requires-Dist: psutil
+Requires-Dist: pulp<3.2,>=2.3.1
+Requires-Dist: pyyaml
+Requires-Dist: requests<3.0,>=2.8.1
+Requires-Dist: reretry
+Requires-Dist: smart-open<8.0,>=4.0
+Requires-Dist: snakemake-interface-executor-plugins<10.0,>=9.3.2
+Requires-Dist: snakemake-interface-common<2.0,>=1.17.0
+Requires-Dist: snakemake-interface-storage-plugins<5.0,>=4.1.0
+Requires-Dist: snakemake-interface-report-plugins<2.0.0,>=1.1.0
+Requires-Dist: snakemake-interface-logger-plugins<2.0.0,>=1.1.0
+Requires-Dist: tabulate
+Requires-Dist: throttler
+Requires-Dist: wrapt
+Requires-Dist: yte<2.0,>=1.5.5
+Requires-Dist: dpath<3.0.0,>=2.1.6
+Requires-Dist: conda-inject<2.0,>=1.3.1
+Provides-Extra: messaging
+Requires-Dist: slack_sdk; extra == "messaging"
+Provides-Extra: pep
+Requires-Dist: eido; extra == "pep"
+Requires-Dist: peppy; extra == "pep"
+Provides-Extra: reports
+Requires-Dist: pygments; extra == "reports"
+Provides-Extra: all
+Requires-Dist: slack_sdk; extra == "all"
+Requires-Dist: eido; extra == "all"
+Requires-Dist: peppy; extra == "all"
+Requires-Dist: pygments; extra == "all"
+Dynamic: license-file
+
+  Snakemake is a workflow management system that aims to reduce the
+  complexity of creating workflows by providing a fast and comfortable
+  execution environment, together with a clean and modern specification
+  language in python style. Snakemake workflows are essentially Python
+  scripts extended by declarative code to define rules. Rules describe
+  how to create output files from input files.
