@@ -287,11 +287,40 @@ rule prodigal_orf_prediction:
         # Create output directory
         mkdir -p $(dirname {output.proteins})
         
-        # Run Prodigal for ORF prediction
-        prodigal -i {input.phage_seqs} \
-            -a {output.proteins} \
-            -d {output.genes} \
-            -p meta > {log} 2>&1
+        # Check if input file exists and has content
+        if [ ! -f "{input.phage_seqs}" ] || [ ! -s "{input.phage_seqs}" ]; then
+            echo "Warning: Input file is empty or missing: {input.phage_seqs}" > {log} 2>&1
+            echo "Creating empty Prodigal output files..." >> {log} 2>&1
+            touch {output.proteins}
+            touch {output.genes}
+        else
+            # Count sequences in input file
+            SEQ_COUNT=$(grep -c ">" {input.phage_seqs} || echo "0")
+            echo "Processing $SEQ_COUNT sequences with Prodigal" > {log} 2>&1
+            
+            if [ "$SEQ_COUNT" -eq 0 ]; then
+                echo "Warning: Input file contains 0 sequences" >> {log} 2>&1
+                echo "Creating empty Prodigal output files..." >> {log} 2>&1
+                touch {output.proteins}
+                touch {output.genes}
+            else
+                # Run Prodigal for ORF prediction
+                prodigal -i {input.phage_seqs} \
+                    -a {output.proteins} \
+                    -d {output.genes} \
+                    -p meta >> {log} 2>&1
+                
+                # Check if outputs were created
+                if [ ! -f "{output.proteins}" ]; then
+                    echo "Warning: Prodigal did not create protein output. Creating empty file." >> {log} 2>&1
+                    touch {output.proteins}
+                fi
+                if [ ! -f "{output.genes}" ]; then
+                    echo "Warning: Prodigal did not create gene output. Creating empty file." >> {log} 2>&1
+                    touch {output.genes}
+                fi
+            fi
+        fi
         """
 
 # 4. Split protein files for PHACTS array processing
@@ -534,17 +563,36 @@ rule phabox_prediction:
         # Create output directory
         mkdir -p {output.results_dir}
         
-        # Run Phabox2 end-to-end (includes virus identification, lifestyle, taxonomy, and host prediction)
-        phabox2 --task end_to_end --dbdir {config[databases][phabox][db]} \
-            --outpth {output.results_dir} \
-            --contigs {input.phage_seqs} \
-            --len 1000 \
-            --threads {threads} > {log} 2>&1 || {{
-                echo "Phabox2 failed. Creating placeholder files..." >> {log} 2>&1
+        # Check if input file exists and has content
+        if [ ! -f "{input.phage_seqs}" ] || [ ! -s "{input.phage_seqs}" ]; then
+            echo "Warning: Input file is empty or missing: {input.phage_seqs}" > {log} 2>&1
+            echo "Creating empty Phabox2 output files..." >> {log} 2>&1
+            echo -e "contig_id\ttaxonomy_prediction\tconfidence" > {output.taxonomy}
+            echo -e "contig_id\tlifestyle_prediction\tconfidence" > {output.lifestyle}
+        else
+            # Count sequences in input file
+            SEQ_COUNT=$(grep -c ">" {input.phage_seqs} || echo "0")
+            echo "Processing $SEQ_COUNT sequences with Phabox2" > {log} 2>&1
+            
+            if [ "$SEQ_COUNT" -eq 0 ]; then
+                echo "Warning: Input file contains 0 sequences" >> {log} 2>&1
+                echo "Creating empty Phabox2 output files..." >> {log} 2>&1
                 echo -e "contig_id\ttaxonomy_prediction\tconfidence" > {output.taxonomy}
                 echo -e "contig_id\tlifestyle_prediction\tconfidence" > {output.lifestyle}
-                exit 0
-            }}
+            else
+                # Run Phabox2 end-to-end (includes virus identification, lifestyle, taxonomy, and host prediction)
+                phabox2 --task end_to_end --dbdir {config[databases][phabox][db]} \
+                    --outpth {output.results_dir} \
+                    --contigs {input.phage_seqs} \
+                    --len 1000 \
+                    --threads {threads} >> {log} 2>&1 || {{
+                        echo "Phabox2 failed. Creating placeholder files..." >> {log} 2>&1
+                        echo -e "contig_id\ttaxonomy_prediction\tconfidence" > {output.taxonomy}
+                        echo -e "contig_id\tlifestyle_prediction\tconfidence" > {output.lifestyle}
+                        exit 0
+                    }}
+            fi
+        fi
         
         # Process Phabox2 outputs and create standardized files
         # Phabox2 creates output files with specific naming patterns
@@ -581,23 +629,47 @@ rule vcontact3_taxonomy:
     threads: 24
     shell:
         """
-        # Create gene2genome file
+        # Create output directory
         mkdir -p {output.results_dir}
-        echo -e "protein_id\tcontig_id" > {output.results_dir}/gene2genome.csv
-        grep ">" {input.proteins} | sed 's/>//g' | 
-        awk -F " # " '{{split($1,a,"_"); print $1"\t"a[1]}}' >> {output.results_dir}/gene2genome.csv
         
-        # Run vContact3
-        vcontact3 run --nucleotide {input.phage_seqs} \
-            --output {output.results_dir} \
-            --db-domain "prokaryotes" \
-            --db-version 223 \
-            --db-path {config[databases][vcontact3][db]} \
-            -t {threads} > {log} 2>&1 || {{
-                echo "WARNING: vContact3 failed. Created output directory." >> {log} 2>&1
-                mkdir -p {output.results_dir}
-                exit 0
-            }}
+        # Check if input files exist and have content
+        if [ ! -f "{input.phage_seqs}" ] || [ ! -s "{input.phage_seqs}" ] || [ ! -f "{input.proteins}" ] || [ ! -s "{input.proteins}" ]; then
+            echo "Warning: Input files are empty or missing" > {log} 2>&1
+            echo "phage_seqs: {input.phage_seqs}" >> {log} 2>&1
+            echo "proteins: {input.proteins}" >> {log} 2>&1
+            echo "Skipping vContact3 analysis..." >> {log} 2>&1
+            # Create empty gene2genome file
+            echo -e "protein_id\tcontig_id" > {output.results_dir}/gene2genome.csv
+        else
+            # Count sequences in input files
+            SEQ_COUNT=$(grep -c ">" {input.phage_seqs} || echo "0")
+            PROT_COUNT=$(grep -c ">" {input.proteins} || echo "0")
+            echo "Processing $SEQ_COUNT sequences and $PROT_COUNT proteins with vContact3" > {log} 2>&1
+            
+            if [ "$SEQ_COUNT" -eq 0 ] || [ "$PROT_COUNT" -eq 0 ]; then
+                echo "Warning: No sequences or proteins to process" >> {log} 2>&1
+                echo "Skipping vContact3 analysis..." >> {log} 2>&1
+                # Create empty gene2genome file
+                echo -e "protein_id\tcontig_id" > {output.results_dir}/gene2genome.csv
+            else
+                # Create gene2genome file
+                echo -e "protein_id\tcontig_id" > {output.results_dir}/gene2genome.csv
+                grep ">" {input.proteins} | sed 's/>//g' | 
+                awk -F " # " '{{split($1,a,"_"); print $1"\t"a[1]}}' >> {output.results_dir}/gene2genome.csv
+                
+                # Run vContact3
+                vcontact3 run --nucleotide {input.phage_seqs} \
+                    --output {output.results_dir} \
+                    --db-domain "prokaryotes" \
+                    --db-version 223 \
+                    --db-path {config[databases][vcontact3][db]} \
+                    -t {threads} >> {log} 2>&1 || {{
+                        echo "WARNING: vContact3 failed. Created output directory." >> {log} 2>&1
+                        mkdir -p {output.results_dir}
+                        exit 0
+                    }}
+            fi
+        fi
         """
 
 # 9. Run BACPHLIP for phage lifestyle prediction
@@ -616,59 +688,78 @@ rule bacphlip_lifestyle:
     threads: 8
     shell:
         """
-        # Create temporary directory
-        TMP_DIR=$(mktemp -d)
-        
-        # Clean up any existing BACPHLIP directory
-        rm -rf {input.phage_seqs}.BACPHLIP_DIR/
-        
-        # Run BACPHLIP in multi-fasta mode
-        echo "Running BACPHLIP on all sequences..." > {log} 2>&1
-        bacphlip -i {input.phage_seqs} --multi_fasta -f \
-            > $TMP_DIR/bacphlip_raw.tsv 2>> {log} || {{
-                echo "BACPHLIP failed. Creating placeholder output..." >> {log} 2>&1
+        # Check if input file exists and has content
+        if [ ! -f "{input.phage_seqs}" ] || [ ! -s "{input.phage_seqs}" ]; then
+            echo "Warning: Input file is empty or missing: {input.phage_seqs}" > {log} 2>&1
+            echo "Creating empty BACPHLIP output files..." >> {log} 2>&1
+            echo -e "Sequence\tLifestyle\tConfidence" > {output.results}
+            echo -e "Sequence\tLifestyle\tConfidence\tCompleteness\tCheckV_quality" > {output.with_completeness}
+        else
+            # Count sequences in input file
+            SEQ_COUNT=$(grep -c ">" {input.phage_seqs} || echo "0")
+            echo "Processing $SEQ_COUNT sequences with BACPHLIP" > {log} 2>&1
+            
+            if [ "$SEQ_COUNT" -eq 0 ]; then
+                echo "Warning: Input file contains 0 sequences" >> {log} 2>&1
+                echo "Creating empty BACPHLIP output files..." >> {log} 2>&1
                 echo -e "Sequence\tLifestyle\tConfidence" > {output.results}
                 echo -e "Sequence\tLifestyle\tConfidence\tCompleteness\tCheckV_quality" > {output.with_completeness}
-                rm -rf $TMP_DIR
-                exit 0
-            }}
-        
-        # Copy raw results
-        cp $TMP_DIR/bacphlip_raw.tsv {output.results}
-        
-        # Join with CheckV completeness data
-        echo "Adding completeness information..." >> {log} 2>&1
-        
-        # Create header
-        echo -e "Sequence\tLifestyle\tConfidence\tCompleteness\tCheckV_quality" > {output.with_completeness}
-        
-        # Process BACPHLIP results and join with CheckV data
-        # Note: CheckV quality_summary.tsv has columns: contig_id, various metrics..., checkv_quality
-        tail -n +2 $TMP_DIR/bacphlip_raw.tsv | while IFS=$'\t' read -r seq lifestyle conf; do
-            # Look up this sequence in CheckV results
-            checkv_line=$(grep "^${{seq}}\t" {input.checkv_quality} || echo "")
-            
-            if [ -n "$checkv_line" ]; then
-                # Extract completeness (column 10) and quality (column 8) from CheckV
-                completeness=$(echo "$checkv_line" | cut -f10)
-                quality=$(echo "$checkv_line" | cut -f8)
             else
-                completeness="Unknown"
-                quality="Not_found_in_CheckV"
+                # Create temporary directory
+                TMP_DIR=$(mktemp -d)
+                
+                # Clean up any existing BACPHLIP directory
+                rm -rf {input.phage_seqs}.BACPHLIP_DIR/
+                
+                # Run BACPHLIP in multi-fasta mode
+                echo "Running BACPHLIP on all sequences..." >> {log} 2>&1
+                bacphlip -i {input.phage_seqs} --multi_fasta -f \
+                    > $TMP_DIR/bacphlip_raw.tsv 2>> {log} || {{
+                        echo "BACPHLIP failed. Creating placeholder output..." >> {log} 2>&1
+                        echo -e "Sequence\tLifestyle\tConfidence" > {output.results}
+                        echo -e "Sequence\tLifestyle\tConfidence\tCompleteness\tCheckV_quality" > {output.with_completeness}
+                        rm -rf $TMP_DIR
+                        exit 0
+                    }}
+                
+                # Copy raw results
+                cp $TMP_DIR/bacphlip_raw.tsv {output.results}
+                
+                # Join with CheckV completeness data
+                echo "Adding completeness information..." >> {log} 2>&1
+                
+                # Create header
+                echo -e "Sequence\tLifestyle\tConfidence\tCompleteness\tCheckV_quality" > {output.with_completeness}
+                
+                # Process BACPHLIP results and join with CheckV data
+                # Note: CheckV quality_summary.tsv has columns: contig_id, various metrics..., checkv_quality
+                tail -n +2 $TMP_DIR/bacphlip_raw.tsv | while IFS=$'\t' read -r seq lifestyle conf; do
+                    # Look up this sequence in CheckV results
+                    checkv_line=$(grep "^${{seq}}\t" {input.checkv_quality} || echo "")
+                    
+                    if [ -n "$checkv_line" ]; then
+                        # Extract completeness (column 10) and quality (column 8) from CheckV
+                        completeness=$(echo "$checkv_line" | cut -f10)
+                        quality=$(echo "$checkv_line" | cut -f8)
+                    else
+                        completeness="Unknown"
+                        quality="Not_found_in_CheckV"
+                    fi
+                    
+                    echo -e "${{seq}}\t${{lifestyle}}\t${{conf}}\t${{completeness}}\t${{quality}}"
+                done >> {output.with_completeness}
+                
+                # Log summary statistics
+                echo "BACPHLIP analysis complete. Summary:" >> {log} 2>&1
+                echo "Total sequences: $(tail -n +2 {output.results} | wc -l)" >> {log} 2>&1
+                echo "Complete genomes: $(grep -E "\tComplete\t|\tHigh-quality\t" {output.with_completeness} | wc -l)" >> {log} 2>&1
+                echo "Medium-quality: $(grep "\tMedium-quality\t" {output.with_completeness} | wc -l)" >> {log} 2>&1
+                echo "Low-quality: $(grep "\tLow-quality\t" {output.with_completeness} | wc -l)" >> {log} 2>&1
+                echo "Not-determined: $(grep "\tNot-determined\t" {output.with_completeness} | wc -l)" >> {log} 2>&1
+                
+                # Clean up
+                rm -rf $TMP_DIR
+                rm -rf {input.phage_seqs}.BACPHLIP_DIR/
             fi
-            
-            echo -e "${{seq}}\t${{lifestyle}}\t${{conf}}\t${{completeness}}\t${{quality}}"
-        done >> {output.with_completeness}
-        
-        # Log summary statistics
-        echo "BACPHLIP analysis complete. Summary:" >> {log} 2>&1
-        echo "Total sequences: $(tail -n +2 {output.results} | wc -l)" >> {log} 2>&1
-        echo "Complete genomes: $(grep -E "\tComplete\t|\tHigh-quality\t" {output.with_completeness} | wc -l)" >> {log} 2>&1
-        echo "Medium-quality: $(grep "\tMedium-quality\t" {output.with_completeness} | wc -l)" >> {log} 2>&1
-        echo "Low-quality: $(grep "\tLow-quality\t" {output.with_completeness} | wc -l)" >> {log} 2>&1
-        echo "Not-determined: $(grep "\tNot-determined\t" {output.with_completeness} | wc -l)" >> {log} 2>&1
-        
-        # Clean up
-        rm -rf $TMP_DIR
-        rm -rf {input.phage_seqs}.BACPHLIP_DIR/
+        fi
         """
