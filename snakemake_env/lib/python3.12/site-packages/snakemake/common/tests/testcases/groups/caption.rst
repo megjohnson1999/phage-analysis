@@ -1,1 +1,0 @@
-This is a test caption {{ snakemake.output[0] }}.
