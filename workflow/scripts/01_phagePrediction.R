@@ -29,6 +29,7 @@ process_phage_predictions <- function(phold_file, jager_file, genomad_file, chec
   # Read and process pholdVirPassed data
   log_info("Processing phold data")
   pholdVirPassed <- vroom(phold_file, delim = "\t", col_names = TRUE)
+  log_info(paste("PHOLD raw data rows:", nrow(pholdVirPassed)))
   colnames(pholdVirPassed)[7] <- "category"
   
   # Filter pholdVirPassed
@@ -40,22 +41,41 @@ process_phage_predictions <- function(phold_file, jager_file, genomad_file, chec
     filter(category != "unknown function") %>%
     filter(category != "DNA, RNA and nucleotide metabolism")
   
-  # Group and count phage-related proteins
-  phrogsPerContig <- pholdVirPassed_filt %>%
-    group_by(contig_id, category) %>%
-    dplyr::count(contig_id, category) %>%
-    dcast(contig_id ~ category, value.var = "n")
+  log_info(paste("PHOLD filtered data rows:", nrow(pholdVirPassed_filt)))
   
-  phrogsPerContig[is.na(phrogsPerContig)] <- 0
-  colnames(phrogsPerContig) <- c("contig_id", "Connector", "Head_Packaging", "Integration_Excision", "Lysis", "Tail")
+  # Group and count phage-related proteins
+  # Handle empty PHOLD results gracefully
+  if (nrow(pholdVirPassed_filt) == 0) {
+    log_info("No PHOLD predictions found - creating empty structure")
+    phrogsPerContig <- data.frame(
+      contig_id = character(0),
+      Connector = numeric(0),
+      Head_Packaging = numeric(0),
+      Integration_Excision = numeric(0),
+      Lysis = numeric(0),
+      Tail = numeric(0)
+    )
+  } else {
+    phrogsPerContig <- pholdVirPassed_filt %>%
+      group_by(contig_id, category) %>%
+      dplyr::count(contig_id, category) %>%
+      dcast(contig_id ~ category, value.var = "n")
+    
+    phrogsPerContig[is.na(phrogsPerContig)] <- 0
+    colnames(phrogsPerContig) <- c("contig_id", "Connector", "Head_Packaging", "Integration_Excision", "Lysis", "Tail")
+  }
   
   # Add functional diversity
-  phrogsPerContig <- phrogsPerContig %>%
-    rowwise() %>%
-    mutate(
-      Functionaldiversity = sum(c_across(-contig_id) > 0)
-    ) %>%
-    ungroup()
+  if (nrow(phrogsPerContig) == 0) {
+    phrogsPerContig$Functionaldiversity <- numeric(0)
+  } else {
+    phrogsPerContig <- phrogsPerContig %>%
+      rowwise() %>%
+      mutate(
+        Functionaldiversity = sum(c_across(-contig_id) > 0)
+      ) %>%
+      ungroup()
+  }
   
   # Read and process jager data
   log_info("Processing jaeger data")
