@@ -162,16 +162,33 @@ rule iphop_single_prediction:
         # Create output directory
         mkdir -p {output.results_dir}
         
-        # Run iPhop
-        iphop predict --fa_file {input.phage_file} \
-            --db_dir {config[databases][iphop][db]} \
-            --out_dir {output.results_dir} \
-            --num_threads {threads} > {log} 2>&1
-        
-        # Check if the output exists - if not, create an empty file to satisfy Snakemake
-        if [ ! -f "{output.prediction}" ]; then
-            echo "Warning: iPhop did not produce output. Creating empty file." >> {log}
+        # Check if input file is empty or doesn't exist
+        if [ ! -f "{input.phage_file}" ] || [ ! -s "{input.phage_file}" ]; then
+            echo "Warning: Input file is empty or missing: {input.phage_file}" > {log} 2>&1
+            echo "Creating empty iPhop output file..." >> {log} 2>&1
             echo "query,host,score,identity,coverage,kingdom,phylum,class,order,family,genus" > {output.prediction}
+        else
+            # Count sequences in input file
+            SEQ_COUNT=$(grep -c ">" {input.phage_file} || echo "0")
+            echo "Processing $SEQ_COUNT sequences with iPhop" > {log} 2>&1
+            
+            if [ "$SEQ_COUNT" -eq 0 ]; then
+                echo "Warning: Input file contains 0 sequences" >> {log} 2>&1
+                echo "Creating empty iPhop output file..." >> {log} 2>&1
+                echo "query,host,score,identity,coverage,kingdom,phylum,class,order,family,genus" > {output.prediction}
+            else
+                # Run iPhop
+                iphop predict --fa_file {input.phage_file} \
+                    --db_dir {config[databases][iphop][db]} \
+                    --out_dir {output.results_dir} \
+                    --num_threads {threads} >> {log} 2>&1
+                
+                # Check if the output exists - if not, create an empty file to satisfy Snakemake
+                if [ ! -f "{output.prediction}" ]; then
+                    echo "Warning: iPhop did not produce output. Creating empty file." >> {log} 2>&1
+                    echo "query,host,score,identity,coverage,kingdom,phylum,class,order,family,genus" > {output.prediction}
+                fi
+            fi
         fi
         """
 
