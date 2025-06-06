@@ -461,31 +461,59 @@ rule mmseqs_phage_taxonomy:
     threads: 24
     shell:
         """
-        # Create temporary directory
-        TMP_DIR=$(mktemp -d)
+        # Create output directory
+        mkdir -p $(dirname {output.lca_output})
         
-        # Run mmseqs2 for taxonomy assignment with output prefix that produces files matching existing naming pattern
-        mmseqs easy-taxonomy {input.phage_seqs} {config[databases][mmseqs2][db]} \
-            {config[output_dir]}/03_genomic_info/mmseqs_output $TMP_DIR \
-            --min-length 30 \
-            -e 1e-15 \
-            --search-type 2 \
-            -s 4.0 \
-            --shuffle 0 \
-            --lca-mode 2 \
-            -a \
-            --tax-lineage 2 \
-            --format-output "query,target,evalue,pident,fident,nident,mismatch,qcov,tcov,qstart,qend,qlen,tstart,tend,tlen,alnlen,bits,qheader,theader,taxid,taxname,taxlineage" \
-            --threads {threads} \
-            --split-mode 0 \
-            --orf-filter 1 \
-            > {log} 2>&1
+        # Check if input file exists and has content
+        if [ ! -f "{input.phage_seqs}" ] || [ ! -s "{input.phage_seqs}" ]; then
+            echo "Warning: Input file is empty or missing: {input.phage_seqs}" > {log} 2>&1
+            echo "Creating empty mmseqs2 output files..." >> {log} 2>&1
+            echo -e "query\ttarget\tevalue\tpident\tfident\tnident\tmismatch\tqcov\ttcov\tqstart\tqend\tqlen\ttstart\ttend\ttlen\talnlen\tbits\tqheader\ttheader\ttaxid\ttaxname\ttaxlineage" > {output.lca_output}
+            cp {output.lca_output} {output.taxonomy}
+        else
+            # Count sequences in input file
+            SEQ_COUNT=$(grep -c ">" {input.phage_seqs} || echo "0")
+            echo "Processing $SEQ_COUNT sequences with mmseqs2" > {log} 2>&1
             
-        # Copy and format the taxonomy results - use the correct file path
-        cp {output.lca_output} {output.taxonomy}
-            
-        # Clean up
-        rm -rf $TMP_DIR
+            if [ "$SEQ_COUNT" -eq 0 ]; then
+                echo "Warning: Input file contains 0 sequences" >> {log} 2>&1
+                echo "Creating empty mmseqs2 output files..." >> {log} 2>&1
+                echo -e "query\ttarget\tevalue\tpident\tfident\tnident\tmismatch\tqcov\ttcov\tqstart\tqend\tqlen\ttstart\ttend\ttlen\talnlen\tbits\tqheader\ttheader\ttaxid\ttaxname\ttaxlineage" > {output.lca_output}
+                cp {output.lca_output} {output.taxonomy}
+            else
+                # Create temporary directory
+                TMP_DIR=$(mktemp -d)
+                
+                # Run mmseqs2 for taxonomy assignment with output prefix that produces files matching existing naming pattern
+                mmseqs easy-taxonomy {input.phage_seqs} {config[databases][mmseqs2][db]} \
+                    {config[output_dir]}/03_genomic_info/mmseqs_output $TMP_DIR \
+                    --min-length 30 \
+                    -e 1e-15 \
+                    --search-type 2 \
+                    -s 4.0 \
+                    --shuffle 0 \
+                    --lca-mode 2 \
+                    -a \
+                    --tax-lineage 2 \
+                    --format-output "query,target,evalue,pident,fident,nident,mismatch,qcov,tcov,qstart,qend,qlen,tstart,tend,tlen,alnlen,bits,qheader,theader,taxid,taxname,taxlineage" \
+                    --threads {threads} \
+                    --split-mode 0 \
+                    --orf-filter 1 \
+                    >> {log} 2>&1
+                    
+                # Check if mmseqs2 produced output
+                if [ ! -f "{output.lca_output}" ]; then
+                    echo "Warning: mmseqs2 did not produce output. Creating empty file." >> {log} 2>&1
+                    echo -e "query\ttarget\tevalue\tpident\tfident\tnident\tmismatch\tqcov\ttcov\tqstart\tqend\tqlen\ttstart\ttend\ttlen\talnlen\tbits\tqheader\ttheader\ttaxid\ttaxname\ttaxlineage" > {output.lca_output}
+                fi
+                
+                # Copy and format the taxonomy results - use the correct file path
+                cp {output.lca_output} {output.taxonomy}
+                    
+                # Clean up
+                rm -rf $TMP_DIR
+            fi
+        fi
         """
 
 # 7. Run Phabox2 for phage taxonomy and lifestyle prediction
