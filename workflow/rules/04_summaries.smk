@@ -10,11 +10,11 @@ SUMMARY_DIR = f"{config['output_dir']}/pipeline_summaries"
 
 # Rule to collect input statistics
 rule collect_input_stats:
-    input:
-        assembly = lambda wildcards: config.get("assembly_file", ""),
-        reads_dir = lambda wildcards: config.get("reads_dir", "")
     output:
         summary = f"{SUMMARY_DIR}/input_stats.json"
+    params:
+        assembly = config.get("assembly_file", ""),
+        reads_dir = config.get("reads_dir", "")
     log:
         f"{config['output_dir']}/logs/summaries/collect_input_stats.log"
     conda:
@@ -24,7 +24,7 @@ rule collect_input_stats:
         python {workflow.basedir}/scripts/collect_step_summary.py \
             --step input_stats \
             --output {output.summary} \
-            --inputs assembly_fasta:{input.assembly} reads_dir:{input.reads_dir} \
+            --inputs assembly_fasta:{params.assembly} reads_dir:{params.reads_dir} \
             > {log} 2>&1 || true
         """
 
