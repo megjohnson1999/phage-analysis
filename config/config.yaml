@@ -22,6 +22,7 @@ reads_dir: "/path/to/reads"  # Directory containing sequencing reads
 
 # Pipeline configuration
 do_clustering: true  # Set to false to skip clustering
+generate_summaries: true  # Set to false to skip summary report generation
 
 databases:
   iphop:
