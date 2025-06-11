@@ -34,12 +34,12 @@ Starting Reneo run...
 Setting up monitoring for Reneo intermediate outputs...
 Running Reneo command:
 reneo run --input ../test_data/assemblies/test_sample_enhanced.gfa --reads ../test_data/reads --minlength 1000 --output small_test/01_reneo_output --threads 24 
-[2025:06:05 15:11:37] Config file small_test/01_reneo_output/config.yaml already exists. Using existing config file.
-[2025:06:05 15:11:37] Updating config file with new values
-[2025:06:05 15:11:37] Writing config file to small_test/01_reneo_output/config.yaml
-[2025:06:05 15:11:37] ------------------
-[2025:06:05 15:11:37] | Runtime config |
-[2025:06:05 15:11:37] ------------------
+[2025:06:06 14:49:40] Copying system default config to small_test/01_reneo_output/config.yaml
+[2025:06:06 14:49:40] Updating config file with new values
+[2025:06:06 14:49:40] Writing config file to small_test/01_reneo_output/config.yaml
+[2025:06:06 14:49:40] ------------------
+[2025:06:06 14:49:40] | Runtime config |
+[2025:06:06 14:49:40] ------------------
 
 alpha: 1.2
 compcount: 200
@@ -60,9 +60,9 @@ resources:
   jobCPU: 8
   jobMem: 16000
 
-[2025:06:05 15:11:37] ---------------------
-[2025:06:05 15:11:37] | Snakemake command |
-[2025:06:05 15:11:37] ---------------------
+[2025:06:06 14:49:40] ---------------------
+[2025:06:06 14:49:40] | Snakemake command |
+[2025:06:06 14:49:40] ---------------------
 
 snakemake -s /ref/sahlab/software/miniforge3/envs/reneo/lib/python3.10/site-packages/reneo/workflow/reneo.smk --configfile small_test/01_reneo_output/config.yaml --jobs 24 --use-conda --conda-prefix /ref/sahlab/software/miniforge3/envs/reneo/lib/python3.10/site-packages/reneo/workflow/conda --rerun-incomplete --printshellcmds --nolock --show-failed-logs
 Restricted license - for non-production use only - expires 2025-11-24
@@ -79,34 +79,391 @@ job                                     count
 ------------------------------------  -------
 all                                         1
 combine_genomes_and_unresolved_edges        1
+koverage                                    1
 koverage_genomes                            1
 koverage_postprocess                        1
-total                                       4
+koverage_tsv                                1
+run_combine_cov                             1
+run_gfa2fasta                               1
+run_reneo                                   1
+scan_smg                                    1
+scan_vogs                                   1
+total                                      11
 
 Select jobs to execute...
 
-[Thu Jun  5 15:11:39 2025]
+[Fri Jun  6 14:49:43 2025]
+localrule koverage_tsv:
+    output: small_test/01_reneo_output/reneo.samples.tsv
+    jobid: 3
+    reason: Missing output files: small_test/01_reneo_output/reneo.samples.tsv
+    resources: tmpdir=/tmp
+
+[Fri Jun  6 14:49:43 2025]
+rule run_gfa2fasta:
+    input: ../test_data/assemblies/test_sample_enhanced.gfa
+    output: small_test/01_reneo_output/edges.fasta
+    log: small_test/01_reneo_output/logs/gfa2fasta.log
+    jobid: 1
+    reason: Missing output files: small_test/01_reneo_output/edges.fasta
+    resources: tmpdir=/tmp
+
+Restricted license - for non-production use only - expires 2025-11-24
+/ref/sahlab/software/miniforge3/envs/reneo/lib/python3.10/site-packages/pulp/apis/gurobi_api.py:170: UserWarning: GUROBI error: Unknown parameter '_test'.
+  warnings.warn("GUROBI error: {}.".format(e))
+Config file /ref/sahlab/software/miniforge3/envs/reneo/lib/python3.10/site-packages/reneo/workflow/../config/config.yaml is extended by additional config specified via the command line.
+Config file /ref/sahlab/software/miniforge3/envs/reneo/lib/python3.10/site-packages/reneo/workflow/../config/databases.yaml is extended by additional config specified via the command line.
+Building DAG of jobs...
+Using shell: /usr/bin/bash
+Provided cores: 24
+Rules claiming more threads will be scaled down.
+Select jobs to execute...
+Output files will be saved to directory, small_test/01_reneo_output
+
+python -c "from __future__ import print_function; import sys, json; print(json.dumps([sys.version_info.major, sys.version_info.minor]))"
+Activating conda environment: ../../../../../ref/sahlab/software/miniforge3/envs/reneo/lib/python3.10/site-packages/reneo/workflow/conda/49c616687853dce1371414b25928e75f_
+[Fri Jun  6 14:49:44 2025]
+Finished job 3.
+1 of 11 steps (9%) done
+python /scratch/sahlab/Megan/phage-analysis/workflow/.snakemake/scripts/tmp9ev7ntlr.gfa2fasta.py
+Activating conda environment: ../../../../../ref/sahlab/software/miniforge3/envs/reneo/lib/python3.10/site-packages/reneo/workflow/conda/49c616687853dce1371414b25928e75f_
+2025-06-06 14:49:45,990 - INFO - Obtaining edge sequences
+2025-06-06 14:49:45,992 - INFO - Writing edge sequences to FASTA file
+2025-06-06 14:49:46,034 - INFO - The FASTA file with unitig sequences can be found at small_test/01_reneo_output/edges.fasta
+2025-06-06 14:49:46,035 - INFO - Thank you for using gfa2fasta!
+[Fri Jun  6 14:49:46 2025]
+Finished job 1.
+2 of 11 steps (18%) done
+Select jobs to execute...
+
+[Fri Jun  6 14:49:46 2025]
+rule scan_smg:
+    input: small_test/01_reneo_output/edges.fasta, /ref/sahlab/software/miniforge3/envs/reneo/lib/python3.10/site-packages/reneo/workflow/../../databases/marker.hmm
+    output: small_test/01_reneo_output/edges.fasta.hmmout
+    log: small_test/01_reneo_output/logs/smg_scan_frag_out.log, small_test/01_reneo_output/logs/smg_scan_frag_err.log, small_test/01_reneo_output/logs/smg_scan_hmm_out.log, small_test/01_reneo_output/logs/smg_scan_hmm_err.log
+    jobid: 5
+    reason: Missing output files: small_test/01_reneo_output/edges.fasta.hmmout; Input files updated by another job: small_test/01_reneo_output/edges.fasta
+    threads: 8
+    resources: tmpdir=/tmp, mem_mb=16000, mem_mib=15259
+
+
+            run_FragGeneScan.pl -genome=small_test/01_reneo_output/edges.fasta -out=small_test/01_reneo_output/edges.fasta.frag -complete=0 -train=complete -thread=8 1>small_test/01_reneo_output/logs/smg_scan_frag_out.log 2>small_test/01_reneo_output/logs/smg_scan_frag_err.log
+            hmmsearch --domtblout small_test/01_reneo_output/edges.fasta.hmmout --cut_tc --cpu 8 /ref/sahlab/software/miniforge3/envs/reneo/lib/python3.10/site-packages/reneo/workflow/../../databases/marker.hmm small_test/01_reneo_output/edges.fasta.frag.faa 1>small_test/01_reneo_output/logs/smg_scan_hmm_out.log 2> small_test/01_reneo_output/logs/smg_scan_hmm_err.log
+        
+
+Activating conda environment: ../../../../../ref/sahlab/software/miniforge3/envs/reneo/lib/python3.10/site-packages/reneo/workflow/conda/bbdb2326333d08ffe0de54d9cd05289a_
+[Fri Jun  6 14:49:46 2025]
+rule scan_vogs:
+    input: small_test/01_reneo_output/edges.fasta, /ref/sahlab/software/miniforge3/envs/reneo/lib/python3.10/site-packages/reneo/workflow/../../databases/AllVOG.hmm
+    output: small_test/01_reneo_output/all.hmmVOG.tbl
+    log: small_test/01_reneo_output/logs/vogs_scan.log
+    jobid: 6
+    reason: Missing output files: small_test/01_reneo_output/all.hmmVOG.tbl; Input files updated by another job: small_test/01_reneo_output/edges.fasta
+    threads: 8
+    resources: tmpdir=/tmp, mem_mb=16000, mem_mib=15259
+
+
+        prodigal -i small_test/01_reneo_output/edges.fasta -d small_test/01_reneo_output/genes.fna -a small_test/01_reneo_output/proteins.faa -p meta -g 11 > small_test/01_reneo_output/logs/vogs_scan.log
+        hmmsearch --cpu 8 -E 1.0e-05 -o small_test/01_reneo_output/vog_hmm_output.txt --tblout small_test/01_reneo_output/all.hmmVOG.tbl /ref/sahlab/software/miniforge3/envs/reneo/lib/python3.10/site-packages/reneo/workflow/../../databases/AllVOG.hmm small_test/01_reneo_output/proteins.faa
+        
+Activating conda environment: ../../../../../ref/sahlab/software/miniforge3/envs/reneo/lib/python3.10/site-packages/reneo/workflow/conda/bbdb2326333d08ffe0de54d9cd05289a_
+
+[Fri Jun  6 14:49:46 2025]
+rule koverage:
+    input: small_test/01_reneo_output/reneo.samples.tsv, small_test/01_reneo_output/edges.fasta
+    output: small_test/01_reneo_output/temp/test_sample.bam, small_test/01_reneo_output/temp/test_sample.bam.bai, small_test/01_reneo_output/results/sample_coverm_coverage.tsv
+    jobid: 2
+    reason: Missing output files: small_test/01_reneo_output/temp/test_sample.bam.bai, small_test/01_reneo_output/results/sample_coverm_coverage.tsv, small_test/01_reneo_output/temp/test_sample.bam; Input files updated by another job: small_test/01_reneo_output/reneo.samples.tsv, small_test/01_reneo_output/edges.fasta
+    threads: 8
+    resources: tmpdir=/tmp, mem_mb=16000, mem_mib=15259, mem=16000MB
+
+
+        koverage run coverm             --reads small_test/01_reneo_output/reneo.samples.tsv             --ref small_test/01_reneo_output/edges.fasta             --threads 8             --output small_test/01_reneo_output             
+        
+Activating conda environment: ../../../../../ref/sahlab/software/miniforge3/envs/reneo/lib/python3.10/site-packages/reneo/workflow/conda/8244609b1a8b654cbf8b3ef71584df15_
+-------------------------------------
+PRODIGAL v2.6.3 [February, 2016]         
+Univ of Tenn / Oak Ridge National Lab
+Doug Hyatt, Loren Hauser, et al.     
+-------------------------------------
+Request:  Metagenomic, Phase:  Training
+Initializing training files...done!
+-------------------------------------
+Request:  Metagenomic, Phase:  Gene Finding
+Finding genes in sequence #1 (1578 bp)...done!
+Finding genes in sequence #2 (858 bp)...done!
+Finding genes in sequence #3 (963 bp)...done!
+Finding genes in sequence #4 (751 bp)...done!
+[Fri Jun  6 14:49:46 2025]
+Finished job 5.
+3 of 11 steps (27%) done
+
+
+██╗  ██╗ ██████╗ ██╗   ██╗███████╗██████╗  █████╗  ██████╗ ███████╗
+██║ ██╔╝██╔═══██╗██║   ██║██╔════╝██╔══██╗██╔══██╗██╔════╝ ██╔════╝
+█████╔╝ ██║   ██║██║   ██║█████╗  ██████╔╝███████║██║  ███╗█████╗  
+██╔═██╗ ██║   ██║╚██╗ ██╔╝██╔══╝  ██╔══██╗██╔══██║██║   ██║██╔══╝  
+██║  ██╗╚██████╔╝ ╚████╔╝ ███████╗██║  ██║██║  ██║╚██████╔╝███████╗
+╚═╝  ╚═╝ ╚═════╝   ╚═══╝  ╚══════╝╚═╝  ╚═╝╚═╝  ╚═╝ ╚═════╝ ╚══════╝
+
+[2025:06:06 14:49:46] Copying system default config to small_test/01_reneo_output/koverage.config.yaml
+[2025:06:06 14:49:47] Updating config file with new values
+[2025:06:06 14:49:47] Writing config file to small_test/01_reneo_output/koverage.config.yaml
+[2025:06:06 14:49:47] ------------------
+[2025:06:06 14:49:47] | Runtime config |
+[2025:06:06 14:49:47] ------------------
+
+koverage:
+  args:
+    bin_width: 100
+    conda_prefix: /ref/sahlab/software/miniforge3/envs/reneo/lib/python3.10/site-packages/reneo/workflow/conda/8244609b1a8b654cbf8b3ef71584df15_/lib/python3.11/site-packages/koverage/workflow/conda
+    configfile: small_test/01_reneo_output/koverage.config.yaml
+    kmer_max: 5000
+    kmer_min: 50
+    kmer_sample: 100
+    kmer_size: 25
+    log: small_test/01_reneo_output/koverage.log
+    minimap: sr
+    output: small_test/01_reneo_output
+    pafs: false
+    reads: small_test/01_reneo_output/reneo.samples.tsv
+    ref: small_test/01_reneo_output/edges.fasta
+    report: true
+    report_max_ctg: 1000
+    snake_args:
+    - coverm
+    system_config: /ref/sahlab/software/miniforge3/envs/reneo/lib/python3.10/site-packages/reneo/workflow/conda/8244609b1a8b654cbf8b3ef71584df15_/lib/python3.11/site-packages/koverage/config/config.yaml
+    system_workflow_profile: /ref/sahlab/software/miniforge3/envs/reneo/lib/python3.10/site-packages/reneo/workflow/conda/8244609b1a8b654cbf8b3ef71584df15_/lib/python3.11/site-packages/koverage/config/profile/config.yaml
+    threads: 8
+    use_conda: true
+    workflow_profile: small_test/01_reneo_output/koverage.profile
+  params:
+    coverm: -m count -m rpkm -m tpm -m mean -m covered_fraction -m variance
+    jellyfish: -C -s 1G -c 2 --out-counter-len=2 -L 2
+resources:
+  med:
+    cpu: 4
+    mem: 16000
+    time: 02:00:00
+  ram:
+    cpu: 2
+    mem: 8000
+    time: 04:00:00
+
+[2025:06:06 14:49:47] Copying system default config to small_test/01_reneo_output/koverage.profile/config.yaml
+[2025:06:06 14:49:47] ---------------------
+[2025:06:06 14:49:47] | Snakemake command |
+[2025:06:06 14:49:47] ---------------------
+
+snakemake -s /ref/sahlab/software/miniforge3/envs/reneo/lib/python3.10/site-packages/reneo/workflow/conda/8244609b1a8b654cbf8b3ef71584df15_/lib/python3.11/site-packages/koverage/workflow/Snakefile --configfile small_test/01_reneo_output/koverage.config.yaml --cores 8 --use-conda --conda-prefix /ref/sahlab/software/miniforge3/envs/reneo/lib/python3.10/site-packages/reneo/workflow/conda/8244609b1a8b654cbf8b3ef71584df15_/lib/python3.11/site-packages/koverage/workflow/conda coverm --workflow-profile small_test/01_reneo_output/koverage.profile
+Using profile small_test/01_reneo_output/koverage.profile and workflow specific profile small_test/01_reneo_output/koverage.profile for setting default command line arguments.
+Config file /ref/sahlab/software/miniforge3/envs/reneo/lib/python3.10/site-packages/reneo/workflow/conda/8244609b1a8b654cbf8b3ef71584df15_/lib/python3.11/site-packages/koverage/workflow/../config/config.yaml is extended by additional config specified via the command line.
+Config file /ref/sahlab/software/miniforge3/envs/reneo/lib/python3.10/site-packages/reneo/workflow/conda/8244609b1a8b654cbf8b3ef71584df15_/lib/python3.11/site-packages/koverage/workflow/../config/system_config.yaml is extended by additional config specified via the command line.
+Building DAG of jobs...
+Using shell: /usr/bin/bash
+Provided cores: 8
+Rules claiming more threads will be scaled down.
+Job stats:
+job                  count
+-----------------  -------
+coverm                   1
+coverm_bam2counts        1
+coverm_combine           1
+coverm_map_pe            1
+sample_tsv               1
+total                    5
+
+Select jobs to execute...
+
+[Fri Jun  6 14:49:54 2025]
+rule coverm_map_pe:
+    input: small_test/01_reneo_output/edges.fasta, ../test_data/reads/test_sample_R1.fastq
+    output: small_test/01_reneo_output/temp/test_sample.bam, small_test/01_reneo_output/temp/test_sample.bam.bai
+    log: small_test/01_reneo_output/logs/coverm_map_pe.test_sample.err
+    jobid: 3
+    benchmark: small_test/01_reneo_output/benchmarks/coverm_map_pe.test_sample.txt
+    reason: Missing output files: small_test/01_reneo_output/temp/test_sample.bam; Set of input files has changed since last execution; Code has changed since last execution; Params have changed since last execution; Software environment definition has changed since last execution
+    wildcards: sample=test_sample
+    threads: 4
+    resources: tmpdir=/tmp, mem_mb=16000, mem_mib=15259, mem=16000MB, time=02:00:00
+
+{ minimap2 -t 4 -ax sr --secondary=no small_test/01_reneo_output/edges.fasta ../test_data/reads/test_sample_R1.fastq ../test_data/reads/test_sample_R2.fastq | samtools sort -T test_sample -@ 4 - > small_test/01_reneo_output/temp/test_sample.bam; samtools index small_test/01_reneo_output/temp/test_sample.bam; } 2> small_test/01_reneo_output/logs/coverm_map_pe.test_sample.err
+
+[Fri Jun  6 14:49:54 2025]
+rule sample_tsv:
+    output: small_test/01_reneo_output/koverage.samples.tsv
+    jobid: 4
+    reason: Missing output files: small_test/01_reneo_output/koverage.samples.tsv
+    resources: tmpdir=/tmp
+Activating conda environment: ../../../../../ref/sahlab/software/miniforge3/envs/reneo/lib/python3.10/site-packages/reneo/workflow/conda/8244609b1a8b654cbf8b3ef71584df15_/lib/python3.11/site-packages/koverage/workflow/conda/c72ff8b0d624a2425a95a21110fc4016_
+
+Config file /ref/sahlab/software/miniforge3/envs/reneo/lib/python3.10/site-packages/reneo/workflow/conda/8244609b1a8b654cbf8b3ef71584df15_/lib/python3.11/site-packages/koverage/workflow/../config/config.yaml is extended by additional config specified via the command line.
+Config file /ref/sahlab/software/miniforge3/envs/reneo/lib/python3.10/site-packages/reneo/workflow/conda/8244609b1a8b654cbf8b3ef71584df15_/lib/python3.11/site-packages/koverage/workflow/../config/system_config.yaml is extended by additional config specified via the command line.
+Building DAG of jobs...
+Using shell: /usr/bin/bash
+Provided cores: 8
+Rules claiming more threads will be scaled down.
+Select jobs to execute...
+[Fri Jun  6 14:49:54 2025]
+Finished job 3.
+1 of 5 steps (20%) done
+Select jobs to execute...
+
+[Fri Jun  6 14:49:54 2025]
+rule coverm_bam2counts:
+    input: small_test/01_reneo_output/temp/test_sample.bam
+    output: small_test/01_reneo_output/temp/test_sample.cov
+    log: small_test/01_reneo_output/logs/coverm_bam2counts.test_sample.err
+    jobid: 2
+    benchmark: small_test/01_reneo_output/benchmarks/coverm_bam2counts.test_sample.txt
+    reason: Missing output files: small_test/01_reneo_output/temp/test_sample.cov; Input files updated by another job: small_test/01_reneo_output/temp/test_sample.bam
+    wildcards: sample=test_sample
+    resources: tmpdir=/tmp
+
+coverm contig -b small_test/01_reneo_output/temp/test_sample.bam -m count -m rpkm -m tpm -m mean -m covered_fraction -m variance > small_test/01_reneo_output/temp/test_sample.cov 2> small_test/01_reneo_output/logs/coverm_bam2counts.test_sample.err 
+Activating conda environment: ../../../../../ref/sahlab/software/miniforge3/envs/reneo/lib/python3.10/site-packages/reneo/workflow/conda/8244609b1a8b654cbf8b3ef71584df15_/lib/python3.11/site-packages/koverage/workflow/conda/78e86751df9e5707e504644e1177e9b0_
+[Fri Jun  6 14:49:55 2025]
+Finished job 2.
+2 of 5 steps (40%) done
+Select jobs to execute...
+
+[Fri Jun  6 14:49:55 2025]
+rule coverm_combine:
+    input: small_test/01_reneo_output/temp/test_sample.cov
+    output: small_test/01_reneo_output/results/sample_coverm_coverage.tsv
+    jobid: 1
+    reason: Missing output files: small_test/01_reneo_output/results/sample_coverm_coverage.tsv; Input files updated by another job: small_test/01_reneo_output/temp/test_sample.cov
+    resources: tmpdir=/tmp
+
+[Fri Jun  6 14:49:55 2025]
+Finished job 4.
+3 of 5 steps (60%) done
+Config file /ref/sahlab/software/miniforge3/envs/reneo/lib/python3.10/site-packages/reneo/workflow/conda/8244609b1a8b654cbf8b3ef71584df15_/lib/python3.11/site-packages/koverage/workflow/../config/config.yaml is extended by additional config specified via the command line.
+Config file /ref/sahlab/software/miniforge3/envs/reneo/lib/python3.10/site-packages/reneo/workflow/conda/8244609b1a8b654cbf8b3ef71584df15_/lib/python3.11/site-packages/koverage/workflow/../config/system_config.yaml is extended by additional config specified via the command line.
+Building DAG of jobs...
+Using shell: /usr/bin/bash
+Provided cores: 8
+Rules claiming more threads will be scaled down.
+Select jobs to execute...
+[Fri Jun  6 14:49:56 2025]
+Finished job 1.
+4 of 5 steps (80%) done
+Select jobs to execute...
+
+[Fri Jun  6 14:49:56 2025]
+localrule coverm:
+    input: small_test/01_reneo_output/results/sample_coverm_coverage.tsv, small_test/01_reneo_output/koverage.samples.tsv
+    jobid: 0
+    reason: Input files updated by another job: small_test/01_reneo_output/koverage.samples.tsv, small_test/01_reneo_output/results/sample_coverm_coverage.tsv
+    resources: tmpdir=/tmp
+
+[Fri Jun  6 14:49:56 2025]
+Finished job 0.
+5 of 5 steps (100%) done
+Complete log: .snakemake/log/2025-06-06T144948.026632.snakemake.log
+cat .snakemake/log/2025-06-06T144948.026632.snakemake.log >> small_test/01_reneo_output/koverage.log
+[2025:06:06 14:49:56] Snakemake finished successfully
+[Fri Jun  6 14:49:56 2025]
+Finished job 2.
+4 of 11 steps (36%) done
+Select jobs to execute...
+
+[Fri Jun  6 14:49:56 2025]
+rule run_combine_cov:
+    input: small_test/01_reneo_output/results/sample_coverm_coverage.tsv
+    output: small_test/01_reneo_output/coverage.tsv
+    jobid: 4
+    reason: Missing output files: small_test/01_reneo_output/coverage.tsv; Input files updated by another job: small_test/01_reneo_output/results/sample_coverm_coverage.tsv
+    resources: tmpdir=/tmp
+
+
+        sed -i '1d' small_test/01_reneo_output/results/sample_coverm_coverage.tsv
+        awk -F '	' '{ sum[$2] += $6 } END { for (key in sum) print key, sum[key] }' small_test/01_reneo_output/results/sample_coverm_coverage.tsv > small_test/01_reneo_output/coverage.tsv
+        
+[Fri Jun  6 14:49:56 2025]
+Finished job 4.
+5 of 11 steps (45%) done
+[Fri Jun  6 14:51:32 2025]
+Finished job 6.
+6 of 11 steps (55%) done
+Select jobs to execute...
+
+[Fri Jun  6 14:51:32 2025]
+rule run_reneo:
+    input: ../test_data/assemblies/test_sample_enhanced.gfa, small_test/01_reneo_output/coverage.tsv, small_test/01_reneo_output/all.hmmVOG.tbl, small_test/01_reneo_output/edges.fasta.hmmout, small_test/01_reneo_output/edges.fasta, small_test/01_reneo_output/temp/test_sample.bam, small_test/01_reneo_output/temp/test_sample.bam.bai, small_test/01_reneo_output/coverage.tsv, small_test/01_reneo_output/edges.fasta.hmmout, small_test/01_reneo_output/all.hmmVOG.tbl
+    output: small_test/01_reneo_output/resolved_paths.fasta, small_test/01_reneo_output/resolved_viruses, small_test/01_reneo_output/resolved_genome_info.txt, small_test/01_reneo_output/resolved_edges.fasta, small_test/01_reneo_output/resolved_component_info.txt, small_test/01_reneo_output/component_vogs.txt, small_test/01_reneo_output/unresolved_virus_like_edges.fasta
+    log: small_test/01_reneo_output/logs/reneo_output.log
+    jobid: 7
+    reason: Missing output files: small_test/01_reneo_output/component_vogs.txt, small_test/01_reneo_output/resolved_component_info.txt, small_test/01_reneo_output/unresolved_virus_like_edges.fasta, small_test/01_reneo_output/resolved_genome_info.txt, small_test/01_reneo_output/resolved_paths.fasta; Input files updated by another job: small_test/01_reneo_output/coverage.tsv, small_test/01_reneo_output/edges.fasta, small_test/01_reneo_output/all.hmmVOG.tbl, small_test/01_reneo_output/edges.fasta.hmmout, small_test/01_reneo_output/temp/test_sample.bam.bai, small_test/01_reneo_output/temp/test_sample.bam
+    resources: tmpdir=/tmp
+
+python -c "from __future__ import print_function; import sys, json; print(json.dumps([sys.version_info.major, sys.version_info.minor]))"
+Activating conda environment: ../../../../../ref/sahlab/software/miniforge3/envs/reneo/lib/python3.10/site-packages/reneo/workflow/conda/49c616687853dce1371414b25928e75f_
+python /scratch/sahlab/Megan/phage-analysis/workflow/.snakemake/scripts/tmp4y697u34.reneo.py
+Activating conda environment: ../../../../../ref/sahlab/software/miniforge3/envs/reneo/lib/python3.10/site-packages/reneo/workflow/conda/49c616687853dce1371414b25928e75f_
+2025-06-06 14:51:34,466 - INFO - Welcome to Reneo: Unraveling Viral Genomes from Metagenomes.
+2025-06-06 14:51:34,467 - INFO - Input arguments: 
+2025-06-06 14:51:34,467 - INFO - Assembly graph file: ../test_data/assemblies/test_sample_enhanced.gfa
+2025-06-06 14:51:34,468 - INFO - Unitig coverage file: small_test/01_reneo_output/coverage.tsv
+2025-06-06 14:51:34,468 - INFO - BAM files path: small_test/01_reneo_output/temp
+2025-06-06 14:51:34,469 - INFO - Unitig .hmmout file: small_test/01_reneo_output/edges.fasta.hmmout
+2025-06-06 14:51:34,469 - INFO - Unitig vog annotations file: small_test/01_reneo_output/all.hmmVOG.tbl
+2025-06-06 14:51:34,469 - INFO - Minimum length of unitigs to consider: 1000
+2025-06-06 14:51:34,470 - INFO - Minimum coverage of paths to output: 1
+2025-06-06 14:51:34,470 - INFO - Minimum unitig count to consider a component: 200
+2025-06-06 14:51:34,471 - INFO - Maximum number of paths to resolve for a component: 10
+2025-06-06 14:51:34,471 - INFO - Length threshold to consider single copy marker genes: 0.2
+2025-06-06 14:51:34,472 - INFO - Maximum e-value for vog annotations: 1e-10
+2025-06-06 14:51:34,472 - INFO - Minimum hmm score for vog annotations: 50.0
+2025-06-06 14:51:34,472 - INFO - Coverage tolerance for extending subpaths: 100.0
+2025-06-06 14:51:34,473 - INFO - Coverage multipler for flow interval modelling: 1.2
+2025-06-06 14:51:34,473 - INFO - Number of threads to use: 8
+2025-06-06 14:51:34,474 - INFO - Output folder: small_test/01_reneo_output
+2025-06-06 14:51:34,486 - INFO - Total number of vertices in the assembly graph: 4
+2025-06-06 14:51:34,486 - INFO - Total number of links in the assembly graph: 2
+2025-06-06 14:51:34,489 - INFO - Total number of components found: 0
+Resolving components: 0it [00:00, ?it/s]Resolving components: 0it [00:00, ?it/s]
+2025-06-06 14:51:34,500 - INFO - Total number of cyclic components found: 0
+2025-06-06 14:51:34,500 - INFO - Total number of cyclic components resolved: 0
+2025-06-06 14:51:34,501 - INFO - Single unitigs identified: 0
+2025-06-06 14:51:34,501 - INFO - Total number of linear components found: 0
+2025-06-06 14:51:34,502 - INFO - Total number of linear components resolved: 0
+2025-06-06 14:51:34,502 - INFO - Total number of cyclic components found including single unitigs: 0
+2025-06-06 14:51:34,503 - INFO - Total number of components resolved: 0
+2025-06-06 14:51:34,503 - INFO - Case 1 (resolved/found): 0/0
+2025-06-06 14:51:34,503 - INFO - Case 2 (resolved/found): 0/0
+2025-06-06 14:51:34,504 - INFO - Case 3 (resolved/found): 0/0
+2025-06-06 14:51:34,504 - INFO - Total number of genomes resolved: 0
+2025-06-06 14:51:34,505 - INFO - No genomes were resolved.
+2025-06-06 14:51:34,513 - INFO - Elapsed time: 0.03879141807556152 seconds
+2025-06-06 14:51:34,514 - INFO - Thank you for using Reneo!
+[Fri Jun  6 14:51:34 2025]
+Finished job 7.
+7 of 11 steps (64%) done
+Select jobs to execute...
+
+[Fri Jun  6 14:51:34 2025]
 rule combine_genomes_and_unresolved_edges:
     input: small_test/01_reneo_output/resolved_paths.fasta, small_test/01_reneo_output/unresolved_virus_like_edges.fasta
     output: small_test/01_reneo_output/genomes_and_unresolved_edges.fasta
     jobid: 9
-    reason: Missing output files: small_test/01_reneo_output/genomes_and_unresolved_edges.fasta
+    reason: Missing output files: small_test/01_reneo_output/genomes_and_unresolved_edges.fasta; Input files updated by another job: small_test/01_reneo_output/resolved_paths.fasta, small_test/01_reneo_output/unresolved_virus_like_edges.fasta; Set of input files has changed since last execution; Code has changed since last execution; Params have changed since last execution
     resources: tmpdir=/tmp
 
 
         cat small_test/01_reneo_output/resolved_paths.fasta small_test/01_reneo_output/unresolved_virus_like_edges.fasta > small_test/01_reneo_output/genomes_and_unresolved_edges.fasta
         
-[Thu Jun  5 15:11:39 2025]
+[Fri Jun  6 14:51:34 2025]
 Finished job 9.
-1 of 4 steps (25%) done
+8 of 11 steps (73%) done
 Select jobs to execute...
 
-[Thu Jun  5 15:11:39 2025]
+[Fri Jun  6 14:51:34 2025]
 rule koverage_genomes:
     input: small_test/01_reneo_output/reneo.samples.tsv, small_test/01_reneo_output/genomes_and_unresolved_edges.fasta
     output: small_test/01_reneo_output/results/sample_coverage.tsv
     jobid: 8
-    reason: Missing output files: small_test/01_reneo_output/results/sample_coverage.tsv; Input files updated by another job: small_test/01_reneo_output/genomes_and_unresolved_edges.fasta
+    reason: Missing output files: small_test/01_reneo_output/results/sample_coverage.tsv; Input files updated by another job: small_test/01_reneo_output/reneo.samples.tsv, small_test/01_reneo_output/genomes_and_unresolved_edges.fasta
     threads: 8
     resources: tmpdir=/tmp, mem_mb=16000, mem_mib=15259, mem=16000MB
 
@@ -123,12 +480,12 @@ Activating conda environment: ../../../../../ref/sahlab/software/miniforge3/envs
 ██║  ██╗╚██████╔╝ ╚████╔╝ ███████╗██║  ██║██║  ██║╚██████╔╝███████╗
 ╚═╝  ╚═╝ ╚═════╝   ╚═══╝  ╚══════╝╚═╝  ╚═╝╚═╝  ╚═╝ ╚═════╝ ╚══════╝
 
-[2025:06:05 15:11:40] Config file small_test/01_reneo_output/koverage.config.yaml already exists. Using existing config file.
-[2025:06:05 15:11:40] Updating config file with new values
-[2025:06:05 15:11:40] Writing config file to small_test/01_reneo_output/koverage.config.yaml
-[2025:06:05 15:11:40] ------------------
-[2025:06:05 15:11:40] | Runtime config |
-[2025:06:05 15:11:40] ------------------
+[2025:06:06 14:51:35] Config file small_test/01_reneo_output/koverage.config.yaml already exists. Using existing config file.
+[2025:06:06 14:51:35] Updating config file with new values
+[2025:06:06 14:51:35] Writing config file to small_test/01_reneo_output/koverage.config.yaml
+[2025:06:06 14:51:35] ------------------
+[2025:06:06 14:51:35] | Runtime config |
+[2025:06:06 14:51:35] ------------------
 
 koverage:
   args:
@@ -166,10 +523,10 @@ resources:
     mem: 8000
     time: 04:00:00
 
-[2025:06:05 15:11:40] Config file small_test/01_reneo_output/koverage.profile/config.yaml already exists. Using existing config file.
-[2025:06:05 15:11:40] ---------------------
-[2025:06:05 15:11:40] | Snakemake command |
-[2025:06:05 15:11:40] ---------------------
+[2025:06:06 14:51:35] Config file small_test/01_reneo_output/koverage.profile/config.yaml already exists. Using existing config file.
+[2025:06:06 14:51:35] ---------------------
+[2025:06:06 14:51:35] | Snakemake command |
+[2025:06:06 14:51:35] ---------------------
 
 snakemake -s /ref/sahlab/software/miniforge3/envs/reneo/lib/python3.10/site-packages/reneo/workflow/conda/8244609b1a8b654cbf8b3ef71584df15_/lib/python3.11/site-packages/koverage/workflow/Snakefile --configfile small_test/01_reneo_output/koverage.config.yaml --cores 8 --use-conda --conda-prefix /ref/sahlab/software/miniforge3/envs/reneo/lib/python3.10/site-packages/reneo/workflow/conda/8244609b1a8b654cbf8b3ef71584df15_/lib/python3.11/site-packages/koverage/workflow/conda --workflow-profile small_test/01_reneo_output/koverage.profile
 Using profile small_test/01_reneo_output/koverage.profile and workflow specific profile small_test/01_reneo_output/koverage.profile for setting default command line arguments.
@@ -186,14 +543,15 @@ all_sample_coverage        1
 combine_coverage           1
 coverage_report            1
 faidx_ref                  1
+idx_ref                    1
 map                        1
 raw_coverage               1
 sample_coverage            1
-total                      7
+total                      8
 
 Select jobs to execute...
 
-[Thu Jun  5 15:11:43 2025]
+[Fri Jun  6 14:51:36 2025]
 rule faidx_ref:
     input: small_test/01_reneo_output/genomes_and_unresolved_edges.fasta
     output: small_test/01_reneo_output/genomes_and_unresolved_edges.fasta.fai
@@ -205,7 +563,21 @@ rule faidx_ref:
 
 samtools faidx small_test/01_reneo_output/genomes_and_unresolved_edges.fasta 2> small_test/01_reneo_output/logs/faidx_ref.err
 Activating conda environment: ../../../../../ref/sahlab/software/miniforge3/envs/reneo/lib/python3.10/site-packages/reneo/workflow/conda/8244609b1a8b654cbf8b3ef71584df15_/lib/python3.11/site-packages/koverage/workflow/conda/c72ff8b0d624a2425a95a21110fc4016_
-[Thu Jun  5 15:11:44 2025]
+
+[Fri Jun  6 14:51:36 2025]
+rule idx_ref:
+    input: small_test/01_reneo_output/genomes_and_unresolved_edges.fasta
+    output: small_test/01_reneo_output/genomes_and_unresolved_edges.fasta.idx
+    log: small_test/01_reneo_output/logs/idx_ref.err
+    jobid: 4
+    benchmark: small_test/01_reneo_output/benchmarks/idx_ref.txt
+    reason: Missing output files: small_test/01_reneo_output/genomes_and_unresolved_edges.fasta.idx
+    threads: 4
+    resources: tmpdir=/tmp, mem_mb=16000, mem_mib=15259, mem=16000MB, time=02:00:00
+
+awk 'BEGIN {count=-1} /^>/ { $0 = ">" ++count } 1' small_test/01_reneo_output/genomes_and_unresolved_edges.fasta | minimap2 -t 4 -d small_test/01_reneo_output/genomes_and_unresolved_edges.fasta.idx - 2> small_test/01_reneo_output/logs/idx_ref.err
+Activating conda environment: ../../../../../ref/sahlab/software/miniforge3/envs/reneo/lib/python3.10/site-packages/reneo/workflow/conda/8244609b1a8b654cbf8b3ef71584df15_/lib/python3.11/site-packages/koverage/workflow/conda/c72ff8b0d624a2425a95a21110fc4016_
+[Fri Jun  6 14:51:37 2025]
 Error in rule faidx_ref:
     jobid: 5
     input: small_test/01_reneo_output/genomes_and_unresolved_edges.fasta
@@ -221,12 +593,15 @@ Logfile small_test/01_reneo_output/logs/faidx_ref.err:
 [faidx] Could not build fai index small_test/01_reneo_output/genomes_and_unresolved_edges.fasta.fai
 ================================================================================
 
+[Fri Jun  6 14:51:37 2025]
+Finished job 4.
+1 of 8 steps (12%) done
 Shutting down, this might take some time.
 Exiting because a job execution failed. Look above for error message
-cat .snakemake/log/2025-06-05T151140.468393.snakemake.log >> small_test/01_reneo_output/koverage.log
-Complete log: .snakemake/log/2025-06-05T151140.468393.snakemake.log
-[2025:06:05 15:11:44] ERROR: Snakemake failed
-[Thu Jun  5 15:11:44 2025]
+cat .snakemake/log/2025-06-06T145135.254508.snakemake.log >> small_test/01_reneo_output/koverage.log
+Complete log: .snakemake/log/2025-06-06T145135.254508.snakemake.log
+[2025:06:06 14:51:37] ERROR: Snakemake failed
+[Fri Jun  6 14:51:37 2025]
 Error in rule koverage_genomes:
     jobid: 8
     input: small_test/01_reneo_output/reneo.samples.tsv, small_test/01_reneo_output/genomes_and_unresolved_edges.fasta
@@ -244,40 +619,113 @@ Exiting because a job execution failed. Look above for error message
 
 Reneo run failed
 
-Complete log: .snakemake/log/2025-06-05T151138.093142.snakemake.log
+Complete log: .snakemake/log/2025-06-06T144940.912866.snakemake.log
 Output files will be saved to directory, small_test/01_reneo_output
 
-[2025:06:05 15:11:44] ERROR: Snakemake failed
+[2025:06:06 14:51:37] ERROR: Snakemake failed
 Reneo exit code: 0
 Searching for detailed logs...
 Checking Reneo logs directory...
+=== Reneo log: small_test/01_reneo_output/logs/gfa2fasta.log ===
+2025-06-06 14:49:45,990 - INFO - Obtaining edge sequences
+2025-06-06 14:49:45,992 - INFO - Writing edge sequences to FASTA file
+2025-06-06 14:49:46,034 - INFO - The FASTA file with unitig sequences can be found at small_test/01_reneo_output/edges.fasta
+2025-06-06 14:49:46,035 - INFO - Thank you for using gfa2fasta!
+=== Reneo log: small_test/01_reneo_output/logs/reneo_output.log ===
+2025-06-06 14:51:34,473 - INFO - Coverage multipler for flow interval modelling: 1.2
+2025-06-06 14:51:34,473 - INFO - Number of threads to use: 8
+2025-06-06 14:51:34,474 - INFO - Output folder: small_test/01_reneo_output
+2025-06-06 14:51:34,486 - INFO - Total number of vertices in the assembly graph: 4
+2025-06-06 14:51:34,486 - INFO - Total number of links in the assembly graph: 2
+2025-06-06 14:51:34,489 - INFO - Total number of components found: 0
+2025-06-06 14:51:34,500 - INFO - Total number of cyclic components found: 0
+2025-06-06 14:51:34,500 - INFO - Total number of cyclic components resolved: 0
+2025-06-06 14:51:34,501 - INFO - Single unitigs identified: 0
+2025-06-06 14:51:34,501 - INFO - Total number of linear components found: 0
+2025-06-06 14:51:34,502 - INFO - Total number of linear components resolved: 0
+2025-06-06 14:51:34,502 - INFO - Total number of cyclic components found including single unitigs: 0
+2025-06-06 14:51:34,503 - INFO - Total number of components resolved: 0
+2025-06-06 14:51:34,503 - INFO - Case 1 (resolved/found): 0/0
+2025-06-06 14:51:34,503 - INFO - Case 2 (resolved/found): 0/0
+2025-06-06 14:51:34,504 - INFO - Case 3 (resolved/found): 0/0
+2025-06-06 14:51:34,504 - INFO - Total number of genomes resolved: 0
+2025-06-06 14:51:34,505 - INFO - No genomes were resolved.
+2025-06-06 14:51:34,513 - INFO - Elapsed time: 0.03879141807556152 seconds
+2025-06-06 14:51:34,514 - INFO - Thank you for using Reneo!
+=== Reneo log: small_test/01_reneo_output/logs/smg_scan_frag_out.log ===
+/ref/sahlab/software/miniforge3/envs/reneo/lib/python3.10/site-packages/reneo/workflow/conda/bbdb2326333d08ffe0de54d9cd05289a_/bin/FragGeneScan -s small_test/01_reneo_output/edges.fasta -o small_test/01_reneo_output/edges.fasta.frag -w 0 -t complete -p 8
+Using 8 threads.
+no. of seqs: 4
+Clock time used (by 8 threads) = 0.00 mins
+prepare gff file..
+Time elapsed: 0 hours 0 minutes and 0 seconds.
+=== Reneo log: small_test/01_reneo_output/logs/smg_scan_hmm_out.log ===
+
+Domain annotation for each sequence (and alignments):
+
+   [No targets detected that satisfy reporting thresholds]
+
+
+Internal pipeline statistics summary:
+-------------------------------------
+Query model(s):                            1  (432 nodes)
+Target sequences:                          5  (1255 residues searched)
+Passed MSV filter:                         0  (0); expected 0.1 (0.02)
+Passed bias filter:                        0  (0); expected 0.1 (0.02)
+Passed Vit filter:                         0  (0); expected 0.0 (0.001)
+Passed Fwd filter:                         0  (0); expected 0.0 (1e-05)
+Initial search space (Z):                  5  [actual number of targets]
+Domain search space  (domZ):               0  [number of targets reported over threshold]
+# CPU time: 0.00u 0.00s 00:00:00.00 Elapsed: 00:00:00.00
+# Mc/sec: 505.77
+//
+[ok]
 === Reneo log: small_test/01_reneo_output/logs/coverm_bam2counts.test_sample.err ===
-[2025-06-05T19:41:36Z INFO  coverm] CoverM version 0.6.1
-[2025-06-05T19:41:36Z INFO  coverm] Using min-covered-fraction 0%
-[2025-06-05T19:41:36Z INFO  coverm::contig] In sample 'test_sample', found 0 reads mapped out of 0 total (NaN%)
-[2025-06-05T19:41:36Z WARN  coverm::contig] No primary alignments were observed for sample test_sample - perhaps something went wrong in the mapping?
+[2025-06-06T19:49:55Z INFO  coverm] CoverM version 0.6.1
+[2025-06-06T19:49:55Z INFO  coverm] Using min-covered-fraction 0%
+[2025-06-06T19:49:55Z INFO  coverm::contig] In sample 'test_sample', found 0 reads mapped out of 0 total (NaN%)
+[2025-06-06T19:49:55Z WARN  coverm::contig] No primary alignments were observed for sample test_sample - perhaps something went wrong in the mapping?
+=== Reneo log: small_test/01_reneo_output/logs/vogs_scan.log ===
+DEFINITION  seqnum=1;seqlen=1578;seqhdr="contig_01_diverse_phage";version=Prodigal.v2.6.3;run_type=Metagenomic;model="47|Xenorhabdus_nematophila_ATCC_19061|B|44.1|11|1";gc_cont=44.20;transl_table=11;uses_sd=1
+FEATURES             Location/Qualifiers
+     CDS             <1..>1578
+                     /note="ID=1_1;partial=11;start_type=Edge;rbs_motif=None;rbs_spacer=None;gc_cont=0.473;conf=99.99;score=375.59;cscore=373.98;sscore=1.61;rscore=0.00;uscore=0.00;tscore=1.61;"
+//
+DEFINITION  seqnum=2;seqlen=858;seqhdr="contig_02_temperate_phage_enhanced";version=Prodigal.v2.6.3;run_type=Metagenomic;model="47|Xenorhabdus_nematophila_ATCC_19061|B|44.1|11|1";gc_cont=44.20;transl_table=11;uses_sd=1
+FEATURES             Location/Qualifiers
+     CDS             <1..>858
+                     /note="ID=2_1;partial=11;start_type=Edge;rbs_motif=None;rbs_spacer=None;gc_cont=0.481;conf=99.99;score=214.36;cscore=212.75;sscore=1.61;rscore=0.00;uscore=0.00;tscore=1.61;"
+//
+DEFINITION  seqnum=3;seqlen=963;seqhdr="contig_03_lytic_phage";version=Prodigal.v2.6.3;run_type=Metagenomic;model="47|Xenorhabdus_nematophila_ATCC_19061|B|44.1|11|1";gc_cont=44.20;transl_table=11;uses_sd=1
+FEATURES             Location/Qualifiers
+     CDS             <1..>963
+                     /note="ID=3_1;partial=11;start_type=Edge;rbs_motif=None;rbs_spacer=None;gc_cont=0.438;conf=99.99;score=202.73;cscore=201.12;sscore=1.61;rscore=0.00;uscore=0.00;tscore=1.61;"
+//
+DEFINITION  seqnum=4;seqlen=751;seqhdr="contig_04_bacterial";version=Prodigal.v2.6.3;run_type=Metagenomic;model="5|Anaplasma_marginale_Maries|B|49.8|11|1";gc_cont=49.80;transl_table=11;uses_sd=1
+FEATURES             Location/Qualifiers
+//
 === Reneo log: small_test/01_reneo_output/logs/faidx_ref.err ===
 [E::fai_build_core] File truncated at line 1
 [faidx] Could not build fai index small_test/01_reneo_output/genomes_and_unresolved_edges.fasta.fai
 === Reneo log: small_test/01_reneo_output/logs/coverm_map_pe.test_sample.err ===
-[M::mm_idx_gen::0.002*1.62] collected minimizers
-[M::mm_idx_gen::0.003*2.02] sorted minimizers
-[M::main::0.003*2.01] loaded/built the index for 4 target sequence(s)
-[M::mm_mapopt_update::0.003*2.01] mid_occ = 1000
+[M::mm_idx_gen::0.002*1.67] collected minimizers
+[M::mm_idx_gen::0.003*1.96] sorted minimizers
+[M::main::0.003*1.95] loaded/built the index for 4 target sequence(s)
+[M::mm_mapopt_update::0.003*1.95] mid_occ = 1000
 [M::mm_idx_stat] kmer size: 21; skip: 11; is_hpc: 0; #seq: 4
-[M::mm_idx_stat::0.003*1.99] distinct minimizers: 176 (5.11% are singletons); average occurrences: 4.750; average spacing: 4.964; total length: 4150
+[M::mm_idx_stat::0.003*1.93] distinct minimizers: 176 (5.11% are singletons); average occurrences: 4.750; average spacing: 4.964; total length: 4150
 [M::main] Version: 2.28-r1209
 [M::main] CMD: minimap2 -t 4 -ax sr --secondary=no small_test/01_reneo_output/edges.fasta ../test_data/reads/test_sample_R1.fastq ../test_data/reads/test_sample_R2.fastq
-[M::main] Real time: 0.018 sec; CPU: 0.007 sec; Peak RSS: 0.004 GB
+[M::main] Real time: 0.089 sec; CPU: 0.006 sec; Peak RSS: 0.004 GB
 === Reneo log: small_test/01_reneo_output/logs/idx_ref.err ===
-[M::mm_idx_gen::0.002*1.42] collected minimizers
-[M::mm_idx_gen::0.002*1.94] sorted minimizers
-[M::main::0.003*1.59] loaded/built the index for 0 target sequence(s)
+[M::mm_idx_gen::0.001*1.60] collected minimizers
+[M::mm_idx_gen::0.002*1.38] sorted minimizers
+[M::main::0.003*1.16] loaded/built the index for 0 target sequence(s)
 [M::mm_idx_stat] kmer size: 15; skip: 10; is_hpc: 0; #seq: 0
-[M::mm_idx_stat::0.003*1.59] distinct minimizers: 0 (-nan% are singletons); average occurrences: -nan; average spacing: -nan; total length: 0
+[M::mm_idx_stat::0.003*1.16] distinct minimizers: 0 (-nan% are singletons); average occurrences: -nan; average spacing: -nan; total length: 0
 [M::main] Version: 2.28-r1209
 [M::main] CMD: minimap2 -t 4 -d small_test/01_reneo_output/genomes_and_unresolved_edges.fasta.idx -
-[M::main] Real time: 0.004 sec; CPU: 0.006 sec; Peak RSS: 0.004 GB
+[M::main] Real time: 0.004 sec; CPU: 0.004 sec; Peak RSS: 0.001 GB
 === Checking Reneo pipeline files ===
 Key output files status:
   resolved_paths.fasta: 0 bytes, 0 lines
@@ -290,13 +738,13 @@ WARNING: Detected koverage_genomes error
 Checking for intermediate assemblies before the failure...
 Analyzing Reneo log for last successful operation...
 Checking main output directory for any generated files...
--rw-rw-r--. 1 megan.j sahlab        0 Jun  5 14:43 all_virus_like_edges.fasta
--rw-rw-r--. 1 megan.j sahlab     4327 Jun  5 14:41 edges.fasta
--rw-rw-r--. 1 megan.j sahlab        0 Jun  5 15:11 genomes_and_unresolved_edges.fasta
--rw-rw-r--. 1 megan.j sahlab        0 Jun  5 14:43 resolved_edges.fasta
--rw-rw-r--. 1 megan.j sahlab        0 Jun  5 14:43 resolved_paths.fasta
--rw-rw-r--. 1 megan.j sahlab        0 Jun  5 14:43 unresolved_virus_like_edges.fasta
--rw-rw-r--. 1 megan.j sahlab        0 Jun  5 14:43 virus_like_edges.fasta
+-rw-rw-r--. 1 megan.j sahlab        0 Jun  6 14:51 all_virus_like_edges.fasta
+-rw-rw-r--. 1 megan.j sahlab     4327 Jun  6 14:49 edges.fasta
+-rw-rw-r--. 1 megan.j sahlab        0 Jun  6 14:51 genomes_and_unresolved_edges.fasta
+-rw-rw-r--. 1 megan.j sahlab        0 Jun  6 14:51 resolved_edges.fasta
+-rw-rw-r--. 1 megan.j sahlab        0 Jun  6 14:51 resolved_paths.fasta
+-rw-rw-r--. 1 megan.j sahlab        0 Jun  6 14:51 unresolved_virus_like_edges.fasta
+-rw-rw-r--. 1 megan.j sahlab        0 Jun  6 14:51 virus_like_edges.fasta
 Found: small_test/01_reneo_output/resolved_edges.fasta (size: 0 bytes)
 Found: small_test/01_reneo_output/virus_like_edges.fasta (size: 0 bytes)
 Found: small_test/01_reneo_output/all_virus_like_edges.fasta (size: 0 bytes)
