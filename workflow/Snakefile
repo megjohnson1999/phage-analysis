@@ -16,6 +16,7 @@ configfile: "../config/config.yaml"
 include: "rules/01_prediction.smk"
 include: "rules/02_clustering.smk"
 include: "rules/03_analysis.smk"
+include: "rules/04_summaries.smk"
 
 # Import needed for file existence checks
 import os
@@ -119,4 +120,8 @@ rule all:
             ) +
             (["{outdir}/02_clustering/vOTU_repSeqs.fasta".format(
                 outdir=config["output_dir"]
-             )] if config.get("do_clustering", True) else [])
+             )] if config.get("do_clustering", True) else []) +
+            # Add summary report if enabled (default: True)
+            (["{outdir}/Pipeline_Summary_Report.html".format(
+                outdir=config["output_dir"]
+             )] if config.get("generate_summaries", True) else [])
