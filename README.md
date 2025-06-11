@@ -11,6 +11,7 @@ A comprehensive Snakemake workflow for identifying, clustering, and characterizi
 - **Lifestyle prediction**: Classify phages as temperate/virulent using BACPHLIP and Phabox2
 - **Taxonomic classification**: Multiple approaches via MMseqs2, Phabox2, and vContact3
 - **Functional annotation**: Protein prediction and annotation
+- **Progress tracking**: Automated summary collection and HTML report generation
 
 For a detailed technical overview, see [WORKFLOW_SUMMARY.md](WORKFLOW_SUMMARY.md).
 
@@ -245,6 +246,7 @@ The pipeline creates organized output directories:
 
 ```
 output_dir/
+├── Pipeline_Summary_Report.html         # 📊 Interactive HTML summary report
 ├── 01_phage_predictions/
 │   ├── phageContigs.fasta              # Final predicted phage sequences
 │   └── phagePredictedContigs.tsv       # Detailed prediction scores
@@ -260,8 +262,29 @@ output_dir/
 │   │   ├── taxonomy.tsv                # ML-based taxonomy
 │   │   └── lifestyle.tsv               # Additional lifestyle predictions
 │   └── vc3_output/                     # vContact3 gene-content taxonomy
+├── pipeline_summaries/                 # JSON summary files for each step
 └── logs/                               # Detailed logs for each step
 ```
+
+### Summary Report
+
+The pipeline automatically generates a comprehensive HTML summary report (`Pipeline_Summary_Report.html`) that includes:
+
+- **Configuration Overview**: Shows your input files and pipeline settings
+- **Overall Statistics**: Key metrics like total input sequences, viral contigs found, and final phages
+- **Progress Tracking**: Visual progress bar and completion status for each pipeline step
+- **Detailed Results**: Step-by-step breakdown with sequence counts, quality metrics, and tool outputs
+
+**To view the report**:
+```bash
+# Open in web browser (Linux/Mac)
+open output_dir/Pipeline_Summary_Report.html
+
+# Or copy to your local machine and open
+scp user@cluster:path/to/output_dir/Pipeline_Summary_Report.html .
+```
+
+The report is generated automatically when the pipeline completes successfully.
 
 ## Troubleshooting
 

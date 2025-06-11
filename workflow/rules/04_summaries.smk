@@ -299,12 +299,18 @@ rule generate_summary_report:
         """
         # Create config info for the report
         CONFIG_INFO="<tr><td>Output Directory</td><td>{params.output_dir}</td></tr>"
-        if [ -n "{params.assembly_file}" ]; then
+        
+        # Only show the assembly input that was actually used
+        if [ -n "{params.assembly_file}" ] && [ -f "{params.assembly_file}" ]; then
             CONFIG_INFO="$CONFIG_INFO<tr><td>Assembly File</td><td>{params.assembly_file}</td></tr>"
-        fi
-        if [ -n "{params.assembly_graph}" ]; then
+        elif [ -n "{params.assembly_graph}" ] && [ -f "{params.assembly_graph}" ]; then
+            CONFIG_INFO="$CONFIG_INFO<tr><td>Assembly Graph</td><td>{params.assembly_graph}</td></tr>"
+        elif [ -n "{params.assembly_file}" ]; then
+            CONFIG_INFO="$CONFIG_INFO<tr><td>Assembly File</td><td>{params.assembly_file}</td></tr>"
+        elif [ -n "{params.assembly_graph}" ]; then
             CONFIG_INFO="$CONFIG_INFO<tr><td>Assembly Graph</td><td>{params.assembly_graph}</td></tr>"
         fi
+        
         CONFIG_INFO="$CONFIG_INFO<tr><td>Reads Directory</td><td>{params.reads_dir}</td></tr>"
         CONFIG_INFO="$CONFIG_INFO<tr><td>Clustering Enabled</td><td>{params.do_clustering}</td></tr>"
         
