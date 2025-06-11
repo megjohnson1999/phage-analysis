@@ -194,9 +194,9 @@ snakemake --cores 8 --use-conda
 
 ### Input Modes
 
-**Option 1: Standard FASTA Workflow**
+**Option 1: FASTA Workflow**
 - Input: Assembled contigs in FASTA format
-- Faster, suitable for most analyses
+- Faster
 - Example:
   ```bash
   snakemake --profile ../profile/slurm \
