@@ -285,6 +285,12 @@ rule generate_summary_report:
         clustering_summary = f"{SUMMARY_DIR}/clustering_stats.json"
     output:
         report = f"{config['output_dir']}/Pipeline_Summary_Report.html"
+    params:
+        assembly_file = config.get('assembly_file', ''),
+        assembly_graph = config.get('assembly_graph', ''),
+        reads_dir = config.get('reads_dir', ''),
+        output_dir = config['output_dir'],
+        do_clustering = config.get('do_clustering', True)
     log:
         f"{config['output_dir']}/logs/summaries/generate_summary_report.log"
     conda:
@@ -292,15 +298,15 @@ rule generate_summary_report:
     shell:
         """
         # Create config info for the report
-        CONFIG_INFO="<tr><td>Output Directory</td><td>{config[output_dir]}</td></tr>"
-        if [ -n "{config.get('assembly_file', '')}" ]; then
-            CONFIG_INFO="$CONFIG_INFO<tr><td>Assembly File</td><td>{config[assembly_file]}</td></tr>"
+        CONFIG_INFO="<tr><td>Output Directory</td><td>{params.output_dir}</td></tr>"
+        if [ -n "{params.assembly_file}" ]; then
+            CONFIG_INFO="$CONFIG_INFO<tr><td>Assembly File</td><td>{params.assembly_file}</td></tr>"
         fi
-        if [ -n "{config.get('assembly_graph', '')}" ]; then
-            CONFIG_INFO="$CONFIG_INFO<tr><td>Assembly Graph</td><td>{config[assembly_graph]}</td></tr>"
+        if [ -n "{params.assembly_graph}" ]; then
+            CONFIG_INFO="$CONFIG_INFO<tr><td>Assembly Graph</td><td>{params.assembly_graph}</td></tr>"
         fi
-        CONFIG_INFO="$CONFIG_INFO<tr><td>Reads Directory</td><td>{config[reads_dir]}</td></tr>"
-        CONFIG_INFO="$CONFIG_INFO<tr><td>Clustering Enabled</td><td>{config.get('do_clustering', True)}</td></tr>"
+        CONFIG_INFO="$CONFIG_INFO<tr><td>Reads Directory</td><td>{params.reads_dir}</td></tr>"
+        CONFIG_INFO="$CONFIG_INFO<tr><td>Clustering Enabled</td><td>{params.do_clustering}</td></tr>"
         
         python {workflow.basedir}/scripts/generate_summary_report.py \
             --summary-dir {SUMMARY_DIR} \
