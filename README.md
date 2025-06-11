@@ -55,19 +55,19 @@ screen -S phage_run
 # Navigate to the workflow directory
 cd phage-analysis/workflow
 
-# Option 1: Run with FASTA assembly (standard workflow)
+# Option 1: Run with FASTA assembly
 snakemake --profile ../profile/slurm \
   --config assembly_file="/path/to/assembly.fasta" \
            reads_dir="/path/to/reads/" \
            output_dir="/path/to/output/"
 
-# Option 2: Run with GFA graph (Reneo workflow for enhanced binning)
+# Option 2: Run with GFA graph (Reneo workflow)
 snakemake --profile ../profile/slurm \
   --config assembly_graph="/path/to/assembly.gfa" \
            reads_dir="/path/to/reads/" \
            output_dir="/path/to/output/"
 
-# Option 3: Skip clustering step
+# Option 3: Skip clustering step (works with FASTA or GFA input)
 snakemake --profile ../profile/slurm \
   --config assembly_file="/path/to/assembly.fasta" \
            reads_dir="/path/to/reads/" \
