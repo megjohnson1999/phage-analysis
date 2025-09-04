@@ -282,10 +282,11 @@ try:
     with open('{output.summary}', 'w') as f:
         json.dump(summary, f, indent=2)
     
-    print(f'Consensus taxonomy summary created: {data.get(\"total_contigs\", 0)} contigs')
+    total_contigs = data.get('total_contigs', 0)
+    print('Consensus taxonomy summary created: ' + str(total_contigs) + ' contigs')
     
 except Exception as e:
-    print(f'Error processing consensus summary: {{e}}', file=sys.stderr)
+    print('Error processing consensus summary: ' + str(e), file=sys.stderr)
     # Create minimal summary
     summary = {{
         'step': 'consensus_taxonomy',
