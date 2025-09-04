@@ -612,3 +612,53 @@ rule bacphlip_lifestyle:
             fi
         fi
         """
+
+# 10. Create taxonomic consensus from multiple tools
+rule taxonomic_consensus:
+    input:
+        mmseqs_taxonomy = f"{config['output_dir']}/03_genomic_info/mmseqs_taxonomy.tsv",
+        phabox_taxonomy = f"{config['output_dir']}/03_genomic_info/phabox_output/taxonomy.tsv",
+        phabox_lifestyle = f"{config['output_dir']}/03_genomic_info/phabox_output/lifestyle.tsv",
+        vcontact3_dir = f"{config['output_dir']}/03_genomic_info/vc3_output"
+        # crassus_taxonomy would be added here when CrassUS integration is implemented
+    output:
+        consensus_taxonomy = f"{config['output_dir']}/03_genomic_info/consensus_taxonomy.tsv",
+        consensus_summary = f"{config['output_dir']}/03_genomic_info/consensus_taxonomy_summary.json"
+    log:
+        f"{config['output_dir']}/logs/taxonomic_consensus.log"
+    conda:
+        config["conda_envs"]["python"]
+    shell:
+        """
+        # Check if input files exist and have content
+        echo "Creating taxonomic consensus from multiple tools..." > {log} 2>&1
+        
+        # Run taxonomic consensus script
+        python {workflow.basedir}/scripts/taxonomic_consensus.py \
+            --mmseqs-taxonomy {input.mmseqs_taxonomy} \
+            --phabox-taxonomy {input.phabox_taxonomy} \
+            --phabox-lifestyle {input.phabox_lifestyle} \
+            --vcontact3-dir {input.vcontact3_dir} \
+            --output-taxonomy {output.consensus_taxonomy} \
+            --output-summary {output.consensus_summary} \
+            >> {log} 2>&1
+        
+        # Log results summary
+        if [ -f {output.consensus_taxonomy} ]; then
+            CONSENSUS_COUNT=$(tail -n +2 {output.consensus_taxonomy} | wc -l)
+            echo "Successfully created consensus taxonomy for $CONSENSUS_COUNT contigs" >> {log} 2>&1
+            
+            # Count taxonomic assignments by level
+            for level in superkingdom phylum class order family genus species; do
+                NON_EMPTY=$(awk -F'\t' -v col="$level" '
+                    NR==1 {{ for(i=1;i<=NF;i++) if($i==col) {{colnum=i; break}} }}
+                    NR>1 && colnum && $colnum!="" && $colnum!="NA" {{count++}}
+                    END {{print count+0}}
+                ' {output.consensus_taxonomy})
+                echo "  $level: $NON_EMPTY assignments" >> {log} 2>&1
+            done
+        else
+            echo "ERROR: Consensus taxonomy file was not created" >> {log} 2>&1
+            exit 1
+        fi
+        """

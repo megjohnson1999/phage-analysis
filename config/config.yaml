@@ -23,6 +23,8 @@ reads_dir: "/path/to/reads"  # Directory containing sequencing reads
 # Pipeline configuration
 do_clustering: true  # Set to false to skip clustering
 generate_summaries: true  # Set to false to skip summary report generation
+run_consensus: true  # Set to false to skip taxonomic consensus
+run_crassus: false  # Set to true to enable CrassUS for Crassvirales taxonomy (requires separate installation)
 
 databases:
   iphop:
@@ -45,6 +47,9 @@ databases:
   
   phold:
     db: "/ref/sahlab/data/protein_Structure_DBs/phold"
+    
+  crassus:
+    db: "/ref/sahlab/software/CrassUS"  # Path to CrassUS installation directory
     
 params:    
   vclust:
@@ -71,3 +76,4 @@ conda_envs:
    seqkit: "../envs/seqkit.yaml"
    vcontact3: "../envs/vcontact3.yaml"
    python: "../envs/python.yaml"
+   crassus: "../envs/crassus.yaml"
