@@ -613,10 +613,10 @@ rule bacphlip_lifestyle:
         fi
         """
 
-# 10. Create taxonomic consensus from multiple tools
+# 10. Create taxonomic consensus from multiple tools using R script with taxonomizr
 rule taxonomic_consensus:
     input:
-        mmseqs_taxonomy = f"{config['output_dir']}/03_genomic_info/mmseqs_taxonomy.tsv",
+        mmseqs_raw = f"{config['output_dir']}/03_genomic_info/mmseqs_output_lca.tsv",
         phabox_taxonomy = f"{config['output_dir']}/03_genomic_info/phabox_output/taxonomy.tsv",
         phabox_lifestyle = f"{config['output_dir']}/03_genomic_info/phabox_output/lifestyle.tsv",
         vcontact3_dir = f"{config['output_dir']}/03_genomic_info/vc3_output"
@@ -627,36 +627,35 @@ rule taxonomic_consensus:
     log:
         f"{config['output_dir']}/logs/taxonomic_consensus.log"
     conda:
-        config["conda_envs"]["python"]
+        config["conda_envs"]["r"]
     shell:
         """
-        # Check if input files exist and have content
-        echo "Creating taxonomic consensus from multiple tools..." > {log} 2>&1
+        echo "Creating taxonomic consensus using R script with taxonomizr..." > {log} 2>&1
         
-        # Run taxonomic consensus script
-        python {workflow.basedir}/scripts/taxonomic_consensus.py \
-            --mmseqs-taxonomy {input.mmseqs_taxonomy} \
-            --phabox-taxonomy {input.phabox_taxonomy} \
-            --phabox-lifestyle {input.phabox_lifestyle} \
-            --vcontact3-dir {input.vcontact3_dir} \
-            --output-taxonomy {output.consensus_taxonomy} \
-            --output-summary {output.consensus_summary} \
+        # Check if taxonomizr database exists
+        if [ ! -f "{config[databases][taxonomizr][db]}" ]; then
+            echo "Error: Taxonomizr database not found: {config[databases][taxonomizr][db]}" >> {log} 2>&1
+            echo "Please download the database first using R:" >> {log} 2>&1
+            echo "  library(taxonomizr)" >> {log} 2>&1
+            echo "  prepareDatabase('{config[databases][taxonomizr][db]}')" >> {log} 2>&1
+            exit 1
+        fi
+        
+        # Run the R script that replicates the original workflow with taxonomizr
+        Rscript {workflow.basedir}/scripts/taxonomic_consensus.R \
+            {input.mmseqs_raw} \
+            {input.phabox_taxonomy} \
+            {input.phabox_lifestyle} \
+            {input.vcontact3_dir} \
+            {config[databases][taxonomizr][db]} \
+            {output.consensus_taxonomy} \
+            {output.consensus_summary} \
             >> {log} 2>&1
         
         # Log results summary
         if [ -f {output.consensus_taxonomy} ]; then
             CONSENSUS_COUNT=$(tail -n +2 {output.consensus_taxonomy} | wc -l)
-            echo "Successfully created consensus taxonomy for $CONSENSUS_COUNT contigs" >> {log} 2>&1
-            
-            # Count taxonomic assignments by level
-            for level in superkingdom phylum class order family genus species; do
-                NON_EMPTY=$(awk -F'\t' -v col="$level" '
-                    NR==1 {{ for(i=1;i<=NF;i++) if($i==col) {{colnum=i; break}} }}
-                    NR>1 && colnum && $colnum!="" && $colnum!="NA" {{count++}}
-                    END {{print count+0}}
-                ' {output.consensus_taxonomy})
-                echo "  $level: $NON_EMPTY assignments" >> {log} 2>&1
-            done
+            echo "Successfully created consensus taxonomy for $CONSENSUS_COUNT contigs using taxonomizr" >> {log} 2>&1
         else
             echo "ERROR: Consensus taxonomy file was not created" >> {log} 2>&1
             exit 1

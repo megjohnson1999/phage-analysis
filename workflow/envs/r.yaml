@@ -11,3 +11,6 @@ dependencies:
   - r-ggplot2
   - r-readr
   - r-stringr
+  - r-vroom
+  - r-jsonlite
+  - bioconductor-taxonomizr=0.10.5

@@ -50,6 +50,9 @@ databases:
     
   crassus:
     db: "/ref/sahlab/software/CrassUS"  # Path to CrassUS installation directory
+  
+  taxonomizr:
+    db: "/path/to/accessionTaxa.sql"  # Path to taxonomizr SQLite database file
     
 params:    
   vclust:
