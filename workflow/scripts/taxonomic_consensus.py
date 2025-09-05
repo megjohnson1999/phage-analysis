@@ -24,6 +24,82 @@ import json
 from pathlib import Path
 
 
+def load_mmseqs_lca_format(df):
+    """Convert mmseqs2 LCA format to taxonomy format expected by consensus script."""
+    
+    # Filter for viral entries (tax_id 10239 in lineage or tax_id itself)
+    def has_viral_lineage(lineage):
+        if pd.isna(lineage):
+            return False
+        return '10239' in str(lineage).split(';')
+    
+    viral_mask = (
+        (df['tax_id'] == 10239) |  # Direct viral assignment
+        df['lineage'].apply(has_viral_lineage) |  # Viral in lineage
+        (df['tax_id'] == 1)  # Unassigned (keep for potential viruses)
+    )
+    
+    df_viral = df[viral_mask].copy()
+    
+    if df_viral.empty:
+        print("Warning: No viral entries found in mmseqs2 LCA results")
+        return pd.DataFrame()
+    
+    # Convert LCA format to taxonomy format
+    def parse_lca_lineage(row):
+        """Parse LCA lineage and label into taxonomy hierarchy."""
+        tax_dict = {
+            'blast_superkingdom': 'Viruses',  # Default for viral entries
+            'blast_phylum': None,
+            'blast_class': None,
+            'blast_order': None,
+            'blast_family': None,
+            'blast_genus': None,
+            'blast_species': None
+        }
+        
+        # Use the label (most specific assignment)
+        label = row['label'] if pd.notna(row['label']) else ''
+        rank = row['rank'] if pd.notna(row['rank']) else ''
+        
+        # Map based on rank and label
+        if rank == 'species' and 'sp.' in label:
+            # Extract genus from "Genus sp." format
+            if 'Bacteriophage sp.' in label:
+                tax_dict['blast_genus'] = 'Bacteriophage'
+            elif 'Caudoviricetes sp.' in label:
+                tax_dict['blast_class'] = 'Caudoviricetes'
+                tax_dict['blast_phylum'] = 'Uroviricota'
+        elif rank == 'superkingdom' and label == 'Viruses':
+            tax_dict['blast_superkingdom'] = 'Viruses'
+        elif rank == 'species':
+            tax_dict['blast_species'] = label
+        elif rank == 'genus':
+            tax_dict['blast_genus'] = label
+        elif rank == 'family':
+            tax_dict['blast_family'] = label
+        elif rank == 'order':
+            tax_dict['blast_order'] = label
+        elif rank == 'class':
+            tax_dict['blast_class'] = label
+        elif rank == 'phylum':
+            tax_dict['blast_phylum'] = label
+        
+        return tax_dict
+    
+    # Apply taxonomy parsing
+    taxonomy_data = df_viral.apply(parse_lca_lineage, axis=1)
+    taxonomy_df = pd.DataFrame(list(taxonomy_data))
+    
+    # Use the first column as contigID (usually contig_id or query)
+    id_column = df_viral.columns[0]  # First column should be the contig ID
+    result = pd.concat([df_viral[[id_column]].reset_index(drop=True), 
+                       taxonomy_df.reset_index(drop=True)], axis=1)
+    result = result.rename(columns={id_column: 'contigID'})
+    
+    return result
+
+
 def load_mmseqs_taxonomy(file_path):
     """Load and process mmseqs2 taxonomy results."""
     if not Path(file_path).exists():
@@ -34,7 +110,20 @@ def load_mmseqs_taxonomy(file_path):
         # Load mmseqs2 results
         df = pd.read_csv(file_path, sep='\t')
         
-        # Filter for viral hits with reasonable identity
+        # Check if file is empty or missing required columns
+        if df.empty:
+            print("Warning: mmseqs2 file is empty")
+            return pd.DataFrame()
+        
+        # Check if this is LCA format or BLAST format
+        if 'lineage' in df.columns and 'taxlineage' not in df.columns:
+            print("Detected mmseqs2 LCA format, converting to expected format...")
+            return load_mmseqs_lca_format(df)
+        elif 'taxlineage' not in df.columns:
+            print(f"Warning: mmseqs2 file missing 'taxlineage' column. Available columns: {list(df.columns)}")
+            return pd.DataFrame()
+        
+        # Filter for viral hits with reasonable identity (BLAST format)
         df_filtered = df[
             df['taxlineage'].str.contains('d_Viruses', case=False, na=False) &
             (df['pident'] >= 70)
@@ -102,52 +191,136 @@ def load_mmseqs_taxonomy(file_path):
 
 def load_phabox_taxonomy(taxonomy_file, lifestyle_file):
     """Load and process Phabox2 taxonomy and lifestyle results."""
+    # Check if this is the new Phabox2 format (final_prediction_summary.tsv)
+    summary_file = Path(taxonomy_file).parent / "final_prediction" / "final_prediction_summary.tsv"
+    
+    if summary_file.exists():
+        print(f"Found Phabox2 summary file: {summary_file}")
+        return load_phabox_summary_format(summary_file)
+    else:
+        print(f"Using legacy Phabox2 format from: {taxonomy_file}, {lifestyle_file}")
+        return load_phabox_legacy_format(taxonomy_file, lifestyle_file)
+
+
+def load_phabox_summary_format(summary_file):
+    """Load Phabox2 results from final_prediction_summary.tsv format."""
+    try:
+        df = pd.read_csv(summary_file, sep='\t')
+        
+        if df.empty:
+            print("Warning: Phabox2 summary file is empty")
+            return pd.DataFrame()
+        
+        # Filter for viral predictions only
+        viral_df = df[df['Pred'] == 'virus'].copy()
+        
+        if viral_df.empty:
+            print("Warning: No viral predictions found in Phabox2 results")
+            return pd.DataFrame()
+        
+        print(f"Found {len(viral_df)} viral contigs in Phabox2 results")
+        
+        # Parse taxonomy from Lineage column
+        def parse_phabox_lineage(lineage):
+            """Parse Phabox2 lineage string into taxonomy hierarchy."""
+            tax_dict = {
+                'phabox_superkingdom': 'Viruses',  # Default for viral entries
+                'phabox_phylum': None,
+                'phabox_class': None,
+                'phabox_order': None,
+                'phabox_family': None,
+                'phabox_genus': None,
+                'phabox_species': None
+            }
+            
+            if pd.isna(lineage) or lineage == '0.0':
+                return tax_dict
+            
+            # Parse lineage format: "superkingdom:Viruses;phylum:Uroviricota;class:Caudoviricetes"
+            parts = str(lineage).split(';')
+            for part in parts:
+                if ':' in part:
+                    level, name = part.split(':', 1)
+                    level = level.strip().lower()
+                    name = name.strip()
+                    
+                    if level == 'superkingdom':
+                        tax_dict['phabox_superkingdom'] = name
+                    elif level == 'phylum':
+                        tax_dict['phabox_phylum'] = name
+                    elif level == 'class':
+                        tax_dict['phabox_class'] = name
+                    elif level == 'order':
+                        tax_dict['phabox_order'] = name
+                    elif level == 'family':
+                        tax_dict['phabox_family'] = name
+                    elif level == 'genus':
+                        tax_dict['phabox_genus'] = name
+                    elif level == 'species':
+                        tax_dict['phabox_species'] = name
+            
+            return tax_dict
+        
+        # Apply taxonomy parsing
+        taxonomy_data = viral_df['Lineage'].apply(parse_phabox_lineage)
+        taxonomy_df = pd.DataFrame(list(taxonomy_data))
+        
+        # Combine with contig IDs
+        result = pd.concat([viral_df[['Accession']].reset_index(drop=True), 
+                           taxonomy_df.reset_index(drop=True)], axis=1)
+        result = result.rename(columns={'Accession': 'contigID'})
+        
+        return result
+        
+    except Exception as e:
+        print(f"Error loading Phabox2 summary results: {e}")
+        return pd.DataFrame()
+
+
+def load_phabox_legacy_format(taxonomy_file, lifestyle_file):
+    """Load Phabox2 results from legacy format (separate taxonomy/lifestyle files)."""
     taxonomy_df = pd.DataFrame()
-    lifestyle_df = pd.DataFrame()
     
     # Load taxonomy
-    if Path(taxonomy_file).exists():
-        try:
-            taxonomy_df = pd.read_csv(taxonomy_file, sep='\t')
-            # Rename columns to match expected format
-            if 'contig_id' in taxonomy_df.columns:
-                taxonomy_df = taxonomy_df.rename(columns={'contig_id': 'contigID'})
-        except Exception as e:
-            print(f"Warning: Error loading Phabox2 taxonomy: {e}")
+    if not Path(taxonomy_file).exists():
+        print(f"Warning: Phabox2 taxonomy file not found: {taxonomy_file}")
+        return pd.DataFrame()
     
-    # Load lifestyle
-    if Path(lifestyle_file).exists():
-        try:
-            lifestyle_df = pd.read_csv(lifestyle_file, sep='\t')
-            if 'contig_id' in lifestyle_df.columns:
-                lifestyle_df = lifestyle_df.rename(columns={'contig_id': 'contigID'})
-        except Exception as e:
-            print(f"Warning: Error loading Phabox2 lifestyle: {e}")
-    
-    # For now, we focus on taxonomy. Lifestyle will be handled separately.
-    # Phabox2 provides taxonomy predictions, but the exact format depends on the tool's output
-    # We'll create a basic structure for now
-    
-    if not taxonomy_df.empty:
-        # Create standardized taxonomy columns
+    try:
+        taxonomy_df = pd.read_csv(taxonomy_file, sep='\t')
+        if taxonomy_df.empty:
+            print("Warning: Phabox2 taxonomy file is empty")
+            return pd.DataFrame()
+        # Rename columns to match expected format
+        elif 'contig_id' in taxonomy_df.columns:
+            taxonomy_df = taxonomy_df.rename(columns={'contig_id': 'contigID'})
+        elif 'contigID' not in taxonomy_df.columns:
+            print(f"Warning: Phabox2 taxonomy file missing ID column. Available columns: {list(taxonomy_df.columns)}")
+            return pd.DataFrame()
+            
+        # Create standardized taxonomy columns for legacy format
         phabox_tax = pd.DataFrame()
         phabox_tax['contigID'] = taxonomy_df['contigID']
         phabox_tax['phabox_superkingdom'] = 'Viruses'  # Phabox2 only predicts viral sequences
         
-        # Map Phabox2 predictions to standard taxonomy levels
-        # Note: This will depend on the actual Phabox2 output format
+        # Map legacy predictions to standard taxonomy levels
         for col in ['phabox_phylum', 'phabox_class', 'phabox_order', 
                    'phabox_family', 'phabox_genus']:
             phabox_tax[col] = None
             
         return phabox_tax
-    
-    return pd.DataFrame()
+        
+    except Exception as e:
+        print(f"Warning: Error loading legacy Phabox2 taxonomy: {e}")
+        return pd.DataFrame()
 
 
 def load_vcontact3_taxonomy(results_dir):
     """Load and process vContact3 taxonomy results."""
+    # Try both locations for the final assignments file
     vc3_file = Path(results_dir) / "final_assignments.csv"
+    if not vc3_file.exists():
+        vc3_file = Path(results_dir) / "exports" / "final_assignments.csv"
     
     if not vc3_file.exists():
         print(f"Warning: vContact3 results not found: {vc3_file}")
@@ -361,7 +534,7 @@ def create_consensus_taxonomy(mmseqs_df, phabox_df, vc3_df, crassus_df=None):
         
         return None
     
-    # Define source priority (highest to lowest)
+    # Define source priority (highest to lowest) - matches original R script priority
     sources = ['crassus', 'blast', 'phabox', 'vc3'] if crassus_df is not None else ['blast', 'phabox', 'vc3']
     
     # Apply consensus for each level
@@ -403,6 +576,13 @@ def main():
     
     print("Loading taxonomy results from multiple tools...")
     
+    # Check input files exist
+    print(f"Checking input files:")
+    print(f"  - mmseqs2: {Path(args.mmseqs_taxonomy).exists()} ({args.mmseqs_taxonomy})")
+    print(f"  - phabox2 taxonomy: {Path(args.phabox_taxonomy).exists()} ({args.phabox_taxonomy})")
+    print(f"  - phabox2 lifestyle: {Path(args.phabox_lifestyle).exists()} ({args.phabox_lifestyle})")
+    print(f"  - vcontact3 dir: {Path(args.vcontact3_dir).exists()} ({args.vcontact3_dir})")
+    
     # Load results from each tool
     mmseqs_df = load_mmseqs_taxonomy(args.mmseqs_taxonomy)
     phabox_df = load_phabox_taxonomy(args.phabox_taxonomy, args.phabox_lifestyle)
@@ -423,8 +603,14 @@ def main():
     consensus_df = create_consensus_taxonomy(mmseqs_df, phabox_df, vc3_df, crassus_df)
     
     if consensus_df.empty:
-        print("Error: No consensus taxonomy could be created")
-        sys.exit(1)
+        print("Warning: No consensus taxonomy could be created from input data")
+        print("Creating empty consensus taxonomy file with proper headers...")
+        
+        # Create empty DataFrame with proper structure
+        consensus_df = pd.DataFrame(columns=[
+            'contigID', 'superkingdom', 'phylum', 'class', 'order', 
+            'family', 'genus', 'species'
+        ])
     
     print(f"Created consensus taxonomy for {len(consensus_df)} contigs")
     
