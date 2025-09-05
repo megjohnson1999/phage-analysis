@@ -10,8 +10,23 @@ A comprehensive Snakemake workflow for identifying, clustering, and characterizi
 - **Host prediction**: Identify bacterial hosts using iPhop
 - **Lifestyle prediction**: Classify phages as temperate/virulent using BACPHLIP and Phabox2
 - **Taxonomic classification**: Multiple approaches via MMseqs2, Phabox2, and vContact3
+- **Taxonomic consensus**: Hierarchical integration of taxonomy predictions from multiple tools
 - **Functional annotation**: Protein prediction and annotation
 - **Progress tracking**: Automated summary collection and HTML report generation
+
+### Taxonomic Consensus Integration
+
+The pipeline includes a robust taxonomic consensus system that combines predictions from multiple tools:
+
+- **MMseqs2**: Protein similarity-based taxonomy (highest priority)
+- **Phabox2**: Machine learning-based phage-specific predictions  
+- **vContact3**: Gene content-based clustering taxonomy
+
+The consensus system:
+- ✅ **Handles multiple input formats**: Automatically detects and processes LCA vs BLAST format outputs
+- ✅ **Hierarchical validation**: Ensures taxonomic consistency across classification levels
+- ✅ **Comprehensive coverage**: Integrates results from all available tools
+- ✅ **Quality prioritization**: Uses tool-specific strengths (e.g., Phabox2 for phage-specific features)
 
 For a detailed technical overview, see [WORKFLOW_SUMMARY.md](WORKFLOW_SUMMARY.md).
 
@@ -256,12 +271,16 @@ output_dir/
 ├── 03_iphop_results/
 │   └── iphop_predictions_compiled.tsv   # Bacterial host predictions
 ├── 03_genomic_info/
-│   ├── mmseqs_taxonomy.tsv             # Sequence-based taxonomy
+│   ├── consensus_taxonomy.tsv          # 🎯 Integrated taxonomy consensus
+│   ├── consensus_taxonomy_summary.json # Consensus statistics and coverage
+│   ├── mmseqs_taxonomy.tsv             # Sequence-based taxonomy  
 │   ├── bacphlip_lifestyle.tsv          # Lifestyle predictions
 │   ├── phabox_output/                  # Phabox2 results
-│   │   ├── taxonomy.tsv                # ML-based taxonomy
-│   │   └── lifestyle.tsv               # Additional lifestyle predictions
+│   │   ├── final_prediction_summary.tsv # ML-based taxonomy and lifestyle
+│   │   ├── taxonomy.tsv                # Legacy format (may be empty)
+│   │   └── lifestyle.tsv               # Legacy format (may be empty)
 │   └── vc3_output/                     # vContact3 gene-content taxonomy
+│       └── exports/final_assignments.csv # Taxonomy predictions
 ├── pipeline_summaries/                 # JSON summary files for each step
 └── logs/                               # Detailed logs for each step
 ```
