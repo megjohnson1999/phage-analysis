@@ -34,8 +34,8 @@ def load_mmseqs_lca_format(df):
         return '10239' in str(lineage).split(';')
     
     viral_mask = (
-        (df['tax_id'] == 10239) |  # Direct viral assignment
-        df['lineage'].apply(has_viral_lineage) |  # Viral in lineage
+        df['lineage'].apply(has_viral_lineage) |  # Viral in lineage (primary check)
+        (df['tax_id'] == 10239) |  # Direct viral assignment (backup)
         (df['tax_id'] == 1)  # Unassigned (keep for potential viruses)
     )
     
@@ -107,10 +107,24 @@ def load_mmseqs_taxonomy(file_path):
         return pd.DataFrame()
     
     try:
-        # Load mmseqs2 results
-        df = pd.read_csv(file_path, sep='\t')
+        # Load mmseqs2 results - check if file has headers
+        # First, peek at the first line to see if it looks like headers or data
+        with open(file_path, 'r') as f:
+            first_line = f.readline().strip()
         
-        # Check if file is empty or missing required columns
+        # If first line starts with a contig name, assume no headers
+        if first_line.startswith(('contig', 'edge', 'virus_comp', 'scaffold', 'NODE')):
+            print("Detected mmseqs2 file without headers, adding column names...")
+            # LCA format column names based on your data structure
+            df = pd.read_csv(file_path, sep='\t', header=None, names=[
+                'contig_id', 'tax_id', 'rank', 'label', 'fragments', 
+                'assigned_fragments', 'label_fragments', 'support', 'lineage'
+            ])
+        else:
+            # File has headers
+            df = pd.read_csv(file_path, sep='\t')
+        
+        # Check if file is empty
         if df.empty:
             print("Warning: mmseqs2 file is empty")
             return pd.DataFrame()
