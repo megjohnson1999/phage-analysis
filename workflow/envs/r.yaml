@@ -13,4 +13,4 @@ dependencies:
   - r-stringr
   - r-vroom
   - r-jsonlite
-  - r-taxonomizr=0.10.5
+  - r-taxonomizr
