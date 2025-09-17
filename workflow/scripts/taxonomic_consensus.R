@@ -36,8 +36,19 @@ cat("Taxonomizr database:", taxonomizr_db, "\n")
 # ===== MMSeqs + taxonomizr processing (replicating original R script) =====
 cat("Processing MMSeqs results with taxonomizr...\n")
 
-# Load mmseqs2 results
-mmseqs_topHit <- vroom(file = mmseqs_file, col_names = TRUE, show_col_types = FALSE)
+# Load mmseqs2 results - check if file has headers or is tophit format
+first_line <- readLines(mmseqs_file, n = 1)
+if (grepl("^query\t", first_line)) {
+    # File has headers
+    mmseqs_topHit <- vroom(file = mmseqs_file, col_names = TRUE, show_col_types = FALSE)
+} else {
+    # No headers - assume tophit_aln format (22 columns)
+    mmseqs_topHit <- vroom(file = mmseqs_file, col_names = FALSE, show_col_types = FALSE)
+    colnames(mmseqs_topHit) <- c("query", "target", "evalue", "pident", "fident", "nident",
+                                 "mismatch", "qcov", "tcov", "qstart", "qend", "qlen",
+                                 "tstart", "tend", "tlen", "alnlen", "bits", "qheader",
+                                 "theader", "taxid", "taxname", "taxlineage")
+}
 
 if (nrow(mmseqs_topHit) == 0) {
     cat("Warning: No mmseqs2 results found\n")

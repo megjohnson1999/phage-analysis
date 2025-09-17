@@ -331,6 +331,7 @@ rule mmseqs_phage_taxonomy:
     output:
         # Change the output path to match the actual file naming pattern
         lca_output = f"{config['output_dir']}/03_genomic_info/mmseqs_output_lca.tsv",
+        tophit_output = f"{config['output_dir']}/03_genomic_info/mmseqs_output_tophit_aln",
         taxonomy = f"{config['output_dir']}/03_genomic_info/mmseqs_taxonomy.tsv"
     log:
         f"{config['output_dir']}/logs/mmseqs_phage_taxonomy.log"
@@ -385,8 +386,13 @@ rule mmseqs_phage_taxonomy:
                     echo -e "query\ttarget\tevalue\tpident\tfident\tnident\tmismatch\tqcov\ttcov\tqstart\tqend\tqlen\ttstart\ttend\ttlen\talnlen\tbits\tqheader\ttheader\ttaxid\ttaxname\ttaxlineage" > {output.lca_output}
                 fi
                 
-                # Copy and format the taxonomy results - use the correct file path
-                cp {output.lca_output} {output.taxonomy}
+                # Copy the tophit_aln file (with taxlineage) for taxonomic consensus
+                if [ -f "{output.tophit_output}" ]; then
+                    cp {output.tophit_output} {output.taxonomy}
+                else
+                    echo "Warning: tophit_aln file not found, using LCA output" >> {log} 2>&1
+                    cp {output.lca_output} {output.taxonomy}
+                fi
                     
                 # Clean up
                 rm -rf $TMP_DIR
@@ -616,7 +622,7 @@ rule bacphlip_lifestyle:
 # 10. Create taxonomic consensus from multiple tools using R script with taxonomizr
 rule taxonomic_consensus:
     input:
-        mmseqs_raw = f"{config['output_dir']}/03_genomic_info/mmseqs_output_lca.tsv",
+        mmseqs_raw = f"{config['output_dir']}/03_genomic_info/mmseqs_taxonomy.tsv",
         phabox_taxonomy = f"{config['output_dir']}/03_genomic_info/phabox_output/taxonomy.tsv",
         phabox_lifestyle = f"{config['output_dir']}/03_genomic_info/phabox_output/lifestyle.tsv",
         vcontact3_dir = f"{config['output_dir']}/03_genomic_info/vc3_output"
