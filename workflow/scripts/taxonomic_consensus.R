@@ -89,9 +89,18 @@ if (nrow(mmseqs_topHit) == 0) {
         # Use taxonomizr exactly as in the original script
         cat("Looking up taxonomic lineages using taxonomizr...\n")
         linage <- as.data.frame(getTaxonomy(mmseqs_best_hits_by_bitscore$taxid, taxonomizr_db))
-        
+
+        # Handle both old (superkingdom) and new (domain) taxonomizr versions
+        superkingdom_col <- if ("superkingdom" %in% colnames(linage)) {
+            linage$superkingdom
+        } else if ("domain" %in% colnames(linage)) {
+            linage$domain
+        } else {
+            rep(NA, nrow(linage))
+        }
+
         # Add taxonomy information exactly as in the original script
-        mmseqs_best_hits_by_bitscore$blast_superkingdom <- linage$superkingdom
+        mmseqs_best_hits_by_bitscore$blast_superkingdom <- superkingdom_col
         mmseqs_best_hits_by_bitscore$blast_phylum  <- linage$phylum
         mmseqs_best_hits_by_bitscore$blast_class  <- linage$class
         mmseqs_best_hits_by_bitscore$blast_order  <- linage$order
