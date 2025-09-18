@@ -153,7 +153,7 @@ def generate_html_report(summaries, output_file, config_info=None):
     step_order = [
         "input_stats", "reneo_stats", "filtering_stats", "jaeger_stats", 
         "genomad_stats", "phold_stats", "checkv_stats", "integration_stats",
-        "iphop_stats", "lifestyle_stats", "clustering_stats", "final_phages"
+        "iphop_stats", "lifestyle_stats", "consensus_taxonomy", "clustering_stats", "final_phages"
     ]
     
     pipeline_steps = ""

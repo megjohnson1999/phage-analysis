@@ -331,6 +331,7 @@ rule mmseqs_phage_taxonomy:
     output:
         # Change the output path to match the actual file naming pattern
         lca_output = f"{config['output_dir']}/03_genomic_info/mmseqs_output_lca.tsv",
+        tophit_output = f"{config['output_dir']}/03_genomic_info/mmseqs_output_tophit_aln",
         taxonomy = f"{config['output_dir']}/03_genomic_info/mmseqs_taxonomy.tsv"
     log:
         f"{config['output_dir']}/logs/mmseqs_phage_taxonomy.log"
@@ -385,8 +386,13 @@ rule mmseqs_phage_taxonomy:
                     echo -e "query\ttarget\tevalue\tpident\tfident\tnident\tmismatch\tqcov\ttcov\tqstart\tqend\tqlen\ttstart\ttend\ttlen\talnlen\tbits\tqheader\ttheader\ttaxid\ttaxname\ttaxlineage" > {output.lca_output}
                 fi
                 
-                # Copy and format the taxonomy results - use the correct file path
-                cp {output.lca_output} {output.taxonomy}
+                # Copy the tophit_aln file (with taxlineage) for taxonomic consensus
+                if [ -f "{output.tophit_output}" ]; then
+                    cp {output.tophit_output} {output.taxonomy}
+                else
+                    echo "Warning: tophit_aln file not found, using LCA output" >> {log} 2>&1
+                    cp {output.lca_output} {output.taxonomy}
+                fi
                     
                 # Clean up
                 rm -rf $TMP_DIR
@@ -610,5 +616,54 @@ rule bacphlip_lifestyle:
                 rm -rf $TMP_DIR
                 rm -rf {input.phage_seqs}.BACPHLIP_DIR/
             fi
+        fi
+        """
+
+# 10. Create taxonomic consensus from multiple tools using R script with taxonomizr
+rule taxonomic_consensus:
+    input:
+        mmseqs_raw = f"{config['output_dir']}/03_genomic_info/mmseqs_taxonomy.tsv",
+        phabox_taxonomy = f"{config['output_dir']}/03_genomic_info/phabox_output/taxonomy.tsv",
+        phabox_lifestyle = f"{config['output_dir']}/03_genomic_info/phabox_output/lifestyle.tsv",
+        vcontact3_dir = f"{config['output_dir']}/03_genomic_info/vc3_output"
+        # crassus_taxonomy would be added here when CrassUS integration is implemented
+    output:
+        consensus_taxonomy = f"{config['output_dir']}/03_genomic_info/consensus_taxonomy.tsv",
+        consensus_summary = f"{config['output_dir']}/03_genomic_info/consensus_taxonomy_summary.json"
+    log:
+        f"{config['output_dir']}/logs/taxonomic_consensus.log"
+    conda:
+        config["conda_envs"]["r"]
+    shell:
+        """
+        echo "Creating taxonomic consensus using R script with taxonomizr..." > {log} 2>&1
+        
+        # Check if taxonomizr database exists
+        if [ ! -f "{config[databases][taxonomizr][db]}" ]; then
+            echo "Error: Taxonomizr database not found: {config[databases][taxonomizr][db]}" >> {log} 2>&1
+            echo "Please download the database first using R:" >> {log} 2>&1
+            echo "  library(taxonomizr)" >> {log} 2>&1
+            echo "  prepareDatabase('{config[databases][taxonomizr][db]}')" >> {log} 2>&1
+            exit 1
+        fi
+        
+        # Run the R script that replicates the original workflow with taxonomizr
+        Rscript {workflow.basedir}/scripts/taxonomic_consensus.R \
+            {input.mmseqs_raw} \
+            {input.phabox_taxonomy} \
+            {input.phabox_lifestyle} \
+            {input.vcontact3_dir} \
+            {config[databases][taxonomizr][db]} \
+            {output.consensus_taxonomy} \
+            {output.consensus_summary} \
+            >> {log} 2>&1
+        
+        # Log results summary
+        if [ -f {output.consensus_taxonomy} ]; then
+            CONSENSUS_COUNT=$(tail -n +2 {output.consensus_taxonomy} | wc -l)
+            echo "Successfully created consensus taxonomy for $CONSENSUS_COUNT contigs using taxonomizr" >> {log} 2>&1
+        else
+            echo "ERROR: Consensus taxonomy file was not created" >> {log} 2>&1
+            exit 1
         fi
         """

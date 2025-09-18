@@ -1,0 +1,13 @@
+name: crassus
+channels:
+  - conda-forge
+  - bioconda
+  - defaults
+dependencies:
+  - python=3.8
+  - snakemake-minimal
+  - mamba
+  # Add other CrassUS dependencies as needed
+  # Note: CrassUS is a complex tool that requires special installation
+  # This environment is a placeholder - actual CrassUS setup requires
+  # following their specific installation instructions

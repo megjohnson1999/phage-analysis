@@ -1,0 +1,645 @@
+---
+title: "psoConstructoin_genomicInfoFormating"
+output: html_document
+date: "2025-03-18"
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+Load Libraries
+```{r}
+library(tidyverse)
+library(taxonomizr)
+library(vroom)
+library(phyloseq)
+library(microViz)
+
+
+options(scipen=999) #For consistent p-value evaluation 
+`%notin%` <- function(x,y) !(x %in% y)
+```
+
+## Taxonomic Consensus: 
+
+VC3
+```{r}
+vc3 <- vroom(file = "~/Handley\ Lab\ Dropbox/Manuscripts/RC2/phage/01_psoConstructoin_genomicInfoFormating/inputData/vc3_final_assignments.csv")
+
+vc3 <- vc3 %>%
+  filter(grepl("contig", GenomeName) == TRUE |
+           grepl("edge", GenomeName) == TRUE | 
+           grepl("virus_comp", GenomeName) == TRUE) %>%
+  select(GenomeName, Proteins, `Size (Kb)`, `realm (prediction)`,
+         `phylum (prediction)`, `class (prediction)`, `order (prediction)`,
+         `family (prediction)`, `subfamily (prediction)`, `genus (prediction)`, network) 
+
+colnames(vc3) <- c("contigID", "vc3_num_proteins", "length", "vc3_realm", "vc3_phylum", "vc3_class", "vc3_order", "vc3_family", "vc3_subfamily", "vc3_genus", "vc3_network")
+
+final_vc3 <- vc3 %>%
+  filter(vc3_realm != "No Realm") %>%
+  filter(vc3_realm != "No prediction") %>%
+  mutate(across(everything(), ~ifelse(grepl("novel", .) == TRUE, NA, .))) %>%
+  mutate(vc3_superkingdom = "Viruses",
+         vc3_phylum = ifelse(grepl("Phixviricota", vc3_phylum) == TRUE,
+                             "Phixviricota", vc3_phylum),
+         vc3_class = ifelse(grepl("Malgrandaviricetes", vc3_class) == TRUE,
+                             "Malgrandaviricetes", vc3_class)) %>%
+  select(contigID, vc3_superkingdom, vc3_phylum, vc3_class, vc3_order, vc3_family, vc3_subfamily, vc3_genus)
+
+final_vc3 %>%
+  group_by(vc3_phylum) %>% count(vc3_phylum)
+```
+
+MMSeqs
+```{r}
+mmseqs_LCA <- vroom(file = "~/Handley\ Lab\ Dropbox/Manuscripts/RC2/phage/01_psoConstructoin_genomicInfoFormating/inputData/mmseqs_vOTU_repSeqs_lca.tsv", col_names = FALSE)
+
+mmseqs_topHit <- vroom(file = "~/Handley\ Lab\ Dropbox/Manuscripts/RC2/phage/01_psoConstructoin_genomicInfoFormating/inputData/mmseqs_vOTU_repSeqs_tophit_aln", col_names = FALSE)
+colnames(mmseqs_topHit) <- c("query", "target", "evalue", "pident", "fident", "nident", "mismatch", "qcov", "tcov", "qstart", "qend", "qlen", "tstart", "tend", "tlen", "alnlen", "bits", "qheader", "theader", "taxid", "taxname", "taxlineage")
+
+mmseqs_best_hits_by_bitscore <- mmseqs_topHit %>%
+  filter(grepl("d_Viruses", taxlineage, ignore.case = TRUE)) %>%
+  filter(pident >= 70) %>%
+  group_by(query) %>%
+  slice(which.max(bits)) %>%
+  ungroup() %>%
+  select(query, taxid)
+
+# linage <- as.data.frame(getTaxonomy(mmseqs_best_hits_by_bitscore$taxid, "~/Handley\ Lab\ Dropbox/Manuscripts/RC2/phage/01_psoConstructoin_genomicInfoFormating/miscellaneous/accessionTaxa.sql"))
+linage <- as.data.frame(getTaxonomy(mmseqs_best_hits_by_bitscore$taxid, "~/Documents/accessionTaxa.sql"))
+
+mmseqs_best_hits_by_bitscore$blast_superkingdom <- linage$superkingdom
+mmseqs_best_hits_by_bitscore$blast_phylum  <- linage$phylum
+mmseqs_best_hits_by_bitscore$blast_class  <- linage$class
+mmseqs_best_hits_by_bitscore$blast_order  <- linage$order
+mmseqs_best_hits_by_bitscore$blast_family  <- linage$family
+mmseqs_best_hits_by_bitscore$blast_genus  <- linage$genus
+mmseqs_best_hits_by_bitscore$blast_species  <- linage$species
+
+# Get lineage for non-'root' entries
+non_root_entries <- mmseqs_LCA %>%
+  filter(X4 != "root") %>%
+  select(X1, taxid = X2)
+
+# linage <- as.data.frame(getTaxonomy(non_root_entries$taxid, "~/Handley\ Lab\ Dropbox/Manuscripts/RC2/phage/01_psoConstructoin_genomicInfoFormating/miscellaneous/accessionTaxa.sql"))
+linage <- as.data.frame(getTaxonomy(non_root_entries$taxid, "~/Documents/accessionTaxa.sql"))
+
+
+non_root_entries$blast_superkingdom <- linage$superkingdom
+non_root_entries$blast_phylum  <- linage$phylum
+non_root_entries$blast_class  <- linage$class
+non_root_entries$blast_order  <- linage$order
+non_root_entries$blast_family  <- linage$family
+non_root_entries$blast_genus  <- linage$genus
+non_root_entries$blast_species  <- linage$species
+
+# Checking hits with lineage in NA: taxonomic discrepancy between NCBI and my version of accessionTax
+non_root_entries_NA <- non_root_entries %>%
+  filter(is.na(blast_superkingdom)) %>%
+  distinct(taxid)
+
+print(non_root_entries_NA)
+
+# Read the detailed taxonomy information from the saved file
+taxonomy_details <- read.table("~/Handley\ Lab\ Dropbox/Manuscripts/RC2/phage/01_psoConstructoin_genomicInfoFormating/miscellaneous/Updated_Taxonomy_Table.txt", header = TRUE, sep = "\t", stringsAsFactors = FALSE)
+
+# Join the two dataframes by 'taxid' from non_root_entries and 'Taxonomy ID' from taxonomy_details
+non_root_entries_updated <- non_root_entries %>%
+  left_join(taxonomy_details, by = c("taxid" = "Taxonomy.ID")) %>%
+  mutate(
+    blast_superkingdom = coalesce(blast_superkingdom, Superkingdom),
+    blast_phylum = coalesce(blast_phylum, Phylum),
+    blast_class = coalesce(blast_class, Class),
+    blast_order = coalesce(blast_order, Order),
+    blast_family = coalesce(blast_family, Family),
+    blast_genus = coalesce(blast_genus, Genus),
+    blast_species = coalesce(blast_species, Species)
+  ) %>%
+  select(X1, taxid, blast_superkingdom, blast_phylum, blast_class, 
+         blast_order, blast_family, blast_genus, blast_species)
+
+# Handle 'root' entries using best viral hit
+root_entries <- mmseqs_LCA %>%
+  filter(X4 == "root") %>%
+  select(X1) %>%
+  left_join(mmseqs_best_hits_by_bitscore, by = c("X1" = "query"))
+
+final_mmseqs <- bind_rows(non_root_entries_updated, root_entries) %>%
+  select(-taxid)
+colnames(final_mmseqs)[1] <- "contigID"
+
+# Adding superkingdom to the unclassified 
+final_mmseqs <- final_mmseqs %>%
+  mutate(blast_superkingdom = ifelse(is.na(blast_superkingdom), "Viruses", blast_superkingdom))
+```
+
+PhaGCN
+```{r}
+# Load PhaGCN and formatting 
+phagcn <- vroom::vroom("~/Handley\ Lab\ Dropbox/Manuscripts/RC2/phage/01_psoConstructoin_genomicInfoFormating/inputData/phagcn_prediction.tsv", delim = "\t", col_names = TRUE)
+
+phagcn <- phagcn %>%
+  filter(PhaGCNScore >= 0.6)
+
+# Define a function to parse and extract taxonomy levels
+extract_taxonomy <- function(tax_string) {
+  parts <- str_split(tax_string, ";", simplify = TRUE)
+  levels <- c("superkingdom", "phylum", "class", "order", "family", "genus", "species")
+  taxonomy <- setNames(vector("list", length(levels)), levels)
+  taxonomy[] <- lapply(taxonomy, function(x) NA)
+  
+  for (part in parts) {
+    split_part <- str_split(part, ":", simplify = TRUE)
+    if (length(split_part) >= 2) {
+      key <- tolower(split_part[1])
+      value <- split_part[2]
+      if (key %in% names(taxonomy)) {
+        taxonomy[[key]] <- value
+      }
+    }
+  }
+  
+  return(taxonomy)
+}
+
+final_phagcn <- phagcn %>%
+  mutate(
+    TaxonomyData = lapply(Lineage, extract_taxonomy),
+    phagcn_superkingdom = sapply(TaxonomyData, `[[`, "superkingdom"),
+    phagcn_phylum = sapply(TaxonomyData, `[[`, "phylum"),
+    phagcn_class = sapply(TaxonomyData, `[[`, "class"),
+    phagcn_order = sapply(TaxonomyData, `[[`, "order"),
+    phagcn_family = sapply(TaxonomyData, `[[`, "family"),
+    phagcn_genus = sapply(TaxonomyData, `[[`, "genus"),
+    phagcn_species = sapply(TaxonomyData, `[[`, "species")
+  ) %>%
+  select(Accession, phagcn_superkingdom, phagcn_phylum, phagcn_class, phagcn_order, phagcn_family, phagcn_genus) 
+
+colnames(final_phagcn)[1] <- "contigID"
+```
+
+CrassUS
+```{r}
+crassus <- vroom("~/Handley\ Lab\ Dropbox/Manuscripts/RC2/phage/01_psoConstructoin_genomicInfoFormating/inputData/crassus_results.tsv")
+
+final_crassus <- crassus %>%
+  filter(discard == "FALSE") %>%
+  filter(family != "outgroup") %>%
+  mutate(
+    crassus_superkingdom = "Viruses",
+    crassus_phylum = "Uroviricota",
+    crassus_class = "Caudoviricetes",
+    crassus_order = "Crassvirales"
+  ) %>%
+  rename(
+    contigID = contig,
+    crassus_family = family,
+    crassus_genus = genus,
+    crassus_species = species
+  ) %>%
+  select(
+    contigID, crassus_superkingdom, crassus_phylum, 
+    crassus_class, crassus_order, crassus_family, crassus_genus, crassus_species
+  ) %>%
+  mutate(across(everything(), ~ifelse(. == "unknown", NA, .)))
+```
+
+Taxonomic merging and consensus 
+```{r}
+colnames(final_vc3)
+colnames(final_mmseqs)
+colnames(final_phagcn)
+colnames(final_crassus)
+
+# Merge all datasets by contigID
+merged_taxonomies <- final_crassus %>%
+  full_join(final_mmseqs, by = "contigID") %>%
+  full_join(final_phagcn, by = "contigID") %>%
+  full_join(final_vc3, by = "contigID") 
+
+consensus_taxonomy <- merged_taxonomies %>%
+  # Step 1: Determine the consensus superkingdom
+  mutate(superkingdom = coalesce(crassus_superkingdom, 
+                                 blast_superkingdom, 
+                                 phagcn_superkingdom, 
+                                 vc3_superkingdom)) %>%
+  mutate(superkingdom = ifelse(is.na(superkingdom), "Viruses", superkingdom)) %>%
+  # Step 2: Define NA-aware hierarchical checks
+  mutate(
+    # PHYLUM
+    phylum = coalesce(
+      ifelse(
+        (crassus_superkingdom == superkingdom) | (is.na(crassus_superkingdom) & is.na(superkingdom)),
+        crassus_phylum, NA
+      ),
+      ifelse(
+        (blast_superkingdom == superkingdom) | (is.na(blast_superkingdom) & is.na(superkingdom)),
+        blast_phylum, NA
+      ),
+      ifelse(
+        (phagcn_superkingdom == superkingdom) | (is.na(phagcn_superkingdom) & is.na(superkingdom)),
+        phagcn_phylum, NA
+      ),
+      ifelse(
+        (vc3_superkingdom == superkingdom) | (is.na(vc3_superkingdom) & is.na(superkingdom)),
+        vc3_phylum, NA
+      )
+    ),
+    # CLASS (FIXED: Added missing closing parentheses)
+    class = coalesce(
+      ifelse(
+        ((crassus_superkingdom == superkingdom) | (is.na(crassus_superkingdom) & is.na(superkingdom))) &
+        ((crassus_phylum == phylum) | (is.na(crassus_phylum) & is.na(phylum))),
+        crassus_class, NA
+      ),
+      ifelse(
+        ((blast_superkingdom == superkingdom) | (is.na(blast_superkingdom) & is.na(superkingdom))) &
+        ((blast_phylum == phylum) | (is.na(blast_phylum) & is.na(phylum))),
+        blast_class, NA
+      ),
+      ifelse(
+        ((phagcn_superkingdom == superkingdom) | (is.na(phagcn_superkingdom) & is.na(superkingdom))) &
+        ((phagcn_phylum == phylum) | (is.na(phagcn_phylum) & is.na(phylum))),
+        phagcn_class, NA
+      ),
+      ifelse(
+        ((vc3_superkingdom == superkingdom) | (is.na(vc3_superkingdom) & is.na(superkingdom))) &
+        ((vc3_phylum == phylum) | (is.na(vc3_phylum) & is.na(phylum))),
+        vc3_class, NA
+      )
+    ),
+    # ORDER
+    order = coalesce(
+      ifelse(
+        ((crassus_superkingdom == superkingdom) | (is.na(crassus_superkingdom) & is.na(superkingdom))) &
+        ((crassus_phylum == phylum) | (is.na(crassus_phylum) & is.na(phylum))) &
+        ((crassus_class == class) | (is.na(crassus_class) & is.na(class))),
+        crassus_order, NA
+      ),
+      ifelse(
+        ((blast_superkingdom == superkingdom) | (is.na(blast_superkingdom) & is.na(superkingdom))) &
+        ((blast_phylum == phylum) | (is.na(blast_phylum) & is.na(phylum))) &
+        ((blast_class == class) | (is.na(blast_class) & is.na(class))),
+        blast_order, NA
+      ),
+      ifelse(
+        ((phagcn_superkingdom == superkingdom) | (is.na(phagcn_superkingdom) & is.na(superkingdom))) &
+        ((phagcn_phylum == phylum) | (is.na(phagcn_phylum) & is.na(phylum))) &
+        ((phagcn_class == class) | (is.na(phagcn_class) & is.na(class))),
+        phagcn_order, NA
+      ),
+      ifelse(
+        ((vc3_superkingdom == superkingdom) | (is.na(vc3_superkingdom) & is.na(superkingdom))) &
+        ((vc3_phylum == phylum) | (is.na(vc3_phylum) & is.na(phylum))) &
+        ((vc3_class == class) | (is.na(vc3_class) & is.na(class))),
+        vc3_order, NA
+      )
+    ),
+    # FAMILY
+    family = coalesce(
+      ifelse(
+        ((crassus_superkingdom == superkingdom) | (is.na(crassus_superkingdom) & is.na(superkingdom))) &
+        ((crassus_phylum == phylum) | (is.na(crassus_phylum) & is.na(phylum))) &
+        ((crassus_class == class) | (is.na(crassus_class) & is.na(class))) &
+        ((crassus_order == order) | (is.na(crassus_order) & is.na(order))),
+        crassus_family, NA
+      ),
+      ifelse(
+        ((blast_superkingdom == superkingdom) | (is.na(blast_superkingdom) & is.na(superkingdom))) &
+        ((blast_phylum == phylum) | (is.na(blast_phylum) & is.na(phylum))) &
+        ((blast_class == class) | (is.na(blast_class) & is.na(class))) &
+        ((blast_order == order) | (is.na(blast_order) & is.na(order))),
+        blast_family, NA
+      ),
+      ifelse(
+        ((phagcn_superkingdom == superkingdom) | (is.na(phagcn_superkingdom) & is.na(superkingdom))) &
+        ((phagcn_phylum == phylum) | (is.na(phagcn_phylum) & is.na(phylum))) &
+        ((phagcn_class == class) | (is.na(phagcn_class) & is.na(class))) &
+        ((phagcn_order == order) | (is.na(phagcn_order) & is.na(order))),
+        phagcn_family, NA
+      ),
+      ifelse(
+        ((vc3_superkingdom == superkingdom) | (is.na(vc3_superkingdom) & is.na(superkingdom))) &
+        ((vc3_phylum == phylum) | (is.na(vc3_phylum) & is.na(phylum))) &
+        ((vc3_class == class) | (is.na(vc3_class) & is.na(class))) &
+        ((vc3_order == order) | (is.na(vc3_order) & is.na(order))),
+        vc3_family, NA
+      )
+    ),
+    # GENUS
+    genus = coalesce(
+      ifelse(
+        ((crassus_superkingdom == superkingdom) | (is.na(crassus_superkingdom) & is.na(superkingdom))) &
+        ((crassus_phylum == phylum) | (is.na(crassus_phylum) & is.na(phylum))) &
+        ((crassus_class == class) | (is.na(crassus_class) & is.na(class))) &
+        ((crassus_order == order) | (is.na(crassus_order) & is.na(order))) &
+        ((crassus_family == family) | (is.na(crassus_family) & is.na(family))),
+        crassus_genus, NA
+      ),
+      ifelse(
+        ((blast_superkingdom == superkingdom) | (is.na(blast_superkingdom) & is.na(superkingdom))) &
+        ((blast_phylum == phylum) | (is.na(blast_phylum) & is.na(phylum))) &
+        ((blast_class == class) | (is.na(blast_class) & is.na(class))) &
+        ((blast_order == order) | (is.na(blast_order) & is.na(order))) &
+        ((blast_family == family) | (is.na(blast_family) & is.na(family))),
+        blast_genus, NA
+      ),
+      ifelse(
+        ((phagcn_superkingdom == superkingdom) | (is.na(phagcn_superkingdom) & is.na(superkingdom))) &
+        ((phagcn_phylum == phylum) | (is.na(phagcn_phylum) & is.na(phylum))) &
+        ((phagcn_class == class) | (is.na(phagcn_class) & is.na(class))) &
+        ((phagcn_order == order) | (is.na(phagcn_order) & is.na(order))) &
+        ((phagcn_family == family) | (is.na(phagcn_family) & is.na(family))),
+        phagcn_genus, NA
+      ),
+      ifelse(
+        ((vc3_superkingdom == superkingdom) | (is.na(vc3_superkingdom) & is.na(superkingdom))) &
+        ((vc3_phylum == phylum) | (is.na(vc3_phylum) & is.na(phylum))) &
+        ((vc3_class == class) | (is.na(vc3_class) & is.na(class))) &
+        ((vc3_order == order) | (is.na(vc3_order) & is.na(order))) &
+        ((vc3_family == family) | (is.na(vc3_family) & is.na(family))),
+        vc3_genus, NA
+      )
+    ),
+    # SPECIES (only crassus and blast)
+    species = coalesce(
+      ifelse(
+        ((crassus_superkingdom == superkingdom) | (is.na(crassus_superkingdom) & is.na(superkingdom))) &
+        ((crassus_phylum == phylum) | (is.na(crassus_phylum) & is.na(phylum))) &
+        ((crassus_class == class) | (is.na(crassus_class) & is.na(class))) &
+        ((crassus_order == order) | (is.na(crassus_order) & is.na(order))) &
+        ((crassus_family == family) | (is.na(crassus_family) & is.na(family))) &
+        ((crassus_genus == genus) | (is.na(crassus_genus) & is.na(genus))),
+        crassus_species, NA
+      ),
+      ifelse(
+        ((blast_superkingdom == superkingdom) | (is.na(blast_superkingdom) & is.na(superkingdom))) &
+        ((blast_phylum == phylum) | (is.na(blast_phylum) & is.na(phylum))) &
+        ((blast_class == class) | (is.na(blast_class) & is.na(class))) &
+        ((blast_order == order) | (is.na(blast_order) & is.na(order))) &
+        ((blast_family == family) | (is.na(blast_family) & is.na(family))) &
+        ((blast_genus == genus) | (is.na(blast_genus) & is.na(genus))),
+        blast_species, NA
+      )
+    )
+  ) %>%
+  # Final selection of columns
+  select(contigID, superkingdom, phylum, class, order, family, genus, species)
+```
+
+Counts per taxonomic level after generating the consensus
+```{r}
+ tax_levels <- c("superkingdom", "phylum", "class", "order", "family", "genus", "species")
+
+get_tax_counts <- function(data, tax_level) {
+  data %>%
+    group_by(!!sym(tax_level)) %>%
+    count(!!sym(tax_level)) %>%
+    ungroup() %>%
+    rename_with(.cols = everything(), .fn = ~ paste(tax_level, ., sep = "_"))
+}
+
+list_of_counts <- lapply(tax_levels, function(tax) get_tax_counts(consensus_taxonomy, tax))
+
+all_tax_counts <- bind_rows(list_of_counts, .id = "tax_level")
+```
+
+## Lifestyle Prediction: 
+
+PHACTS
+```{r}
+phacts <- vroom(file = "~/Handley\ Lab\ Dropbox/Manuscripts/RC2/phage/01_psoConstructoin_genomicInfoFormating/inputData/PHACTS_concatenated_output.txt", col_names = FALSE)
+phacts <- phacts %>%
+  separate(X1, into = c("contigID", "phacts_lifestyle"), sep = " ") %>%
+  rename(probability = X2, stdv = X3)
+```
+
+PhaTyp
+```{r}
+phatyp <- vroom::vroom("~/Handley\ Lab\ Dropbox/Manuscripts/RC2/phage/01_psoConstructoin_genomicInfoFormating/inputData/phatyp_prediction.tsv", col_names = TRUE)
+phatyp <- phatyp %>%
+  select(-Length) 
+colnames(phatyp) <- c("contigID", "phatyp_lifestylePred", "phatyp_lifestyleScore")
+phatyp <- phatyp %>%
+  mutate(phatyp_lifestylePred = ifelse(phatyp_lifestylePred == "-", NA, phatyp_lifestylePred),
+         phatyp_lifestylePred = ifelse(phatyp_lifestylePred == "virulent", "Lytic", phatyp_lifestylePred))
+```
+
+Merging Lifestyle Predictions
+```{r}
+final_lifestyle <- phacts %>% 
+  left_join(phatyp, by = "contigID")
+
+consensus_lifestyle <- final_lifestyle %>%
+  mutate(
+    consensus_lifestyle = if_else(
+      !is.na(phatyp_lifestylePred),
+      phatyp_lifestylePred, 
+      phacts_lifestyle
+    ),
+    agreement = case_when(
+      phatyp_lifestylePred == phacts_lifestyle ~ "Match",
+      is.na(phatyp_lifestylePred) | phatyp_lifestylePred == "" ~ "Only PHACTS",
+      TRUE ~ "Discordant"
+    )
+  ) %>%
+  select(
+    contigID,
+    phacts_lifestyle,
+    phatyp_lifestylePred,
+    consensus_lifestyle,
+    agreement
+  ) %>%
+  mutate(consensus_lifestyle = ifelse(consensus_lifestyle == "temperate", "Temperate", consensus_lifestyle))
+
+consensus_lifestyle %>% group_by(consensus_lifestyle) %>% count(agreement)
+consensus_lifestyle <- consensus_lifestyle %>%
+  select(contigID, consensus_lifestyle) 
+```
+
+
+
+## Host Prediction:iPHoP
+```{r}
+iphop <- vroom(file = "~/Handley\ Lab\ Dropbox/Manuscripts/RC2/phage/01_psoConstructoin_genomicInfoFormating/inputData/iphopPred_allCombined_toGenus_final.csv")
+
+colnames(iphop) <- c("contigID", "AAI_to_closest_RaFAH_reference", "Host_lineage", "Confidence_score", "List_of_methods")
+
+iphop <- iphop %>%
+  separate(col = Host_lineage,
+           into = c("Domain", "Phylum", "Class", "Order", "Family", "Genus"),
+           sep = ";",
+           remove = FALSE) %>%
+  mutate(across(.cols = c(Domain, Phylum, Class, Order, Family, Genus),
+                .fns = ~ sub("^[a-z]__", "", .))) %>%
+  mutate(FamGen = paste0(Family, "_", Genus)) %>%
+  select(contigID, Phylum, Family, Genus) %>%
+  filter(contigID != "Virus")
+
+colnames(iphop)[1] <- "contigID"
+```
+
+
+## Abundance Table Construction
+
+Loading coverage and abundace lon-format file
+```{r}
+abd_cov <- vroom("~/Handley\ Lab\ Dropbox/Manuscripts/RC2/phage/01_psoConstructoin_genomicInfoFormating/inputData/08_Coverm_concatenated.txt", col_names = F)
+# 
+colnames(abd_cov) <- c("sampleID", "contigID", "rpkm", "tpm", "count", "variance", "mean", "covered_fraction", "covered_bases")
+```
+
+Abundance table using TPM 
+```{r}
+abd_cov_filt <- abd_cov %>%
+  mutate(newTPM = ifelse(covered_fraction >= 0.75, tpm, 0)) %>%
+  mutate(sampleID = gsub("_stats", "", sampleID))
+
+newtpm_finalTable_phages <- reshape2::dcast(abd_cov_filt,contigID ~ sampleID,value.var =  "newTPM")
+ 
+#Removing the contigs with 0 total abundance after changing abd values according to coverage 
+newtpm_finalTable_phages <- newtpm_finalTable_phages %>%
+  mutate(suma = rowSums(across(where(is.numeric)))) %>%
+  filter(suma > 0) %>%
+  select(-suma)
+```
+
+Abundance table using reads 
+```{r}
+abd_cov_filt <- abd_cov %>%
+  mutate(newCount = ifelse(covered_fraction >= 0.75, count, 0)) %>%
+  mutate(sampleID = gsub("_stats", "", sampleID))
+
+newCount_finalTable_phages <- reshape2::dcast(abd_cov_filt,contigID ~ sampleID,value.var =  "newCount")
+ 
+#Removing the contigs with 0 total abundance after changing abd values according to coverage 
+newCount_finalTable_phages <- newCount_finalTable_phages %>%
+  mutate(suma = rowSums(across(where(is.numeric)))) %>%
+  filter(suma > 0) %>%
+  select(-suma)
+```
+
+
+## pso building
+
+Prepare metadata 
+```{r}
+# metadata_old <- readxl::read_xlsx(path = "/Users/luischica/Handley\ Lab\ Dropbox/Manuscripts/RC2/metadata/", na = "NA")
+
+metadata <- vroom("/Users/luischica/Handley\ Lab\ Dropbox/Manuscripts/RC2/metadata/21032025_Metadata_freeze4_imputed_fin.txt")
+
+META <- column_to_rownames(metadata, var = "database_ID")
+META <- sample_data(META)
+```
+
+Using TPM
+```{r}
+#Convert dbl to interger and round counts (this helps with later steps)
+phylo_countTable <- newtpm_finalTable_phages %>%
+  column_to_rownames(var = "contigID") %>%
+  mutate(across(
+    .fns = ~ round(as.integer(.x))))
+#Transpose and convert to matrix
+phylo_countTable <- as.matrix(phylo_countTable)
+class(phylo_countTable)
+
+#Prepare TAX table
+phylo_Final_Taxonomy <- consensus_taxonomy %>%
+  column_to_rownames(var = "contigID")
+
+phylo_Final_Taxonomy <- as.matrix(phylo_Final_Taxonomy)
+class(phylo_Final_Taxonomy)
+
+#Create Phyloseq Object
+library(phyloseq)
+OTU <- otu_table(phylo_countTable, taxa_are_rows = TRUE)
+TAX <- tax_table(phylo_Final_Taxonomy)
+
+ps0 <- phyloseq(OTU, TAX)
+ps0
+
+#Final Phyloseq object 
+VirphyloseqOBJ <- merge_phyloseq(ps0,META)
+
+library(microViz)
+VirphyloseqOBJ <- VirphyloseqOBJ %>% tax_fix()
+
+VirphyloseqOBJ
+
+saveRDS(VirphyloseqOBJ, "~/Handley\ Lab\ Dropbox/Manuscripts/RC2/phage/01_psoConstructoin_genomicInfoFormating/outputData/VirphyloseqOBJ.rds")
+```
+
+pso using counts and not tpm. For diff abd testing 
+```{r}
+#Convert dbl to interger and round counts (this helps with later steps)
+phylo_countTable <- newCount_finalTable_phages %>%
+  column_to_rownames(var = "contigID") %>%
+  mutate(across(
+    .fns = ~ round(as.integer(.x))))
+#Transpose and convert to matrix
+phylo_countTable <- as.matrix(phylo_countTable)
+class(phylo_countTable)
+
+#Prepare TAX table
+phylo_Final_Taxonomy <- consensus_taxonomy %>%
+  column_to_rownames(var = "contigID")
+
+phylo_Final_Taxonomy <- as.matrix(phylo_Final_Taxonomy)
+class(phylo_Final_Taxonomy)
+
+#Create Phyloseq Object
+OTU <- otu_table(phylo_countTable, taxa_are_rows = TRUE)
+TAX <- tax_table(phylo_Final_Taxonomy)
+
+ps0 <- phyloseq(OTU, TAX)
+ps0
+
+#Final Phyloseq object 
+VirphyloseqOBJ_counts <- merge_phyloseq(ps0,META)
+
+VirphyloseqOBJ_counts <- VirphyloseqOBJ_counts %>% tax_fix()
+
+VirphyloseqOBJ_counts
+
+saveRDS(VirphyloseqOBJ_counts, "~/Handley\ Lab\ Dropbox/Manuscripts/RC2/phage/01_psoConstructoin_genomicInfoFormating/outputData/VirphyloseqOBJ_counts.rds")
+```
+
+checking sample discrepancies between final pso and metadata. 
+```{r}
+meta_pso <- data.frame(sample_data(VirphyloseqOBJ)) %>%
+  rownames_to_column(var = "database_ID")
+
+metaMissing <- metadata %>%
+  filter(database_ID %notin% meta_pso$database_ID)
+```
+All samples contained in metadata file and not present in the pso file have no virome runs, except for 35611, lost in coverage filter. 
+
+Final NOTE: After running all the chunks, we should get 3 output files: 
+  VirphyloseqOBJ_counts.rds
+  VirphyloseqOBJ.rds
+  contigInfo.txt
+
+
+## Generate contig Info Table
+```{r}
+checkV <-  vroom::vroom("~/Handley\ Lab\ Dropbox/Manuscripts/RC2/phage/01_psoConstructoin_genomicInfoFormating/inputData/PhageContigs_quality_summary.tsv", delim = "\t", col_names = T)
+colnames(checkV)[1] <- "contigID"
+checkV <- checkV %>%
+  filter(contig_length >= 1000)
+
+contigInfo <- checkV %>%
+  tidylog::left_join(consensus_lifestyle, by = "contigID") %>%
+  tidylog::left_join(iphop, by = "contigID") %>%
+  tidylog::left_join(consensus_taxonomy, by = "contigID") %>%
+  dplyr::distinct(contigID, .keep_all = T)
+
+contigInfo <- contigInfo %>%
+  filter(contigID %in% newtpm_finalTable_phages$contigID) %>%
+  distinct(contigID, .keep_all = TRUE)
+
+vroom::vroom_write(contigInfo, "~/Handley\ Lab\ Dropbox/Manuscripts/RC2/phage/01_psoConstructoin_genomicInfoFormating/outputData/contigInfo.txt")
+```

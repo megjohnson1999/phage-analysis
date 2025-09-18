@@ -244,6 +244,74 @@ rule collect_clustering_stats:
         fi
         """
 
+# Rule to collect consensus taxonomy statistics (only if consensus is enabled)
+rule collect_consensus_stats:
+    input:
+        consensus_taxonomy = f"{config['output_dir']}/03_genomic_info/consensus_taxonomy.tsv" if config.get("run_consensus", True) else "/dev/null",
+        consensus_summary = f"{config['output_dir']}/03_genomic_info/consensus_taxonomy_summary.json" if config.get("run_consensus", True) else "/dev/null"
+    output:
+        summary = f"{SUMMARY_DIR}/consensus_taxonomy.json"
+    log:
+        f"{config['output_dir']}/logs/summaries/collect_consensus_stats.log"
+    conda:
+        "../envs/python.yaml"
+    shell:
+        """
+        if [ "{input.consensus_taxonomy}" != "/dev/null" ] && [ -f "{input.consensus_taxonomy}" ]; then
+            # Load the consensus summary JSON that was already created
+            if [ -f "{input.consensus_summary}" ]; then
+                # Copy and modify the existing summary to match our format
+                python -c "
+import json
+import sys
+from datetime import datetime
+
+try:
+    with open('{input.consensus_summary}', 'r') as f:
+        data = json.load(f)
+    
+    # Reformat for our summary system
+    summary = {{
+        'step': 'consensus_taxonomy',
+        'timestamp': datetime.now().isoformat(),
+        'inputs': {{
+            'consensus_taxonomy': data
+        }}
+    }}
+    
+    with open('{output.summary}', 'w') as f:
+        json.dump(summary, f, indent=2)
+    
+    total_contigs = data.get('total_contigs', 0)
+    print('Consensus taxonomy summary created: ' + str(total_contigs) + ' contigs')
+    
+except Exception as e:
+    print('Error processing consensus summary: ' + str(e), file=sys.stderr)
+    # Create minimal summary
+    summary = {{
+        'step': 'consensus_taxonomy',
+        'timestamp': datetime.now().isoformat(),
+        'inputs': {{}},
+        'note': 'Error reading consensus taxonomy results'
+    }}
+    with open('{output.summary}', 'w') as f:
+        json.dump(summary, f, indent=2)
+" > {log} 2>&1
+            else
+                echo "Consensus summary file not found, creating basic summary" > {log}
+                python {workflow.basedir}/scripts/collect_step_summary.py \
+                    --step consensus_taxonomy \
+                    --output {output.summary} \
+                    --inputs consensus_file:{input.consensus_taxonomy} \
+                    > {log} 2>&1
+            fi
+        else
+            echo "Consensus taxonomy not enabled, creating empty summary" > {log}
+            mkdir -p $(dirname {output.summary})
+            echo '{{"step": "consensus_taxonomy", "timestamp": "'$(date -Iseconds)'", "inputs": {{}}, "note": "Consensus taxonomy not enabled in this run"}}' > {output.summary}
+        fi
+        """
+
 # Rule to collect final statistics
 rule collect_final_stats:
     input:
@@ -282,6 +350,7 @@ rule generate_summary_report:
         ],
         # Optional summaries (may not exist)
         reneo_summary = f"{SUMMARY_DIR}/reneo_stats.json",
+        consensus_summary = f"{SUMMARY_DIR}/consensus_taxonomy.json",
         clustering_summary = f"{SUMMARY_DIR}/clustering_stats.json"
     output:
         report = f"{config['output_dir']}/Pipeline_Summary_Report.html"
@@ -337,6 +406,7 @@ rule collect_all_summaries:
         f"{SUMMARY_DIR}/integration_stats.json",
         f"{SUMMARY_DIR}/iphop_stats.json",
         f"{SUMMARY_DIR}/lifestyle_stats.json",
+        f"{SUMMARY_DIR}/consensus_taxonomy.json",
         f"{SUMMARY_DIR}/clustering_stats.json",
         f"{SUMMARY_DIR}/final_phages.json"
     output:
