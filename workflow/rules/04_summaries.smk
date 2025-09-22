@@ -191,8 +191,8 @@ rule collect_iphop_stats:
 # Rule to collect lifestyle prediction statistics
 rule collect_lifestyle_stats:
     input:
-        bacphlip_results = f"{config['output_dir']}/03_genomic_info/bacphlip_lifestyle_with_completeness.tsv",
         phabox_lifestyle = f"{config['output_dir']}/03_genomic_info/phabox_output/lifestyle.tsv"
+        # bacphlip_results = f"{config['output_dir']}/03_genomic_info/bacphlip_lifestyle_with_completeness.tsv"  # Disabled for now
     output:
         summary = f"{SUMMARY_DIR}/lifestyle_stats.json"
     log:
@@ -201,7 +201,7 @@ rule collect_lifestyle_stats:
         "../envs/python.yaml"
     shell:
         """
-        # Count lifestyle predictions from Phabox2 (primary source)
+        # Count lifestyle predictions from Phabox2 (only source)
         PHABOX_COUNT=0
         if [ -f "{input.phabox_lifestyle}" ]; then
             # Count lines excluding header (subtract 1)
@@ -209,18 +209,16 @@ rule collect_lifestyle_stats:
             echo "Found $PHABOX_COUNT Phabox2 lifestyle predictions" >> {log}
         fi
         
-        # Count BACPHLIP predictions as fallback
-        BACPHLIP_COUNT=0
-        if [ -f "{input.bacphlip_results}" ]; then
-            BACPHLIP_COUNT=$(( $(wc -l < "{input.bacphlip_results}") - 1 ))
-            echo "Found $BACPHLIP_COUNT BACPHLIP lifestyle predictions" >> {log}
-        fi
+        # BACPHLIP disabled for now - uncomment below to re-enable
+        # BACPHLIP_COUNT=0
+        # BACPHLIP_FILE="{config[output_dir]}/03_genomic_info/bacphlip_lifestyle_with_completeness.tsv"
+        # if [ -f "$BACPHLIP_FILE" ]; then
+        #     BACPHLIP_COUNT=$(( $(wc -l < "$BACPHLIP_FILE") - 1 ))
+        #     echo "Found $BACPHLIP_COUNT BACPHLIP lifestyle predictions" >> {log}
+        # fi
         
-        # Use Phabox2 count if available, otherwise BACPHLIP
+        # Use Phabox2 count (only source currently enabled)
         TOTAL_COUNT=$PHABOX_COUNT
-        if [ $TOTAL_COUNT -eq 0 ]; then
-            TOTAL_COUNT=$BACPHLIP_COUNT
-        fi
         
         # Create summary JSON
         cat > {output.summary} << EOF
@@ -229,10 +227,9 @@ rule collect_lifestyle_stats:
   "timestamp": "$(date -Iseconds)",
   "inputs": {{
     "lifestyle_results": {{
-      "tool": "lifestyle",
+      "tool": "phabox2",
       "total_predictions": $TOTAL_COUNT,
-      "phabox2_predictions": $PHABOX_COUNT,
-      "bacphlip_predictions": $BACPHLIP_COUNT
+      "phabox2_predictions": $PHABOX_COUNT
     }}
   }},
   "outputs": {{}},
@@ -240,7 +237,7 @@ rule collect_lifestyle_stats:
 }}
 EOF
         
-        echo "Lifestyle stats summary created with $TOTAL_COUNT total predictions" >> {log}
+        echo "Lifestyle stats summary created with $TOTAL_COUNT Phabox2 predictions" >> {log}
         """
 
 # Rule to collect clustering statistics (only if clustering is enabled)
