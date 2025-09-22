@@ -191,7 +191,8 @@ rule collect_iphop_stats:
 # Rule to collect lifestyle prediction statistics
 rule collect_lifestyle_stats:
     input:
-        bacphlip_results = f"{config['output_dir']}/03_genomic_info/bacphlip_lifestyle_with_completeness.tsv"
+        bacphlip_results = f"{config['output_dir']}/03_genomic_info/bacphlip_lifestyle_with_completeness.tsv",
+        phabox_lifestyle = f"{config['output_dir']}/03_genomic_info/phabox_output/lifestyle.tsv"
     output:
         summary = f"{SUMMARY_DIR}/lifestyle_stats.json"
     log:
