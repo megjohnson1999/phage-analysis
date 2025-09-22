@@ -634,24 +634,25 @@ def main():
     
     # Create summary statistics
     summary = {
-        'total_contigs': len(consensus_df),
+        'total_contigs': int(len(consensus_df)),
         'tool_contributions': {
-            'mmseqs2': len(mmseqs_df),
-            'phabox2': len(phabox_df),
-            'vcontact3': len(vc3_df)
+            'mmseqs2': int(len(mmseqs_df)),
+            'phabox2': int(len(phabox_df)),
+            'vcontact3': int(len(vc3_df))
         },
         'taxonomy_coverage': {}
     }
     
     if crassus_df is not None:
-        summary['tool_contributions']['crassus'] = len(crassus_df)
+        summary['tool_contributions']['crassus'] = int(len(crassus_df))
     
     # Calculate coverage for each taxonomic level
     for level in ['superkingdom', 'phylum', 'class', 'order', 'family', 'genus', 'species']:
-        non_null = consensus_df[level].notna().sum()
+        non_null = int(consensus_df[level].notna().sum())
+        total_contigs = int(len(consensus_df))
         summary['taxonomy_coverage'][level] = {
-            'count': int(non_null),
-            'percentage': round(100 * non_null / len(consensus_df), 2)
+            'count': non_null,
+            'percentage': round(100 * non_null / total_contigs, 2)
         }
     
     # Save summary
