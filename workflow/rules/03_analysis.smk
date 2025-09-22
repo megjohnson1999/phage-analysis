@@ -450,23 +450,62 @@ rule phabox_prediction:
         fi
         
         # Process Phabox2 outputs and create standardized files
-        # Phabox2 creates output files with specific naming patterns
-        if [ -f "{output.results_dir}/out/phamer_prediction.csv" ]; then
+        # Handle both new format (final_prediction_summary.tsv) and legacy format
+        
+        # Check for new comprehensive format first
+        if [ -f "{output.results_dir}/final_prediction/final_prediction_summary.tsv" ]; then
+            echo "Processing Phabox2 new format: final_prediction_summary.tsv" >> {log}
+            
+            # Extract taxonomy information from new format
+            echo -e "contig_id\ttaxonomy_prediction\tconfidence" > {output.taxonomy}
+            tail -n +2 {output.results_dir}/final_prediction/final_prediction_summary.tsv | \
+                awk -F'\t' '$3=="virus" {{
+                    # Extract taxonomy from Lineage column (column 7)
+                    # Convert confidence score from PhaGCNScore (column 8) 
+                    lineage = $7; 
+                    if (lineage == "-" || lineage == "") lineage = "unclassified";
+                    conf = $8;
+                    if (conf == "" || conf == "-") conf = "0.0";
+                    print $1"\t"lineage"\t"conf
+                }}' >> {output.taxonomy}
+            
+            # Extract lifestyle information from new format  
+            echo -e "contig_id\tlifestyle_prediction\tconfidence" > {output.lifestyle}
+            tail -n +2 {output.results_dir}/final_prediction/final_prediction_summary.tsv | \
+                awk -F'\t' '$3=="virus" {{
+                    # Extract lifestyle from TYPE column (column 11)
+                    # Use PhaTYPScore for confidence (column 12)
+                    lifestyle = $11;
+                    if (lifestyle == "-" || lifestyle == "") lifestyle = "unknown";
+                    conf = $12;
+                    if (conf == "" || conf == "-") conf = "0.0";
+                    print $1"\t"lifestyle"\t"conf
+                }}' >> {output.lifestyle}
+        
+        # Fall back to legacy format processing
+        elif [ -f "{output.results_dir}/out/phamer_prediction.csv" ]; then
+            echo "Processing Phabox2 legacy format: phamer_prediction.csv" >> {log}
             # Extract taxonomy information
             echo -e "contig_id\ttaxonomy_prediction\tconfidence" > {output.taxonomy}
             tail -n +2 {output.results_dir}/out/phamer_prediction.csv | \
                 awk -F',' '{{print $1"\t"$2"\t"$3}}' >> {output.taxonomy}
         else
+            echo "No Phabox2 taxonomy results found, creating empty file" >> {log}
             echo -e "contig_id\ttaxonomy_prediction\tconfidence" > {output.taxonomy}
         fi
         
-        if [ -f "{output.results_dir}/out/cherry_prediction.csv" ]; then
-            # Extract lifestyle information
-            echo -e "contig_id\tlifestyle_prediction\tconfidence" > {output.lifestyle}
-            tail -n +2 {output.results_dir}/out/cherry_prediction.csv | \
-                awk -F',' '{{print $1"\t"$2"\t"$3}}' >> {output.lifestyle}
-        else
-            echo -e "contig_id\tlifestyle_prediction\tconfidence" > {output.lifestyle}
+        # Handle lifestyle predictions - only if we didn't already process new format
+        if [ ! -f "{output.results_dir}/final_prediction/final_prediction_summary.tsv" ]; then
+            if [ -f "{output.results_dir}/out/cherry_prediction.csv" ]; then
+                echo "Processing Phabox2 legacy format: cherry_prediction.csv" >> {log}
+                # Extract lifestyle information
+                echo -e "contig_id\tlifestyle_prediction\tconfidence" > {output.lifestyle}
+                tail -n +2 {output.results_dir}/out/cherry_prediction.csv | \
+                    awk -F',' '{{print $1"\t"$2"\t"$3}}' >> {output.lifestyle}
+            else
+                echo "No Phabox2 lifestyle results found, creating empty file" >> {log}
+                echo -e "contig_id\tlifestyle_prediction\tconfidence" > {output.lifestyle}
+            fi
         fi
         """
 
