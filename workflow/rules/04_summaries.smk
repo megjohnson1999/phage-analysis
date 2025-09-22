@@ -201,23 +201,46 @@ rule collect_lifestyle_stats:
         "../envs/python.yaml"
     shell:
         """
-        # Check if BACPHLIP results exist, otherwise try to find other lifestyle prediction results
-        LIFESTYLE_FILE="{input.bacphlip_results}"
-        if [ ! -f "$LIFESTYLE_FILE" ]; then
-            # Look for alternative lifestyle prediction files
-            for alt_file in "{config[output_dir]}/03_phacts_results/phacts_predictions_compiled.tsv" "{config[output_dir]}/03_genomic_info/phabox_output/lifestyle.tsv"; do
-                if [ -f "$alt_file" ]; then
-                    LIFESTYLE_FILE="$alt_file"
-                    break
-                fi
-            done
+        # Count lifestyle predictions from Phabox2 (primary source)
+        PHABOX_COUNT=0
+        if [ -f "{input.phabox_lifestyle}" ]; then
+            # Count lines excluding header (subtract 1)
+            PHABOX_COUNT=$(( $(wc -l < "{input.phabox_lifestyle}") - 1 ))
+            echo "Found $PHABOX_COUNT Phabox2 lifestyle predictions" >> {log}
         fi
         
-        python {workflow.basedir}/scripts/collect_step_summary.py \
-            --step lifestyle_stats \
-            --output {output.summary} \
-            --inputs lifestyle_results:"$LIFESTYLE_FILE" \
-            > {log} 2>&1 || true
+        # Count BACPHLIP predictions as fallback
+        BACPHLIP_COUNT=0
+        if [ -f "{input.bacphlip_results}" ]; then
+            BACPHLIP_COUNT=$(( $(wc -l < "{input.bacphlip_results}") - 1 ))
+            echo "Found $BACPHLIP_COUNT BACPHLIP lifestyle predictions" >> {log}
+        fi
+        
+        # Use Phabox2 count if available, otherwise BACPHLIP
+        TOTAL_COUNT=$PHABOX_COUNT
+        if [ $TOTAL_COUNT -eq 0 ]; then
+            TOTAL_COUNT=$BACPHLIP_COUNT
+        fi
+        
+        # Create summary JSON
+        cat > {output.summary} << EOF
+{{
+  "step": "lifestyle_stats",
+  "timestamp": "$(date -Iseconds)",
+  "inputs": {{
+    "lifestyle_results": {{
+      "tool": "lifestyle",
+      "total_predictions": $TOTAL_COUNT,
+      "phabox2_predictions": $PHABOX_COUNT,
+      "bacphlip_predictions": $BACPHLIP_COUNT
+    }}
+  }},
+  "outputs": {{}},
+  "statistics": {{}}
+}}
+EOF
+        
+        echo "Lifestyle stats summary created with $TOTAL_COUNT total predictions" >> {log}
         """
 
 # Rule to collect clustering statistics (only if clustering is enabled)
