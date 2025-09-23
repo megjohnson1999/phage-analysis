@@ -155,14 +155,16 @@ def parse_tool_results(tool, result_file):
         
         elif tool == "checkv":
             df = pd.read_csv(result_file, sep='\t')
+            # CheckV uses 'checkv_quality' column with these categories
             return {
                 "tool": tool,
                 "total_sequences": len(df),
                 "completeness_distribution": {
-                    "complete": len(df[df['completeness'] == 'Complete']) if 'completeness' in df.columns else 0,
-                    "high_quality": len(df[df['completeness'] == 'High-quality']) if 'completeness' in df.columns else 0,
-                    "medium_quality": len(df[df['completeness'] == 'Medium-quality']) if 'completeness' in df.columns else 0,
-                    "low_quality": len(df[df['completeness'] == 'Low-quality']) if 'completeness' in df.columns else 0
+                    "complete": len(df[df['checkv_quality'] == 'Complete']) if 'checkv_quality' in df.columns else 0,
+                    "high_quality": len(df[df['checkv_quality'] == 'High-quality']) if 'checkv_quality' in df.columns else 0,
+                    "medium_quality": len(df[df['checkv_quality'] == 'Medium-quality']) if 'checkv_quality' in df.columns else 0,
+                    "low_quality": len(df[df['checkv_quality'] == 'Low-quality']) if 'checkv_quality' in df.columns else 0,
+                    "not_determined": len(df[df['checkv_quality'] == 'Not-determined']) if 'checkv_quality' in df.columns else 0
                 }
             }
         

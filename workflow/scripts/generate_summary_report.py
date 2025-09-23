@@ -155,24 +155,101 @@ def generate_html_report(summaries, output_file, config_info=None):
         </div>
     """
     
-    # Generate pipeline steps section
+    # Generate pipeline steps section with key metrics
+    def get_step_metric(step_name, summaries):
+        """Extract key metric for each pipeline step."""
+        if step_name not in summaries:
+            return "Not completed"
+
+        data = summaries[step_name].get("inputs", {})
+
+        if step_name == "input_stats":
+            for key, value in data.items():
+                if isinstance(value, dict) and "total_sequences" in value:
+                    return f"{format_number(value['total_sequences'])} input sequences"
+
+        elif step_name == "reneo_stats":
+            for key, value in data.items():
+                if isinstance(value, dict) and "total_sequences" in value:
+                    return f"{format_number(value['total_sequences'])} contigs"
+
+        elif step_name == "filtering_stats":
+            for key, value in data.items():
+                if isinstance(value, dict) and "total_sequences" in value:
+                    return f"{format_number(value['total_sequences'])} viral contigs"
+
+        elif step_name == "jaeger_stats":
+            for key, value in data.items():
+                if isinstance(value, dict) and "phage_predictions" in value:
+                    return f"{format_number(value['phage_predictions'])} phage predictions"
+
+        elif step_name == "genomad_stats":
+            for key, value in data.items():
+                if isinstance(value, dict) and "total_predictions" in value:
+                    return f"{format_number(value['total_predictions'])} predictions"
+
+        elif step_name == "phold_stats":
+            for key, value in data.items():
+                if isinstance(value, dict) and "total_annotations" in value:
+                    return f"{format_number(value['total_annotations'])} annotations"
+
+        elif step_name == "checkv_stats":
+            for key, value in data.items():
+                if isinstance(value, dict) and "total_sequences" in value:
+                    return f"{format_number(value['total_sequences'])} sequences analyzed"
+
+        elif step_name == "integration_stats":
+            for key, value in data.items():
+                if isinstance(value, dict) and "total_sequences" in value and value["total_sequences"] > 0:
+                    return f"{format_number(value['total_sequences'])} viral contigs"
+
+        elif step_name == "iphop_stats":
+            for key, value in data.items():
+                if isinstance(value, dict) and "total_predictions" in value:
+                    return f"{format_number(value['total_predictions'])} host predictions"
+
+        elif step_name == "lifestyle_stats":
+            for key, value in data.items():
+                if isinstance(value, dict) and "total_predictions" in value:
+                    return f"{format_number(value['total_predictions'])} lifestyle predictions"
+
+        elif step_name == "consensus_taxonomy":
+            for key, value in data.items():
+                if isinstance(value, dict) and "total_contigs" in value:
+                    return f"{format_number(value['total_contigs'])} contigs classified"
+
+        elif step_name == "clustering_stats":
+            for key, value in data.items():
+                if isinstance(value, dict) and "total_sequences" in value:
+                    return f"{format_number(value['total_sequences'])} clusters"
+
+        elif step_name == "final_phages":
+            for key, value in data.items():
+                if isinstance(value, dict) and "total_sequences" in value:
+                    return f"{format_number(value['total_sequences'])} final phages"
+
+        return "Completed"
+
     step_order = [
-        "input_stats", "reneo_stats", "filtering_stats", "jaeger_stats", 
+        "input_stats", "reneo_stats", "filtering_stats", "jaeger_stats",
         "genomad_stats", "phold_stats", "checkv_stats", "integration_stats",
         "iphop_stats", "lifestyle_stats", "consensus_taxonomy", "clustering_stats", "final_phages"
     ]
-    
+
     pipeline_steps = ""
     completed_steps = 0
     total_steps = len([s for s in step_order if s in summaries])
-    
+
     for step in step_order:
         if step in summaries:
             completed_steps += 1
-            pipeline_steps += f'<div class="step-section">✅ {step.replace("_", " ").title()}</div>'
+            metric = get_step_metric(step, summaries)
+            step_display = step.replace("_", " ").title()
+            pipeline_steps += f'<div class="step-section">✅ {step_display}: {metric}</div>'
         else:
-            pipeline_steps += f'<div class="step-section">⏳ {step.replace("_", " ").title()} (Not completed)</div>'
-    
+            step_display = step.replace("_", " ").title()
+            pipeline_steps += f'<div class="step-section">⏳ {step_display}: Not completed</div>'
+
     if total_steps > 0:
         progress_percent = int((completed_steps / total_steps) * 100)
         pipeline_steps = f"""
