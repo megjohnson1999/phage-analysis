@@ -195,11 +195,19 @@ def generate_html_report(summaries, output_file, config_info=None):
         # Add step-specific details
         inputs = data.get("inputs", {})
         for input_name, input_data in inputs.items():
+            # Skip reads directory information - not useful for reporting
+            if input_name == 'reads_dir':
+                continue
+
             if isinstance(input_data, dict):
                 detailed_sections += f"<h4>{input_name.replace('_', ' ').title()}</h4>"
                 detailed_sections += "<table>"
-                
+
                 for key, value in input_data.items():
+                    # Skip read-related fields if they somehow get through
+                    if key in ['total_reads', 'read_files', 'reads_directory', 'method', 'note'] and 'read' in key.lower():
+                        continue
+
                     if isinstance(value, dict):
                         # Handle nested dictionaries (like completeness_distribution, taxonomy_coverage)
                         detailed_sections += f"<tr><td>{key.replace('_', ' ').title()}</td><td>"
@@ -214,7 +222,7 @@ def generate_html_report(summaries, output_file, config_info=None):
                         detailed_sections += "</td></tr>"
                     else:
                         detailed_sections += f"<tr><td>{key.replace('_', ' ').title()}</td><td>{format_number(value)}</td></tr>"
-                
+
                 detailed_sections += "</table>"
         
         detailed_sections += "</div>"
