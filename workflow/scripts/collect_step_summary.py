@@ -8,6 +8,7 @@ import os
 import sys
 import json
 import argparse
+import subprocess
 from pathlib import Path
 from Bio import SeqIO
 import pandas as pd
@@ -64,7 +65,7 @@ def count_sequences(fasta_file):
     }
 
 def count_reads(reads_dir):
-    """Count reads in a directory."""
+    """Count reads in a directory using seqkit for speed."""
     if not os.path.exists(reads_dir):
         return {"total_reads": 0, "read_files": 0}
     
@@ -77,24 +78,41 @@ def count_reads(reads_dir):
     for ext in extensions:
         read_files.extend(Path(reads_dir).glob(f"*{ext}"))
     
-    # Count reads in each file (simplified - just count lines/4 for fastq)
-    for read_file in read_files:
-        try:
-            if str(read_file).endswith('.gz'):
-                import gzip
-                with gzip.open(read_file, 'rt') as f:
-                    lines = sum(1 for _ in f)
-            else:
-                with open(read_file, 'r') as f:
-                    lines = sum(1 for _ in f)
-            total_reads += lines // 4  # FASTQ has 4 lines per read
-        except:
-            continue  # Skip problematic files
+    if not read_files:
+        return {"total_reads": 0, "read_files": 0}
     
-    return {
-        "total_reads": total_reads,
-        "read_files": len(read_files)
-    }
+    # Use seqkit stats for fast counting (much faster than Python line counting)
+    try:
+        # Run seqkit stats on all files at once
+        cmd = ['seqkit', 'stats', '-T'] + [str(f) for f in read_files]
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=300)
+        
+        if result.returncode == 0:
+            # Parse seqkit output (TSV format)
+            lines = result.stdout.strip().split('\n')
+            if len(lines) > 1:  # Skip header
+                for line in lines[1:]:
+                    parts = line.split('\t')
+                    if len(parts) >= 4:  # file, format, type, num_seqs, ...
+                        try:
+                            num_seqs = int(parts[3])
+                            total_reads += num_seqs
+                        except (ValueError, IndexError):
+                            continue
+        
+        return {
+            "total_reads": total_reads,
+            "read_files": len(read_files),
+            "method": "seqkit"
+        }
+    
+    except (subprocess.TimeoutExpired, FileNotFoundError):
+        # Fallback: just count files without reading contents (much faster than old method)
+        return {
+            "total_reads": "unavailable_seqkit_failed", 
+            "read_files": len(read_files),
+            "method": "file_count_only"
+        }
 
 def parse_tool_results(tool, result_file):
     """Parse results from various prediction tools."""
