@@ -245,7 +245,7 @@ def generate_html_report(summaries, output_file, config_info=None):
             completed_steps += 1
             metric = get_step_metric(step, summaries)
             step_display = step.replace("_", " ").title()
-            pipeline_steps += f'<div class="step-section">✓ {step_display}: {metric}</div>'
+            pipeline_steps += f'<div class="step-section">[DONE] {step_display}: {metric}</div>'
         else:
             step_display = step.replace("_", " ").title()
             pipeline_steps += f'<div class="step-section">- {step_display}: Not completed</div>'
