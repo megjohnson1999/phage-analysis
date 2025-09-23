@@ -200,7 +200,16 @@ def generate_html_report(summaries, output_file, config_info=None):
                 continue
 
             if isinstance(input_data, dict):
-                detailed_sections += f"<h4>{input_name.replace('_', ' ').title()}</h4>"
+                # For integration stats, skip provirus predictions (always 0 in Reneo workflow) and only show viral contigs
+                if step_name == "integration_stats" and input_name == "phage_predictions":
+                    continue  # Skip provirus predictions - not relevant for viral-only datasets
+
+                # Use clearer labels
+                display_name = input_name.replace('_', ' ').title()
+                if step_name == "integration_stats" and input_name == "phage_contigs":
+                    display_name = "Viral Contigs"
+
+                detailed_sections += f"<h4>{display_name}</h4>"
                 detailed_sections += "<table>"
 
                 for key, value in input_data.items():
