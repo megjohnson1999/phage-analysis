@@ -15,7 +15,7 @@ import pandas as pd
 from datetime import datetime
 
 def count_sequences(fasta_file):
-    """Count sequences and calculate basic statistics from a FASTA file."""
+    """Count sequences and calculate basic statistics from a FASTA file using seqkit for speed."""
     if not os.path.exists(fasta_file) or os.path.getsize(fasta_file) == 0:
         return {
             "total_sequences": 0,
@@ -25,16 +25,79 @@ def count_sequences(fasta_file):
             "max_length": 0,
             "n50": 0
         }
-    
+
+    try:
+        # Use seqkit stats for much faster processing
+        cmd = ['seqkit', 'stats', '-T', str(fasta_file)]
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=300)
+
+        if result.returncode == 0:
+            # Parse seqkit output (TSV format)
+            lines = result.stdout.strip().split('\n')
+            if len(lines) > 1:  # Skip header
+                parts = lines[1].split('\t')
+                if len(parts) >= 7:  # file, format, type, num_seqs, sum_len, min_len, avg_len, max_len
+                    try:
+                        total_sequences = int(parts[3])
+                        total_length = int(parts[4])
+                        min_length = int(parts[5])
+                        mean_length = int(float(parts[6]))
+                        max_length = int(parts[7])
+
+                        # Calculate N50 using seqkit fx2tab for lengths if needed
+                        n50 = 0
+                        if total_sequences > 0:
+                            # For N50, we need individual lengths - use seqkit fx2tab
+                            n50_cmd = ['seqkit', 'fx2tab', '-l', '-n', str(fasta_file)]
+                            n50_result = subprocess.run(n50_cmd, capture_output=True, text=True, timeout=300)
+
+                            if n50_result.returncode == 0:
+                                lengths = []
+                                for line in n50_result.stdout.strip().split('\n'):
+                                    if line:
+                                        parts = line.split('\t')
+                                        if len(parts) >= 2:
+                                            try:
+                                                lengths.append(int(parts[1]))
+                                            except ValueError:
+                                                continue
+
+                                if lengths:
+                                    lengths.sort(reverse=True)
+                                    cumulative = 0
+                                    for length in lengths:
+                                        cumulative += length
+                                        if cumulative >= total_length * 0.5:
+                                            n50 = length
+                                            break
+
+                        return {
+                            "total_sequences": total_sequences,
+                            "total_length": total_length,
+                            "mean_length": mean_length,
+                            "min_length": min_length,
+                            "max_length": max_length,
+                            "n50": n50
+                        }
+                    except (ValueError, IndexError):
+                        pass
+
+        # Fallback to BioPython if seqkit fails
+        print(f"seqkit failed for {fasta_file}, falling back to BioPython", file=sys.stderr)
+
+    except (subprocess.TimeoutExpired, FileNotFoundError):
+        print(f"seqkit not available for {fasta_file}, falling back to BioPython", file=sys.stderr)
+
+    # BioPython fallback (original implementation)
     lengths = []
     total_length = 0
-    
+
     with open(fasta_file, 'r') as f:
         for record in SeqIO.parse(f, "fasta"):
             length = len(record.seq)
             lengths.append(length)
             total_length += length
-    
+
     if not lengths:
         return {
             "total_sequences": 0,
@@ -44,7 +107,7 @@ def count_sequences(fasta_file):
             "max_length": 0,
             "n50": 0
         }
-    
+
     # Calculate N50
     lengths.sort(reverse=True)
     cumulative = 0
@@ -54,7 +117,7 @@ def count_sequences(fasta_file):
         if cumulative >= total_length * 0.5:
             n50 = length
             break
-    
+
     return {
         "total_sequences": len(lengths),
         "total_length": total_length,
