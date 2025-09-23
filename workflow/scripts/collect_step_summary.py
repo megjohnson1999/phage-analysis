@@ -184,14 +184,26 @@ def collect_step_summary(step_name, inputs, output_file):
     
     # Process different types of inputs based on step
     for input_name, input_path in inputs.items():
-        if input_name.endswith('_fasta') or input_name.endswith('_contigs'):
+        if (input_name in ['final_sequences', 'cluster_reps', 'phage_contigs', 'viral_contigs', 'phage_predictions'] or 
+            input_name.endswith('_fasta') or input_name.endswith('_contigs') or input_name.endswith('_sequences')):
             summary["inputs"][input_name] = count_sequences(input_path)
         elif input_name == 'reads_dir':
             summary["inputs"][input_name] = count_reads(input_path)
-        elif input_name.endswith('_results'):
+        elif (input_name.endswith('_results') or 'results' in input_name or 
+              input_name in ['jaeger_results', 'genomad_results', 'phold_results', 'checkv_results', 'iphop_results', 'mmseqs_results']):
             # Determine tool from step name or file path
             tool = step_name.split('_')[0] if '_' in step_name else "unknown"
             summary["inputs"][input_name] = parse_tool_results(tool, input_path)
+        elif input_name.endswith('.tsv') or input_name.endswith('.csv'):
+            # Handle direct file inputs
+            try:
+                df = pd.read_csv(input_path, sep='\t' if input_path.endswith('.tsv') else ',')
+                summary["inputs"][input_name] = {
+                    "total_rows": len(df),
+                    "columns": list(df.columns) if len(df.columns) <= 10 else f"{len(df.columns)} columns"
+                }
+            except Exception as e:
+                summary["inputs"][input_name] = {"error": str(e), "file_exists": os.path.exists(input_path)}
     
     # Save summary
     os.makedirs(os.path.dirname(output_file), exist_ok=True)

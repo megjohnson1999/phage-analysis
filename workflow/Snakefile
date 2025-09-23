@@ -125,7 +125,9 @@ rule all:
             (["{outdir}/02_clustering/vOTU_repSeqs.fasta".format(
                 outdir=config["output_dir"]
              )] if config.get("do_clustering", True) else []) +
-            # Add summary report if enabled (default: True)
-            (["{outdir}/Pipeline_Summary_Report.html".format(
+            # Add summary collection and report generation if enabled (default: True)
+            (["{outdir}/pipeline_summaries/.all_summaries_collected".format(
+                outdir=config["output_dir"]
+             ), "{outdir}/Pipeline_Summary_Report.html".format(
                 outdir=config["output_dir"]
              )] if config.get("generate_summaries", True) else [])

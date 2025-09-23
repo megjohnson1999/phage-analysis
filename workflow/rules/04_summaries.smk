@@ -25,7 +25,7 @@ rule collect_input_stats:
             --step input_stats \
             --output {output.summary} \
             --inputs assembly_fasta:{params.assembly} reads_dir:{params.reads_dir} \
-            > {log} 2>&1 || true
+            > {log} 2>&1
         """
 
 # Rule to collect Reneo statistics (only if Reneo is used)
@@ -70,7 +70,7 @@ rule collect_filtering_stats:
             --step filtering_stats \
             --output {output.summary} \
             --inputs mmseqs_results:{input.lca_results} viral_contigs:{input.viral_contigs} \
-            > {log} 2>&1 || true
+            > {log} 2>&1
         """
 
 # Rule to collect Jaeger statistics
@@ -89,7 +89,7 @@ rule collect_jaeger_stats:
             --step jaeger_stats \
             --output {output.summary} \
             --inputs jaeger_results:{input.jaeger_results} \
-            > {log} 2>&1 || true
+            > {log} 2>&1
         """
 
 # Rule to collect geNomad statistics
@@ -108,7 +108,7 @@ rule collect_genomad_stats:
             --step genomad_stats \
             --output {output.summary} \
             --inputs genomad_results:{input.genomad_results} \
-            > {log} 2>&1 || true
+            > {log} 2>&1
         """
 
 # Rule to collect PHOLD statistics
@@ -127,7 +127,7 @@ rule collect_phold_stats:
             --step phold_stats \
             --output {output.summary} \
             --inputs phold_results:{input.phold_results} \
-            > {log} 2>&1 || true
+            > {log} 2>&1
         """
 
 # Rule to collect CheckV statistics
@@ -146,7 +146,7 @@ rule collect_checkv_stats:
             --step checkv_stats \
             --output {output.summary} \
             --inputs checkv_results:{input.checkv_results} \
-            > {log} 2>&1 || true
+            > {log} 2>&1
         """
 
 # Rule to collect integration statistics
@@ -166,7 +166,7 @@ rule collect_integration_stats:
             --step integration_stats \
             --output {output.summary} \
             --inputs phage_predictions:{input.phage_predictions} phage_contigs:{input.phage_contigs} \
-            > {log} 2>&1 || true
+            > {log} 2>&1
         """
 
 # Rule to collect iPhop statistics
@@ -185,7 +185,7 @@ rule collect_iphop_stats:
             --step iphop_stats \
             --output {output.summary} \
             --inputs iphop_results:{input.iphop_results} \
-            > {log} 2>&1 || true
+            > {log} 2>&1
         """
 
 # Rule to collect lifestyle prediction statistics
@@ -350,7 +350,7 @@ rule collect_final_stats:
             --step final_phages \
             --output {output.summary} \
             --inputs final_sequences:{input.final_seqs} \
-            > {log} 2>&1 || true
+            > {log} 2>&1
         """
 
 # Rule to generate the final summary report
