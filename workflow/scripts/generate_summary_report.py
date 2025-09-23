@@ -73,23 +73,23 @@ def generate_html_report(summaries, output_file, config_info=None):
     </head>
     <body>
         <div class="container">
-            <h1>🧬 Phage Analysis Pipeline Report</h1>
+            <h1>Phage Analysis Pipeline Report</h1>
             <div class="timestamp">Generated: {timestamp}</div>
             
             {config_section}
             
-            <h2>📊 Overall Summary</h2>
+            <h2>Overall Summary</h2>
             <div class="summary-box">
                 {overall_metrics}
             </div>
             
-            <h2>🔄 Pipeline Progress</h2>
+            <h2>Pipeline Progress</h2>
             {pipeline_steps}
             
-            <h2>📈 Detailed Results</h2>
+            <h2>Detailed Results</h2>
             {detailed_sections}
             
-            <h2>📝 Notes</h2>
+            <h2>Notes</h2>
             <ul>
                 <li>This report summarizes the key statistics from your phage analysis pipeline run.</li>
                 <li>All sequence counts and metrics are based on the final outputs of each tool.</li>
@@ -108,7 +108,7 @@ def generate_html_report(summaries, output_file, config_info=None):
     config_section = ""
     if config_info:
         config_section = f"""
-        <h2>⚙️ Configuration</h2>
+        <h2>Configuration</h2>
         <table>
             {config_info}
         </table>
@@ -245,10 +245,10 @@ def generate_html_report(summaries, output_file, config_info=None):
             completed_steps += 1
             metric = get_step_metric(step, summaries)
             step_display = step.replace("_", " ").title()
-            pipeline_steps += f'<div class="step-section">✅ {step_display}: {metric}</div>'
+            pipeline_steps += f'<div class="step-section">✓ {step_display}: {metric}</div>'
         else:
             step_display = step.replace("_", " ").title()
-            pipeline_steps += f'<div class="step-section">⏳ {step_display}: Not completed</div>'
+            pipeline_steps += f'<div class="step-section">- {step_display}: Not completed</div>'
 
     if total_steps > 0:
         progress_percent = int((completed_steps / total_steps) * 100)
