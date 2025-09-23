@@ -127,105 +127,6 @@ def count_sequences(fasta_file):
         "n50": n50
     }
 
-def count_reads(reads_dir):
-    """Count reads in a directory using seqkit for speed."""
-    if not os.path.exists(reads_dir):
-        return {
-            "total_reads": 0,
-            "read_files": 0,
-            "method": "directory_not_found",
-            "error": f"Directory {reads_dir} does not exist"
-        }
-
-    read_files = []
-    total_reads = 0
-
-    # Look for common read file extensions
-    extensions = ['.fastq', '.fq', '.fastq.gz', '.fq.gz']
-
-    for ext in extensions:
-        read_files.extend(Path(reads_dir).glob(f"*{ext}"))
-
-    if not read_files:
-        return {
-            "total_reads": 0,
-            "read_files": 0,
-            "method": "no_read_files_found",
-            "note": f"No files with extensions {extensions} found in {reads_dir}"
-        }
-
-    # Use seqkit stats for fast counting (much faster than Python line counting)
-    try:
-        # Test if seqkit is available first
-        test_cmd = ['seqkit', '--help']
-        test_result = subprocess.run(test_cmd, capture_output=True, text=True, timeout=10)
-
-        if test_result.returncode != 0:
-            return {
-                "total_reads": "seqkit_not_available",
-                "read_files": len(read_files),
-                "method": "seqkit_unavailable",
-                "error": "seqkit command not found in PATH"
-            }
-
-        # Run seqkit stats on all files at once, but with smaller batches for large datasets
-        batch_size = 100  # Process files in batches to avoid command line length limits
-
-        for i in range(0, len(read_files), batch_size):
-            batch_files = read_files[i:i+batch_size]
-            cmd = ['seqkit', 'stats', '-T'] + [str(f) for f in batch_files]
-
-            result = subprocess.run(cmd, capture_output=True, text=True, timeout=600)
-
-            if result.returncode == 0:
-                # Parse seqkit output (TSV format)
-                lines = result.stdout.strip().split('\n')
-                if len(lines) > 1:  # Skip header
-                    for line in lines[1:]:
-                        parts = line.split('\t')
-                        if len(parts) >= 4:  # file, format, type, num_seqs, ...
-                            try:
-                                num_seqs = int(parts[3])
-                                total_reads += num_seqs
-                            except (ValueError, IndexError):
-                                continue
-            else:
-                # If any batch fails, fall back to file count only
-                return {
-                    "total_reads": "seqkit_failed_on_batch",
-                    "read_files": len(read_files),
-                    "method": "seqkit_batch_failed",
-                    "error": f"seqkit failed on batch {i//batch_size + 1}: {result.stderr[:200]}"
-                }
-
-        return {
-            "total_reads": total_reads,
-            "read_files": len(read_files),
-            "method": "seqkit_batch_success",
-            "note": f"Processed {len(read_files)} files in {(len(read_files) - 1) // batch_size + 1} batches"
-        }
-
-    except subprocess.TimeoutExpired:
-        return {
-            "total_reads": "seqkit_timeout",
-            "read_files": len(read_files),
-            "method": "seqkit_timeout",
-            "error": f"seqkit timed out processing {len(read_files)} files"
-        }
-    except FileNotFoundError:
-        return {
-            "total_reads": "seqkit_not_found",
-            "read_files": len(read_files),
-            "method": "seqkit_not_installed",
-            "error": "seqkit command not found - may not be installed in environment"
-        }
-    except Exception as e:
-        return {
-            "total_reads": "seqkit_error",
-            "read_files": len(read_files),
-            "method": "seqkit_exception",
-            "error": f"Unexpected error: {str(e)[:200]}"
-        }
 
 def parse_tool_results(tool, result_file):
     """Parse results from various prediction tools."""
@@ -319,7 +220,28 @@ def collect_step_summary(step_name, inputs, output_file):
             input_name.endswith('_fasta') or input_name.endswith('_contigs') or input_name.endswith('_sequences')):
             summary["inputs"][input_name] = count_sequences(input_path)
         elif input_name == 'reads_dir':
-            summary["inputs"][input_name] = count_reads(input_path)
+            # Skip read counting for performance - just record directory info
+            if os.path.exists(input_path):
+                # Count files quickly without reading contents
+                extensions = ['.fastq', '.fq', '.fastq.gz', '.fq.gz']
+                file_count = 0
+                for ext in extensions:
+                    file_count += len(list(Path(input_path).glob(f"*{ext}")))
+
+                summary["inputs"][input_name] = {
+                    "reads_directory": input_path,
+                    "read_files": file_count,
+                    "total_reads": "not_counted",
+                    "method": "file_count_only",
+                    "note": "Read counting skipped for performance"
+                }
+            else:
+                summary["inputs"][input_name] = {
+                    "reads_directory": input_path,
+                    "read_files": 0,
+                    "total_reads": "directory_not_found",
+                    "method": "directory_missing"
+                }
         elif (input_name.endswith('_results') or 'results' in input_name or 
               input_name in ['jaeger_results', 'genomad_results', 'phold_results', 'checkv_results', 'iphop_results', 'mmseqs_results']):
             # Determine tool from step name or file path
