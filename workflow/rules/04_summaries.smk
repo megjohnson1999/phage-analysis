@@ -13,19 +13,39 @@ rule collect_input_stats:
     output:
         summary = f"{SUMMARY_DIR}/input_stats.json"
     params:
-        assembly = config.get("assembly_file", ""),
-        reads_dir = config.get("reads_dir", "")
+        assembly_file = config.get("assembly_file", ""),
+        assembly_graph = config.get("assembly_graph", ""),
+        reads_dir = config.get("reads_dir", ""),
+        reneo_output = f"{config['output_dir']}/01_reneo_output/genomes_and_unresolved_edges_1KB.fasta"
     log:
         f"{config['output_dir']}/logs/summaries/collect_input_stats.log"
     conda:
         "../envs/python.yaml"
     shell:
         """
+        # Determine which assembly source to use
+        ASSEMBLY_INPUT=""
+
+        # Priority: 1) Reneo output (if assembly_graph was used), 2) assembly_file, 3) assembly_graph
+        if [ -n "{params.assembly_graph}" ] && [ -f "{params.reneo_output}" ]; then
+            ASSEMBLY_INPUT="{params.reneo_output}"
+            echo "Using Reneo output as assembly input: $ASSEMBLY_INPUT" > {log}
+        elif [ -n "{params.assembly_file}" ] && [ -f "{params.assembly_file}" ]; then
+            ASSEMBLY_INPUT="{params.assembly_file}"
+            echo "Using assembly file as input: $ASSEMBLY_INPUT" > {log}
+        elif [ -n "{params.assembly_graph}" ]; then
+            echo "Assembly graph specified but no Reneo output found. Using empty assembly." > {log}
+            ASSEMBLY_INPUT=""
+        else
+            echo "No valid assembly input found" > {log}
+            ASSEMBLY_INPUT=""
+        fi
+
         python {workflow.basedir}/scripts/collect_step_summary.py \
             --step input_stats \
             --output {output.summary} \
-            --inputs assembly_fasta:{params.assembly} reads_dir:{params.reads_dir} \
-            > {log} 2>&1
+            --inputs assembly_fasta:"$ASSEMBLY_INPUT" reads_dir:{params.reads_dir} \
+            >> {log} 2>&1
         """
 
 # Rule to collect Reneo statistics (only if Reneo is used)

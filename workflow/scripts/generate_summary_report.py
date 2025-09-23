@@ -32,6 +32,12 @@ def format_number(num):
     """Format numbers with commas for readability."""
     if isinstance(num, (int, float)):
         return f"{num:,}"
+    elif isinstance(num, list) and len(num) == 1:
+        # Handle single-element lists (from consensus taxonomy data)
+        return format_number(num[0])
+    elif isinstance(num, list):
+        # Handle multi-element lists
+        return ", ".join([format_number(n) for n in num])
     return str(num)
 
 def generate_html_report(summaries, output_file, config_info=None):
@@ -195,10 +201,16 @@ def generate_html_report(summaries, output_file, config_info=None):
                 
                 for key, value in input_data.items():
                     if isinstance(value, dict):
-                        # Handle nested dictionaries (like completeness_distribution)
+                        # Handle nested dictionaries (like completeness_distribution, taxonomy_coverage)
                         detailed_sections += f"<tr><td>{key.replace('_', ' ').title()}</td><td>"
                         for sub_key, sub_value in value.items():
-                            detailed_sections += f"{sub_key}: {format_number(sub_value)}<br>"
+                            # Special handling for taxonomy coverage format
+                            if isinstance(sub_value, dict) and 'count' in sub_value and 'percentage' in sub_value:
+                                count = format_number(sub_value['count'])
+                                percentage = format_number(sub_value['percentage'])
+                                detailed_sections += f"{sub_key}: {count} ({percentage}%)<br>"
+                            else:
+                                detailed_sections += f"{sub_key}: {format_number(sub_value)}<br>"
                         detailed_sections += "</td></tr>"
                     else:
                         detailed_sections += f"<tr><td>{key.replace('_', ' ').title()}</td><td>{format_number(value)}</td></tr>"
