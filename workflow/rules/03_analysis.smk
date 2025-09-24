@@ -227,46 +227,71 @@ rule iphop_aggregate_results:
         # Ensure results directory exists
         RESULTS_DIR=$(dirname {output.predictions})
         mkdir -p $RESULTS_DIR
-        
+
         # Compile results
         echo "Compiling iPhop results" > {log} 2>&1
-        
+
         # Create a temporary directory for processing
         TMP_DIR=$(mktemp -d)
-        
-        # First create a list of all prediction files
-        find "$RESULTS_DIR/tmp" -name "host_prediction_to_genus.csv" -type f > "$TMP_DIR/prediction_files.txt"
-        
+
+        # Collect both genome-level and genus-level predictions (prioritize genome-level)
+        find "$RESULTS_DIR/tmp" -name "Host_prediction_to_genome_m90.csv" -type f > "$TMP_DIR/genome_files.txt"
+        find "$RESULTS_DIR/tmp" -name "host_prediction_to_genus.csv" -type f > "$TMP_DIR/genus_files.txt"
+
         # Count how many files we found
-        FILE_COUNT=$(wc -l < "$TMP_DIR/prediction_files.txt")
-        echo "Found $FILE_COUNT prediction files to process" >> {log} 2>&1
-        
-        if [ "$FILE_COUNT" -gt 0 ]; then
-            # Get the first file to extract header
-            FIRST_FILE=$(head -n 1 "$TMP_DIR/prediction_files.txt")
-            
+        GENOME_COUNT=$(wc -l < "$TMP_DIR/genome_files.txt")
+        GENUS_COUNT=$(wc -l < "$TMP_DIR/genus_files.txt")
+        echo "Found $GENOME_COUNT genome-level prediction files and $GENUS_COUNT genus-level prediction files" >> {log} 2>&1
+
+        # Start with genome-level predictions (more specific)
+        TOTAL_RECORDS=0
+        if [ "$GENOME_COUNT" -gt 0 ]; then
+            # Get the first genome file to extract header
+            FIRST_FILE=$(head -n 1 "$TMP_DIR/genome_files.txt")
+
             # Create the output file with header (convert CSV to TSV)
             head -n 1 "$FIRST_FILE" | tr ',' '\t' > {output.predictions}
-            
-            # Process files in batches to avoid command line length limits
+
+            # Process genome-level files
             while read -r pred_file; do
                 # Skip header line (first line) from each file and convert CSV to TSV
-                awk -F ',' 'NR>1 {{OFS="\t"; print}}' "$pred_file" >> "$TMP_DIR/aggregated_data.tmp"
-            done < "$TMP_DIR/prediction_files.txt"
-            
-            # Append all data to the output file
-            cat "$TMP_DIR/aggregated_data.tmp" >> {output.predictions}
-            
-            # Count records in final file
-            RECORD_COUNT=$(wc -l < {output.predictions})
-            RECORD_COUNT=$((RECORD_COUNT - 1))  # Subtract 1 for header
-            echo "Successfully compiled iPhop results with $RECORD_COUNT data records" >> {log} 2>&1
-        else
-            # Create empty output with header structure
-            echo -e "query\thost\tscore\tidentity\tcoverage\tkingdom\tphylum\tclass\torder\tfamily\tgenus" > {output.predictions}
-            echo "No iPhop result files found, created empty file with header" >> {log} 2>&1
+                awk -F ',' 'NR>1 && $1!="" {{OFS="\t"; print}}' "$pred_file" >> "$TMP_DIR/aggregated_data.tmp"
+            done < "$TMP_DIR/genome_files.txt"
+
+            # Count genome-level records
+            if [ -f "$TMP_DIR/aggregated_data.tmp" ]; then
+                GENOME_RECORDS=$(wc -l < "$TMP_DIR/aggregated_data.tmp")
+                echo "Added $GENOME_RECORDS genome-level host predictions" >> {log} 2>&1
+                TOTAL_RECORDS=$GENOME_RECORDS
+            fi
+
+        elif [ "$GENUS_COUNT" -gt 0 ]; then
+            # Fallback to genus-level if no genome-level found
+            FIRST_FILE=$(head -n 1 "$TMP_DIR/genus_files.txt")
+            head -n 1 "$FIRST_FILE" | tr ',' '\t' > {output.predictions}
+
+            # Process genus-level files
+            while read -r pred_file; do
+                awk -F ',' 'NR>1 && $1!="" {{OFS="\t"; print}}' "$pred_file" >> "$TMP_DIR/aggregated_data.tmp"
+            done < "$TMP_DIR/genus_files.txt"
+
+            if [ -f "$TMP_DIR/aggregated_data.tmp" ]; then
+                GENUS_RECORDS=$(wc -l < "$TMP_DIR/aggregated_data.tmp")
+                echo "Added $GENUS_RECORDS genus-level host predictions" >> {log} 2>&1
+                TOTAL_RECORDS=$GENUS_RECORDS
+            fi
         fi
-        
+
+        # Append all data to the output file
+        if [ -f "$TMP_DIR/aggregated_data.tmp" ] && [ -s "$TMP_DIR/aggregated_data.tmp" ]; then
+            cat "$TMP_DIR/aggregated_data.tmp" >> {output.predictions}
+            echo "Successfully compiled iPhop results with $TOTAL_RECORDS data records" >> {log} 2>&1
+        else
+            # Create empty output with header structure if no predictions found
+            echo -e "Virus\tHost_genome\tHost_taxonomy\tMain_method\tConfidence_score\tAdditional_methods" > {output.predictions}
+            echo "No iPhop predictions found, created empty file with header" >> {log} 2>&1
+        fi
+
         # Clean up temporary directory
         rm -rf "$TMP_DIR"
         """
@@ -450,23 +475,62 @@ rule phabox_prediction:
         fi
         
         # Process Phabox2 outputs and create standardized files
-        # Phabox2 creates output files with specific naming patterns
-        if [ -f "{output.results_dir}/out/phamer_prediction.csv" ]; then
+        # Handle both new format (final_prediction_summary.tsv) and legacy format
+        
+        # Check for new comprehensive format first
+        if [ -f "{output.results_dir}/final_prediction/final_prediction_summary.tsv" ]; then
+            echo "Processing Phabox2 new format: final_prediction_summary.tsv" >> {log}
+            
+            # Extract taxonomy information from new format
+            echo -e "contig_id\ttaxonomy_prediction\tconfidence" > {output.taxonomy}
+            tail -n +2 {output.results_dir}/final_prediction/final_prediction_summary.tsv | \
+                awk -F'\t' '$3=="virus" {{
+                    # Extract taxonomy from Lineage column (column 7)
+                    # Convert confidence score from PhaGCNScore (column 8) 
+                    lineage = $7; 
+                    if (lineage == "-" || lineage == "") lineage = "unclassified";
+                    conf = $8;
+                    if (conf == "" || conf == "-") conf = "0.0";
+                    print $1"\t"lineage"\t"conf
+                }}' >> {output.taxonomy}
+            
+            # Extract lifestyle information from new format  
+            echo -e "contig_id\tlifestyle_prediction\tconfidence" > {output.lifestyle}
+            tail -n +2 {output.results_dir}/final_prediction/final_prediction_summary.tsv | \
+                awk -F'\t' '$3=="virus" {{
+                    # Extract lifestyle from TYPE column (column 11)
+                    # Use PhaTYPScore for confidence (column 12)
+                    lifestyle = $11;
+                    if (lifestyle == "-" || lifestyle == "") lifestyle = "unknown";
+                    conf = $12;
+                    if (conf == "" || conf == "-") conf = "0.0";
+                    print $1"\t"lifestyle"\t"conf
+                }}' >> {output.lifestyle}
+        
+        # Fall back to legacy format processing
+        elif [ -f "{output.results_dir}/out/phamer_prediction.csv" ]; then
+            echo "Processing Phabox2 legacy format: phamer_prediction.csv" >> {log}
             # Extract taxonomy information
             echo -e "contig_id\ttaxonomy_prediction\tconfidence" > {output.taxonomy}
             tail -n +2 {output.results_dir}/out/phamer_prediction.csv | \
                 awk -F',' '{{print $1"\t"$2"\t"$3}}' >> {output.taxonomy}
         else
+            echo "No Phabox2 taxonomy results found, creating empty file" >> {log}
             echo -e "contig_id\ttaxonomy_prediction\tconfidence" > {output.taxonomy}
         fi
         
-        if [ -f "{output.results_dir}/out/cherry_prediction.csv" ]; then
-            # Extract lifestyle information
-            echo -e "contig_id\tlifestyle_prediction\tconfidence" > {output.lifestyle}
-            tail -n +2 {output.results_dir}/out/cherry_prediction.csv | \
-                awk -F',' '{{print $1"\t"$2"\t"$3}}' >> {output.lifestyle}
-        else
-            echo -e "contig_id\tlifestyle_prediction\tconfidence" > {output.lifestyle}
+        # Handle lifestyle predictions - only if we didn't already process new format
+        if [ ! -f "{output.results_dir}/final_prediction/final_prediction_summary.tsv" ]; then
+            if [ -f "{output.results_dir}/out/cherry_prediction.csv" ]; then
+                echo "Processing Phabox2 legacy format: cherry_prediction.csv" >> {log}
+                # Extract lifestyle information
+                echo -e "contig_id\tlifestyle_prediction\tconfidence" > {output.lifestyle}
+                tail -n +2 {output.results_dir}/out/cherry_prediction.csv | \
+                    awk -F',' '{{print $1"\t"$2"\t"$3}}' >> {output.lifestyle}
+            else
+                echo "No Phabox2 lifestyle results found, creating empty file" >> {log}
+                echo -e "contig_id\tlifestyle_prediction\tconfidence" > {output.lifestyle}
+            fi
         fi
         """
 

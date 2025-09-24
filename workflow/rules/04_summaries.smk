@@ -13,19 +13,39 @@ rule collect_input_stats:
     output:
         summary = f"{SUMMARY_DIR}/input_stats.json"
     params:
-        assembly = config.get("assembly_file", ""),
-        reads_dir = config.get("reads_dir", "")
+        assembly_file = config.get("assembly_file", ""),
+        assembly_graph = config.get("assembly_graph", ""),
+        reads_dir = config.get("reads_dir", ""),
+        reneo_output = f"{config['output_dir']}/01_reneo_output/genomes_and_unresolved_edges_1KB.fasta"
     log:
         f"{config['output_dir']}/logs/summaries/collect_input_stats.log"
     conda:
         "../envs/python.yaml"
     shell:
         """
+        # Determine which assembly source to use
+        ASSEMBLY_INPUT=""
+
+        # Priority: 1) Reneo output (if assembly_graph was used), 2) assembly_file, 3) assembly_graph
+        if [ -n "{params.assembly_graph}" ] && [ -f "{params.reneo_output}" ]; then
+            ASSEMBLY_INPUT="{params.reneo_output}"
+            echo "Using Reneo output as assembly input: $ASSEMBLY_INPUT" > {log}
+        elif [ -n "{params.assembly_file}" ] && [ -f "{params.assembly_file}" ]; then
+            ASSEMBLY_INPUT="{params.assembly_file}"
+            echo "Using assembly file as input: $ASSEMBLY_INPUT" > {log}
+        elif [ -n "{params.assembly_graph}" ]; then
+            echo "Assembly graph specified but no Reneo output found. Using empty assembly." > {log}
+            ASSEMBLY_INPUT=""
+        else
+            echo "No valid assembly input found" > {log}
+            ASSEMBLY_INPUT=""
+        fi
+
         python {workflow.basedir}/scripts/collect_step_summary.py \
             --step input_stats \
             --output {output.summary} \
-            --inputs assembly_fasta:{params.assembly} reads_dir:{params.reads_dir} \
-            > {log} 2>&1 || true
+            --inputs assembly_fasta:"$ASSEMBLY_INPUT" reads_dir:{params.reads_dir} \
+            >> {log} 2>&1
         """
 
 # Rule to collect Reneo statistics (only if Reneo is used)
@@ -70,7 +90,7 @@ rule collect_filtering_stats:
             --step filtering_stats \
             --output {output.summary} \
             --inputs mmseqs_results:{input.lca_results} viral_contigs:{input.viral_contigs} \
-            > {log} 2>&1 || true
+            > {log} 2>&1
         """
 
 # Rule to collect Jaeger statistics
@@ -89,7 +109,7 @@ rule collect_jaeger_stats:
             --step jaeger_stats \
             --output {output.summary} \
             --inputs jaeger_results:{input.jaeger_results} \
-            > {log} 2>&1 || true
+            > {log} 2>&1
         """
 
 # Rule to collect geNomad statistics
@@ -108,7 +128,7 @@ rule collect_genomad_stats:
             --step genomad_stats \
             --output {output.summary} \
             --inputs genomad_results:{input.genomad_results} \
-            > {log} 2>&1 || true
+            > {log} 2>&1
         """
 
 # Rule to collect PHOLD statistics
@@ -127,7 +147,7 @@ rule collect_phold_stats:
             --step phold_stats \
             --output {output.summary} \
             --inputs phold_results:{input.phold_results} \
-            > {log} 2>&1 || true
+            > {log} 2>&1
         """
 
 # Rule to collect CheckV statistics
@@ -146,7 +166,7 @@ rule collect_checkv_stats:
             --step checkv_stats \
             --output {output.summary} \
             --inputs checkv_results:{input.checkv_results} \
-            > {log} 2>&1 || true
+            > {log} 2>&1
         """
 
 # Rule to collect integration statistics
@@ -166,7 +186,7 @@ rule collect_integration_stats:
             --step integration_stats \
             --output {output.summary} \
             --inputs phage_predictions:{input.phage_predictions} phage_contigs:{input.phage_contigs} \
-            > {log} 2>&1 || true
+            > {log} 2>&1
         """
 
 # Rule to collect iPhop statistics
@@ -185,13 +205,14 @@ rule collect_iphop_stats:
             --step iphop_stats \
             --output {output.summary} \
             --inputs iphop_results:{input.iphop_results} \
-            > {log} 2>&1 || true
+            > {log} 2>&1
         """
 
 # Rule to collect lifestyle prediction statistics
 rule collect_lifestyle_stats:
     input:
-        bacphlip_results = f"{config['output_dir']}/03_genomic_info/bacphlip_lifestyle_with_completeness.tsv"
+        phabox_lifestyle = f"{config['output_dir']}/03_genomic_info/phabox_output/lifestyle.tsv"
+        # bacphlip_results = f"{config['output_dir']}/03_genomic_info/bacphlip_lifestyle_with_completeness.tsv"  # Disabled for now
     output:
         summary = f"{SUMMARY_DIR}/lifestyle_stats.json"
     log:
@@ -200,23 +221,43 @@ rule collect_lifestyle_stats:
         "../envs/python.yaml"
     shell:
         """
-        # Check if BACPHLIP results exist, otherwise try to find other lifestyle prediction results
-        LIFESTYLE_FILE="{input.bacphlip_results}"
-        if [ ! -f "$LIFESTYLE_FILE" ]; then
-            # Look for alternative lifestyle prediction files
-            for alt_file in "{config[output_dir]}/03_phacts_results/phacts_predictions_compiled.tsv" "{config[output_dir]}/03_genomic_info/phabox_output/lifestyle.tsv"; do
-                if [ -f "$alt_file" ]; then
-                    LIFESTYLE_FILE="$alt_file"
-                    break
-                fi
-            done
+        # Count lifestyle predictions from Phabox2 (only source)
+        PHABOX_COUNT=0
+        if [ -f "{input.phabox_lifestyle}" ]; then
+            # Count lines excluding header (subtract 1)
+            PHABOX_COUNT=$(( $(wc -l < "{input.phabox_lifestyle}") - 1 ))
+            echo "Found $PHABOX_COUNT Phabox2 lifestyle predictions" >> {log}
         fi
         
-        python {workflow.basedir}/scripts/collect_step_summary.py \
-            --step lifestyle_stats \
-            --output {output.summary} \
-            --inputs lifestyle_results:"$LIFESTYLE_FILE" \
-            > {log} 2>&1 || true
+        # BACPHLIP disabled for now - uncomment below to re-enable
+        # BACPHLIP_COUNT=0
+        # BACPHLIP_FILE="{config[output_dir]}/03_genomic_info/bacphlip_lifestyle_with_completeness.tsv"
+        # if [ -f "$BACPHLIP_FILE" ]; then
+        #     BACPHLIP_COUNT=$(( $(wc -l < "$BACPHLIP_FILE") - 1 ))
+        #     echo "Found $BACPHLIP_COUNT BACPHLIP lifestyle predictions" >> {log}
+        # fi
+        
+        # Use Phabox2 count (only source currently enabled)
+        TOTAL_COUNT=$PHABOX_COUNT
+        
+        # Create summary JSON
+        cat > {output.summary} << EOF
+{{
+  "step": "lifestyle_stats",
+  "timestamp": "$(date -Iseconds)",
+  "inputs": {{
+    "lifestyle_results": {{
+      "tool": "phabox2",
+      "total_predictions": $TOTAL_COUNT,
+      "phabox2_predictions": $PHABOX_COUNT
+    }}
+  }},
+  "outputs": {{}},
+  "statistics": {{}}
+}}
+EOF
+        
+        echo "Lifestyle stats summary created with $TOTAL_COUNT Phabox2 predictions" >> {log}
         """
 
 # Rule to collect clustering statistics (only if clustering is enabled)
@@ -329,7 +370,7 @@ rule collect_final_stats:
             --step final_phages \
             --output {output.summary} \
             --inputs final_sequences:{input.final_seqs} \
-            > {log} 2>&1 || true
+            > {log} 2>&1
         """
 
 # Rule to generate the final summary report
