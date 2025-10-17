@@ -106,72 +106,64 @@ if start_from != "raw_contigs":
 
 print(f"Pipeline configured to start from: {start_from}")
 
+# Auto-configure do_clustering based on start_from
+if start_from == "clustering":
+    config["do_clustering"] = False
+    print("Automatically disabled clustering (do_clustering=False) since starting from clustered sequences")
+
 # Will be set by 01_prediction.smk
 use_reneo = False
+
+# Helper function to get required outputs based on start_from
+def get_pipeline_outputs():
+    """
+    Return list of output files to generate based on start_from configuration.
+    This prevents requesting outputs from steps that weren't run.
+    """
+    outputs = []
+    start = config.get("start_from", "raw_contigs")
+
+    # Outputs from prediction/filtering steps (only if starting from raw_contigs)
+    if start == "raw_contigs":
+        if workflow.globals.get("use_reneo", False):
+            outputs.append(f"{config['output_dir']}/01_reneo_output/genomes_and_unresolved_edges_1KB.fasta")
+        else:
+            outputs.append(f"{config['output_dir']}/01_filtered_assembly/filtered_assembly_1KB.fasta")
+
+    # Clustering outputs (only if do_clustering is enabled)
+    if config.get("do_clustering", True):
+        outputs.append(f"{config['output_dir']}/02_clustering/vOTU_repSeqs.fasta")
+
+    # Analysis outputs (always required for final results)
+    outputs.extend([
+        f"{config['output_dir']}/03_split_seqs/split_file_list.txt",
+        f"{config['output_dir']}/03_iphop_results/.splits_ready",
+        f"{config['output_dir']}/03_iphop_results/.input_files_found",
+        f"{config['output_dir']}/03_iphop_results/.all_predictions_done",
+        f"{config['output_dir']}/03_iphop_results/iphop_predictions_compiled.tsv",
+        f"{config['output_dir']}/03_genomic_info/bacphlip_lifestyle.tsv",
+        f"{config['output_dir']}/03_genomic_info/bacphlip_lifestyle_with_completeness.tsv",
+        f"{config['output_dir']}/03_genomic_info/lifestyle_consensus.tsv",
+        f"{config['output_dir']}/03_genomic_info/mmseqs_taxonomy.tsv",
+        f"{config['output_dir']}/03_genomic_info/phabox_output/taxonomy.tsv",
+        f"{config['output_dir']}/03_genomic_info/phabox_output/lifestyle.tsv",
+        f"{config['output_dir']}/03_genomic_info/vc3_output",
+    ])
+
+    # Consensus taxonomy (if enabled)
+    if config.get("run_consensus", True):
+        outputs.append(f"{config['output_dir']}/03_genomic_info/consensus_taxonomy.tsv")
+
+    # Summary reports (if enabled)
+    if config.get("generate_summaries", True):
+        outputs.extend([
+            f"{config['output_dir']}/pipeline_summaries/.all_summaries_collected",
+            f"{config['output_dir']}/Pipeline_Summary_Report.html"
+        ])
+
+    return outputs
 
 # Default target rule
 rule all:
     input:
-        # Start with appropriate filtered assembly based on whether Reneo will run
-        [f"{config['output_dir']}/01_reneo_output/genomes_and_unresolved_edges_1KB.fasta"] 
-        if workflow.globals["use_reneo"] else 
-        [f"{config['output_dir']}/01_filtered_assembly/filtered_assembly_1KB.fasta"],
-            
-        # Explicitly include splitting steps to ensure they appear in the plan
-        f"{config['output_dir']}/03_split_seqs/split_file_list.txt",
-        
-        # Add checkpoint triggers
-        f"{config['output_dir']}/03_iphop_results/.splits_ready",
-        
-        # Add the input file checkpoints
-        f"{config['output_dir']}/03_iphop_results/.input_files_found",
-        
-        # Add helpers that run the single prediction jobs
-        f"{config['output_dir']}/03_iphop_results/.all_predictions_done",
-        
-        # Final output files depending on whether clustering is enabled
-        lambda wildcards: 
-            expand(
-                "{outdir}/03_iphop_results/iphop_predictions_compiled.tsv",
-                outdir=config["output_dir"]
-            ) +
-            # Add BACPHLIP lifestyle prediction
-            expand(
-                "{outdir}/03_genomic_info/bacphlip_lifestyle.tsv",
-                outdir=config["output_dir"]
-            ) +
-            expand(
-                "{outdir}/03_genomic_info/bacphlip_lifestyle_with_completeness.tsv",
-                outdir=config["output_dir"]
-            ) +
-            expand(
-                "{outdir}/03_genomic_info/mmseqs_taxonomy.tsv",
-                outdir=config["output_dir"]
-            ) +
-            # Add Phabox2 outputs (taxonomy and lifestyle prediction)
-            expand(
-                "{outdir}/03_genomic_info/phabox_output/taxonomy.tsv",
-                outdir=config["output_dir"]
-            ) +
-            expand(
-                "{outdir}/03_genomic_info/phabox_output/lifestyle.tsv", 
-                outdir=config["output_dir"]
-            ) +
-            # Add vContact3 output (gene-content based taxonomy)
-            expand(
-                "{outdir}/03_genomic_info/vc3_output",
-                outdir=config["output_dir"]
-            ) +
-            # Add taxonomic consensus (if enabled)
-            (["{outdir}/03_genomic_info/consensus_taxonomy.tsv".format(
-                outdir=config["output_dir"]
-             )] if config.get("run_consensus", True) else []) +
-            (["{outdir}/02_clustering/vOTU_repSeqs.fasta".format(
-                outdir=config["output_dir"]
-             )] if config.get("do_clustering", True) else []) +
-            # Add summary collection and report generation if enabled (default: True)
-            (["{outdir}/pipeline_summaries/.all_summaries_collected".format(
-                outdir=config["output_dir"]
-             ), "{outdir}/Pipeline_Summary_Report.html".format(
-                outdir=config["output_dir"]
-             )] if config.get("generate_summaries", True) else [])
+        get_pipeline_outputs()

@@ -8,6 +8,42 @@ import os
 # Summary directory
 SUMMARY_DIR = f"{config['output_dir']}/pipeline_summaries"
 
+# Helper function to determine which summary files to collect based on start_from
+def get_required_summaries():
+    """
+    Return list of summary files that should be collected based on start_from configuration.
+    This prevents trying to collect summaries from steps that didn't run.
+    """
+    summaries = []
+    start = config.get("start_from", "raw_contigs")
+
+    # Prediction/filtering summaries (only if starting from raw_contigs)
+    if start == "raw_contigs":
+        summaries.extend([
+            f"{SUMMARY_DIR}/input_stats.json",
+            f"{SUMMARY_DIR}/reneo_stats.json",
+            f"{SUMMARY_DIR}/filtering_stats.json",
+            f"{SUMMARY_DIR}/jaeger_stats.json",
+            f"{SUMMARY_DIR}/genomad_stats.json",
+            f"{SUMMARY_DIR}/phold_stats.json",
+            f"{SUMMARY_DIR}/checkv_stats.json",
+            f"{SUMMARY_DIR}/integration_stats.json",
+        ])
+
+    # Analysis summaries (always collected)
+    summaries.extend([
+        f"{SUMMARY_DIR}/iphop_stats.json",
+        f"{SUMMARY_DIR}/lifestyle_stats.json",
+        f"{SUMMARY_DIR}/consensus_taxonomy.json",
+        f"{SUMMARY_DIR}/final_phages.json"
+    ])
+
+    # Clustering summary (only if do_clustering is enabled)
+    if config.get("do_clustering", True):
+        summaries.append(f"{SUMMARY_DIR}/clustering_stats.json")
+
+    return summaries
+
 # Rule to collect input statistics
 rule collect_input_stats:
     output:
@@ -437,19 +473,7 @@ rule generate_summary_report:
 # Rule to run all summary collection (helper rule)
 rule collect_all_summaries:
     input:
-        f"{SUMMARY_DIR}/input_stats.json",
-        f"{SUMMARY_DIR}/reneo_stats.json",
-        f"{SUMMARY_DIR}/filtering_stats.json",
-        f"{SUMMARY_DIR}/jaeger_stats.json",
-        f"{SUMMARY_DIR}/genomad_stats.json",
-        f"{SUMMARY_DIR}/phold_stats.json",
-        f"{SUMMARY_DIR}/checkv_stats.json",
-        f"{SUMMARY_DIR}/integration_stats.json",
-        f"{SUMMARY_DIR}/iphop_stats.json",
-        f"{SUMMARY_DIR}/lifestyle_stats.json",
-        f"{SUMMARY_DIR}/consensus_taxonomy.json",
-        f"{SUMMARY_DIR}/clustering_stats.json",
-        f"{SUMMARY_DIR}/final_phages.json"
+        get_required_summaries()
     output:
         flag = f"{SUMMARY_DIR}/.all_summaries_collected"
     shell:
