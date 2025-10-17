@@ -76,33 +76,31 @@ if start_from not in valid_start_points:
 
 # Validate alternative inputs when using non-default start points
 if start_from != "raw_contigs":
-    alt_inputs = config.get("alternative_inputs", {})
-
     if start_from == "reneo":
-        reneo_dir = alt_inputs.get("reneo_output_dir", "")
+        reneo_dir = config.get("input_reneo_dir", "")
         if not reneo_dir or is_placeholder_path(reneo_dir):
-            raise ValueError("When start_from='reneo', you must provide 'alternative_inputs.reneo_output_dir' in config")
+            raise ValueError("When start_from='reneo', you must provide 'input_reneo_dir' in config or via --config")
         if not os.path.exists(reneo_dir):
             raise ValueError(f"Reneo output directory does not exist: {reneo_dir}")
 
     elif start_from == "viral_contigs":
-        viral_file = alt_inputs.get("viral_contigs_file", "")
+        viral_file = config.get("input_viral_contigs", "")
         if not viral_file or is_placeholder_path(viral_file):
-            raise ValueError("When start_from='viral_contigs', you must provide 'alternative_inputs.viral_contigs_file' in config")
+            raise ValueError("When start_from='viral_contigs', you must provide 'input_viral_contigs' in config or via --config")
         if not os.path.exists(viral_file):
             raise ValueError(f"Viral contigs file does not exist: {viral_file}")
 
     elif start_from == "phage_contigs":
-        phage_file = alt_inputs.get("phage_contigs_file", "")
+        phage_file = config.get("input_phage_contigs", "")
         if not phage_file or is_placeholder_path(phage_file):
-            raise ValueError("When start_from='phage_contigs', you must provide 'alternative_inputs.phage_contigs_file' in config")
+            raise ValueError("When start_from='phage_contigs', you must provide 'input_phage_contigs' in config or via --config")
         if not os.path.exists(phage_file):
             raise ValueError(f"Phage contigs file does not exist: {phage_file}")
 
     elif start_from == "clustering":
-        clustered_file = alt_inputs.get("clustered_seqs_file", "")
+        clustered_file = config.get("input_clustered_seqs", "")
         if not clustered_file or is_placeholder_path(clustered_file):
-            raise ValueError("When start_from='clustering', you must provide 'alternative_inputs.clustered_seqs_file' in config")
+            raise ValueError("When start_from='clustering', you must provide 'input_clustered_seqs' in config or via --config")
         if not os.path.exists(clustered_file):
             raise ValueError(f"Clustered sequences file does not exist: {clustered_file}")
 

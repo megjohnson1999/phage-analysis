@@ -21,11 +21,11 @@ def get_phage_contigs_input(wildcards):
 
     if start_from == "phage_contigs":
         # User is providing their own phage contigs file
-        alt_input = config.get("alternative_inputs", {}).get("phage_contigs_file", "")
+        alt_input = config.get("input_phage_contigs", "")
         if alt_input and os.path.exists(alt_input):
             return alt_input
         else:
-            raise ValueError(f"start_from='phage_contigs' but alternative_inputs.phage_contigs_file is not set or file does not exist: {alt_input}")
+            raise ValueError(f"start_from='phage_contigs' but input_phage_contigs is not set or file does not exist: {alt_input}")
 
     # Default: comes from phage prediction workflow
     return f"{config['output_dir']}/01_phage_predictions/phageContigs.fasta"
@@ -39,11 +39,11 @@ def get_clustered_seqs_input(wildcards):
 
     if start_from == "clustering":
         # User is providing their own clustered sequences
-        alt_input = config.get("alternative_inputs", {}).get("clustered_seqs_file", "")
+        alt_input = config.get("input_clustered_seqs", "")
         if alt_input and os.path.exists(alt_input):
             return alt_input
         else:
-            raise ValueError(f"start_from='clustering' but alternative_inputs.clustered_seqs_file is not set or file does not exist: {alt_input}")
+            raise ValueError(f"start_from='clustering' but input_clustered_seqs is not set or file does not exist: {alt_input}")
 
     # Default: comes from clustering workflow
     return f"{config['output_dir']}/02_clustering/vOTU_repSeqs.fasta"

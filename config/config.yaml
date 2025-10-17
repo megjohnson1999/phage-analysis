@@ -24,13 +24,12 @@ reads_dir: "/path/to/reads"  # Directory containing sequencing reads
 # Choose where to start the pipeline - useful for testing or when you have intermediate results
 start_from: "raw_contigs"  # Options: raw_contigs, reneo, viral_contigs, phage_contigs, clustering
 
-# Alternative input files for different start points
-# Only fill in the one corresponding to your start_from value above
-alternative_inputs:
-  reneo_output_dir: ""  # Use if start_from: "reneo" (path to reneo results directory)
-  viral_contigs_file: ""  # Use if start_from: "viral_contigs" (path to passingViralContigs.fasta or equivalent)
-  phage_contigs_file: ""  # Use if start_from: "phage_contigs" (path to predicted phage contigs FASTA)
-  clustered_seqs_file: ""  # Use if start_from: "clustering" (path to vOTU representative sequences FASTA)
+# Input files for different start points (only fill in the one corresponding to start_from)
+# These can be easily overridden from the command line: --config start_from=clustering input_clustered_seqs=/path/to/file.fasta
+input_reneo_dir: ""  # Use if start_from: "reneo" (path to reneo results directory)
+input_viral_contigs: ""  # Use if start_from: "viral_contigs" (path to passingViralContigs.fasta or equivalent)
+input_phage_contigs: ""  # Use if start_from: "phage_contigs" (path to predicted phage contigs FASTA)
+input_clustered_seqs: ""  # Use if start_from: "clustering" (path to vOTU representative sequences FASTA)
 
 # Pipeline configuration
 do_clustering: true  # Set to false to skip clustering
