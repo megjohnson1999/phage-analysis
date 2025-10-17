@@ -3,12 +3,69 @@ Rules for clustering phage contigs into vOTUs.
 This step is optional and can be skipped based on config settings.
 """
 
+import os
+
 # Determine if clustering should be skipped
 def skip_clustering(wildcards):
     return not config.get("do_clustering", True)
 
+# INPUT FUNCTIONS FOR DIFFERENT START POINTS
+# These functions allow the pipeline to start from different intermediate files
+
+def get_phage_contigs_input(wildcards):
+    """
+    Get the input for phage contigs based on start_from config.
+    This is used by the clustering rule.
+    """
+    start_from = config.get("start_from", "raw_contigs")
+
+    if start_from == "phage_contigs":
+        # User is providing their own phage contigs file
+        alt_input = config.get("alternative_inputs", {}).get("phage_contigs_file", "")
+        if alt_input and os.path.exists(alt_input):
+            return alt_input
+        else:
+            raise ValueError(f"start_from='phage_contigs' but alternative_inputs.phage_contigs_file is not set or file does not exist: {alt_input}")
+
+    # Default: comes from phage prediction workflow
+    return f"{config['output_dir']}/01_phage_predictions/phageContigs.fasta"
+
+def get_clustered_seqs_input(wildcards):
+    """
+    Get the input for clustered sequences based on start_from config.
+    This is used when clustering is skipped or when starting from clustering results.
+    """
+    start_from = config.get("start_from", "raw_contigs")
+
+    if start_from == "clustering":
+        # User is providing their own clustered sequences
+        alt_input = config.get("alternative_inputs", {}).get("clustered_seqs_file", "")
+        if alt_input and os.path.exists(alt_input):
+            return alt_input
+        else:
+            raise ValueError(f"start_from='clustering' but alternative_inputs.clustered_seqs_file is not set or file does not exist: {alt_input}")
+
+    # Default: comes from clustering workflow
+    return f"{config['output_dir']}/02_clustering/vOTU_repSeqs.fasta"
+
 # Define the phage input file - either from clustering or from prediction
+# This is the main function used by downstream analysis rules
 def get_phage_input(wildcards):
+    """
+    Get the appropriate phage sequences for analysis.
+    Checks start_from config first, then do_clustering setting.
+    """
+    start_from = config.get("start_from", "raw_contigs")
+
+    # If starting from clustering, use the provided file directly
+    if start_from == "clustering":
+        return get_clustered_seqs_input(wildcards)
+
+    # If starting from phage contigs and clustering is disabled, use those directly
+    if start_from == "phage_contigs" and not config.get("do_clustering", True):
+        return get_phage_contigs_input(wildcards)
+
+    # Otherwise, follow normal logic
     if config.get("do_clustering", True):
         return f"{config['output_dir']}/02_clustering/vOTU_repSeqs.fasta"
     else:
@@ -17,7 +74,7 @@ def get_phage_input(wildcards):
 # 1. Cluster phage contigs with vclust
 rule cluster_phages:
     input:
-        phage_contigs = f"{config['output_dir']}/01_phage_predictions/phageContigs.fasta"
+        phage_contigs = get_phage_contigs_input
     output:
         clustering_dir = directory(f"{config['output_dir']}/02_clustering/clustering_results"),
         clusters = f"{config['output_dir']}/02_clustering/clusters.tsv",
@@ -129,7 +186,7 @@ rule cluster_phages:
 # 2. Extract vOTU representative sequences
 rule extract_votu_representatives:
     input:
-        phage_contigs = f"{config['output_dir']}/01_phage_predictions/phageContigs.fasta",
+        phage_contigs = get_phage_contigs_input,
         rep_seqs_list = f"{config['output_dir']}/02_clustering/vOTU_repSeqs.tsv"
     output:
         rep_seqs = f"{config['output_dir']}/02_clustering/vOTU_repSeqs.fasta"

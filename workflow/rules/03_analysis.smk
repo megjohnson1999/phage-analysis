@@ -598,6 +598,7 @@ rule bacphlip_lifestyle:
         phage_seqs = get_phage_input,
         checkv_quality = f"{config['output_dir']}/01_checkv_output/quality_summary.tsv"
     output:
+        results_dir = directory(f"{config['output_dir']}/03_genomic_info/bacphlip_output"),
         results = f"{config['output_dir']}/03_genomic_info/bacphlip_lifestyle.tsv",
         with_completeness = f"{config['output_dir']}/03_genomic_info/bacphlip_lifestyle_with_completeness.tsv"
     log:
@@ -607,55 +608,68 @@ rule bacphlip_lifestyle:
     threads: 8
     shell:
         """
+        # Create output directory
+        mkdir -p {output.results_dir}
+
         # Check if input file exists and has content
         if [ ! -f "{input.phage_seqs}" ] || [ ! -s "{input.phage_seqs}" ]; then
             echo "Warning: Input file is empty or missing: {input.phage_seqs}" > {log} 2>&1
             echo "Creating empty BACPHLIP output files..." >> {log} 2>&1
-            echo -e "Sequence\tLifestyle\tConfidence" > {output.results}
-            echo -e "Sequence\tLifestyle\tConfidence\tCompleteness\tCheckV_quality" > {output.with_completeness}
+            echo -e "Sequence\tVirulent\tTemperate" > {output.results}
+            echo -e "Sequence\tVirulent\tTemperate\tCompleteness\tCheckV_quality" > {output.with_completeness}
         else
             # Count sequences in input file
             SEQ_COUNT=$(grep -c ">" {input.phage_seqs} || echo "0")
             echo "Processing $SEQ_COUNT sequences with BACPHLIP" > {log} 2>&1
-            
+
             if [ "$SEQ_COUNT" -eq 0 ]; then
                 echo "Warning: Input file contains 0 sequences" >> {log} 2>&1
                 echo "Creating empty BACPHLIP output files..." >> {log} 2>&1
-                echo -e "Sequence\tLifestyle\tConfidence" > {output.results}
-                echo -e "Sequence\tLifestyle\tConfidence\tCompleteness\tCheckV_quality" > {output.with_completeness}
+                echo -e "Sequence\tVirulent\tTemperate" > {output.results}
+                echo -e "Sequence\tVirulent\tTemperate\tCompleteness\tCheckV_quality" > {output.with_completeness}
             else
                 # Create temporary directory
                 TMP_DIR=$(mktemp -d)
-                
-                # Clean up any existing BACPHLIP directory
+
+                # Clean up any existing BACPHLIP directories
                 rm -rf {input.phage_seqs}.BACPHLIP_DIR/
-                
+                rm -rf {input.phage_seqs}.bacphlip/
+
                 # Run BACPHLIP in multi-fasta mode
                 echo "Running BACPHLIP on all sequences..." >> {log} 2>&1
                 bacphlip -i {input.phage_seqs} --multi_fasta -f \
                     > $TMP_DIR/bacphlip_raw.tsv 2>> {log} || {{
                         echo "BACPHLIP failed. Creating placeholder output..." >> {log} 2>&1
-                        echo -e "Sequence\tLifestyle\tConfidence" > {output.results}
-                        echo -e "Sequence\tLifestyle\tConfidence\tCompleteness\tCheckV_quality" > {output.with_completeness}
+                        echo -e "Sequence\tVirulent\tTemperate" > {output.results}
+                        echo -e "Sequence\tVirulent\tTemperate\tCompleteness\tCheckV_quality" > {output.with_completeness}
                         rm -rf $TMP_DIR
                         exit 0
                     }}
-                
-                # Copy raw results
+
+                # Copy the auto-generated BACPHLIP directory to our organized output location
+                # BACPHLIP creates a directory at {input}.bacphlip with intermediate results
+                if [ -d "{input.phage_seqs}.bacphlip" ]; then
+                    echo "Copying BACPHLIP output directory to organized location..." >> {log} 2>&1
+                    cp -r {input.phage_seqs}.bacphlip/* {output.results_dir}/ 2>> {log} || true
+                    # Clean up the auto-generated directory in the clustering folder
+                    rm -rf {input.phage_seqs}.bacphlip/
+                fi
+
+                # Copy raw results (stdout output from BACPHLIP)
                 cp $TMP_DIR/bacphlip_raw.tsv {output.results}
-                
+
                 # Join with CheckV completeness data
                 echo "Adding completeness information..." >> {log} 2>&1
-                
-                # Create header
-                echo -e "Sequence\tLifestyle\tConfidence\tCompleteness\tCheckV_quality" > {output.with_completeness}
-                
+
+                # Create header - keep original format with Virulent and Temperate confidence scores
+                echo -e "Sequence\tVirulent\tTemperate\tCompleteness\tCheckV_quality" > {output.with_completeness}
+
                 # Process BACPHLIP results and join with CheckV data
-                # Note: CheckV quality_summary.tsv has columns: contig_id, various metrics..., checkv_quality
-                tail -n +2 $TMP_DIR/bacphlip_raw.tsv | while IFS=$'\t' read -r seq lifestyle conf; do
+                # BACPHLIP output format: Sequence\tVirulent_confidence\tTemperate_confidence
+                tail -n +1 $TMP_DIR/bacphlip_raw.tsv | while IFS=$'\t' read -r seq virulent_conf temperate_conf; do
                     # Look up this sequence in CheckV results
                     checkv_line=$(grep "^${{seq}}\t" {input.checkv_quality} || echo "")
-                    
+
                     if [ -n "$checkv_line" ]; then
                         # Extract completeness (column 10) and quality (column 8) from CheckV
                         completeness=$(echo "$checkv_line" | cut -f10)
@@ -664,18 +678,18 @@ rule bacphlip_lifestyle:
                         completeness="Unknown"
                         quality="Not_found_in_CheckV"
                     fi
-                    
-                    echo -e "${{seq}}\t${{lifestyle}}\t${{conf}}\t${{completeness}}\t${{quality}}"
+
+                    echo -e "${{seq}}\t${{virulent_conf}}\t${{temperate_conf}}\t${{completeness}}\t${{quality}}"
                 done >> {output.with_completeness}
-                
+
                 # Log summary statistics
                 echo "BACPHLIP analysis complete. Summary:" >> {log} 2>&1
-                echo "Total sequences: $(tail -n +2 {output.results} | wc -l)" >> {log} 2>&1
+                echo "Total sequences: $(wc -l < $TMP_DIR/bacphlip_raw.tsv)" >> {log} 2>&1
                 echo "Complete genomes: $(grep -E "\tComplete\t|\tHigh-quality\t" {output.with_completeness} | wc -l)" >> {log} 2>&1
                 echo "Medium-quality: $(grep "\tMedium-quality\t" {output.with_completeness} | wc -l)" >> {log} 2>&1
                 echo "Low-quality: $(grep "\tLow-quality\t" {output.with_completeness} | wc -l)" >> {log} 2>&1
                 echo "Not-determined: $(grep "\tNot-determined\t" {output.with_completeness} | wc -l)" >> {log} 2>&1
-                
+
                 # Clean up
                 rm -rf $TMP_DIR
                 rm -rf {input.phage_seqs}.BACPHLIP_DIR/
@@ -683,7 +697,50 @@ rule bacphlip_lifestyle:
         fi
         """
 
-# 10. Create taxonomic consensus from multiple tools using R script with taxonomizr
+# 10. Create lifestyle consensus from BACPHLIP and Phabox2
+rule lifestyle_consensus:
+    input:
+        bacphlip = f"{config['output_dir']}/03_genomic_info/bacphlip_lifestyle.tsv",
+        phabox = f"{config['output_dir']}/03_genomic_info/phabox_output/lifestyle.tsv"
+    output:
+        consensus = f"{config['output_dir']}/03_genomic_info/lifestyle_consensus.tsv"
+    log:
+        f"{config['output_dir']}/logs/lifestyle_consensus.log"
+    conda:
+        config["conda_envs"]["python"]
+    params:
+        threshold = 0.7  # Minimum confidence for BACPHLIP predictions
+    shell:
+        """
+        echo "Creating lifestyle consensus..." > {log} 2>&1
+
+        # Run the lifestyle consensus script
+        python {workflow.basedir}/scripts/lifestyle_consensus.py \
+            --bacphlip {input.bacphlip} \
+            --phabox {input.phabox} \
+            --output {output.consensus} \
+            --threshold {params.threshold} \
+            >> {log} 2>&1
+
+        # Log results summary
+        if [ -f {output.consensus} ]; then
+            CONSENSUS_COUNT=$(tail -n +2 {output.consensus} | wc -l)
+            echo "Successfully created lifestyle consensus for $CONSENSUS_COUNT contigs" >> {log} 2>&1
+
+            # Count predictions by source
+            echo "Predictions by source:" >> {log} 2>&1
+            tail -n +2 {output.consensus} | cut -f4 | sort | uniq -c >> {log} 2>&1
+
+            # Count predictions by lifestyle
+            echo "Predictions by lifestyle:" >> {log} 2>&1
+            tail -n +2 {output.consensus} | cut -f2 | sort | uniq -c >> {log} 2>&1
+        else
+            echo "ERROR: Lifestyle consensus file was not created" >> {log} 2>&1
+            exit 1
+        fi
+        """
+
+# 11. Create taxonomic consensus from multiple tools using R script with taxonomizr
 rule taxonomic_consensus:
     input:
         mmseqs_raw = f"{config['output_dir']}/03_genomic_info/mmseqs_taxonomy.tsv",

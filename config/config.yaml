@@ -20,6 +20,18 @@ assembly_file: "/path/to/assembly.fasta"  # Path to assembly file for FASTA-only
 assembly_graph: ""   # Path to assembly graph file for Reneo workflow
 reads_dir: "/path/to/reads"  # Directory containing sequencing reads
 
+# START POINT CONFIGURATION
+# Choose where to start the pipeline - useful for testing or when you have intermediate results
+start_from: "raw_contigs"  # Options: raw_contigs, reneo, viral_contigs, phage_contigs, clustering
+
+# Alternative input files for different start points
+# Only fill in the one corresponding to your start_from value above
+alternative_inputs:
+  reneo_output_dir: ""  # Use if start_from: "reneo" (path to reneo results directory)
+  viral_contigs_file: ""  # Use if start_from: "viral_contigs" (path to passingViralContigs.fasta or equivalent)
+  phage_contigs_file: ""  # Use if start_from: "phage_contigs" (path to predicted phage contigs FASTA)
+  clustered_seqs_file: ""  # Use if start_from: "clustering" (path to vOTU representative sequences FASTA)
+
 # Pipeline configuration
 do_clustering: true  # Set to false to skip clustering
 generate_summaries: true  # Set to false to skip summary report generation
