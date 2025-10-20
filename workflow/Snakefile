@@ -24,6 +24,14 @@ def parse_bool(value):
         return value.lower() in ('true', '1', 'yes', 'y')
     return bool(value)
 
+# Helper function to check if a path is a placeholder
+def is_placeholder_path(path):
+    """Check if a path is likely a placeholder that should be ignored."""
+    if not path:
+        return True
+    placeholder_indicators = ["/path/to/", "PLACEHOLDER", "YOUR_", "CHANGE_ME"]
+    return any(indicator in str(path) for indicator in placeholder_indicators)
+
 # Parse boolean config values that may come from command line as strings
 if "do_clustering" in config:
     config["do_clustering"] = parse_bool(config["do_clustering"])
@@ -36,22 +44,17 @@ if "generate_summaries" in config:
 if "outdir" in config and "output_dir" not in config:
     config["output_dir"] = config["outdir"]
 
+# Validate output_dir is set and not a placeholder
+if not config.get("output_dir"):
+    raise ValueError("'output_dir' must be specified in config.yaml or via --config outdir=/path/to/output")
+if is_placeholder_path(config.get("output_dir")):
+    raise ValueError(f"'output_dir' contains a placeholder path: '{config.get('output_dir')}'. Please provide a valid output directory via --config outdir=/path/to/output")
+
 # Import rules
 include: "rules/01_prediction.smk"
 include: "rules/02_clustering.smk"
 include: "rules/03_analysis.smk"
 include: "rules/04_summaries.smk"
-
-# Import needed for file existence checks
-import os
-
-# Helper function to check if a path is a placeholder
-def is_placeholder_path(path):
-    """Check if a path is likely a placeholder that should be ignored."""
-    if not path:
-        return True
-    placeholder_indicators = ["/path/to/", "PLACEHOLDER", "YOUR_", "CHANGE_ME"]
-    return any(indicator in str(path) for indicator in placeholder_indicators)
 
 # Clean up placeholder paths in config
 if is_placeholder_path(config.get("assembly_file")):
