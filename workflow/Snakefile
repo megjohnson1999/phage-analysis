@@ -41,7 +41,8 @@ if "generate_summaries" in config:
     config["generate_summaries"] = parse_bool(config["generate_summaries"])
 
 # Normalize config key aliases (support both forms for backward compatibility)
-if "outdir" in config and "output_dir" not in config:
+# Prioritize command-line 'outdir' over config file 'output_dir'
+if "outdir" in config:
     config["output_dir"] = config["outdir"]
 
 # Validate output_dir is set and not a placeholder
@@ -61,6 +62,8 @@ if is_placeholder_path(config.get("assembly_file")):
     config["assembly_file"] = ""
 if is_placeholder_path(config.get("assembly_graph")):
     config["assembly_graph"] = ""
+if is_placeholder_path(config.get("reads_dir")):
+    config["reads_dir"] = ""
 
 # Validate required inputs - must provide exactly one
 # Skip validation if starting from intermediate files
