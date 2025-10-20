@@ -12,6 +12,30 @@ min_version("8.0")
 
 configfile: "../config/config.yaml"
 
+# Helper function to parse boolean config values from command line
+def parse_bool(value):
+    """
+    Parse boolean values from config, handling string inputs from command line.
+    Snakemake --config passes values as strings, so 'true'/'false' need conversion.
+    """
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, str):
+        return value.lower() in ('true', '1', 'yes', 'y')
+    return bool(value)
+
+# Parse boolean config values that may come from command line as strings
+if "do_clustering" in config:
+    config["do_clustering"] = parse_bool(config["do_clustering"])
+if "run_consensus" in config:
+    config["run_consensus"] = parse_bool(config["run_consensus"])
+if "generate_summaries" in config:
+    config["generate_summaries"] = parse_bool(config["generate_summaries"])
+
+# Normalize config key aliases (support both forms for backward compatibility)
+if "outdir" in config and "output_dir" not in config:
+    config["output_dir"] = config["outdir"]
+
 # Import rules
 include: "rules/01_prediction.smk"
 include: "rules/02_clustering.smk"
