@@ -591,12 +591,27 @@ rule vcontact3_taxonomy:
         fi
         """
 
+# Helper function to conditionally require CheckV results
+def get_checkv_input(wildcards):
+    """
+    Return CheckV quality file only if starting from raw_contigs.
+    Otherwise return empty list (file not required).
+    """
+    start_from = config.get("start_from", "raw_contigs")
+
+    if start_from == "raw_contigs":
+        return f"{config['output_dir']}/01_checkv_output/quality_summary.tsv"
+    else:
+        # CheckV didn't run, so don't require it as input
+        # The shell script will handle missing checkv data gracefully
+        return []
+
 # 9. Run BACPHLIP for phage lifestyle prediction
-# NOTE: BACPHLIP assumes complete phage genomes. Results include CheckV completeness flags.
+# NOTE: BACPHLIP assumes complete phage genomes. Results include CheckV completeness flags when available.
 rule bacphlip_lifestyle:
     input:
         phage_seqs = get_phage_input,
-        checkv_quality = f"{config['output_dir']}/01_checkv_output/quality_summary.tsv"
+        checkv_quality = get_checkv_input
     output:
         results_dir = directory(f"{config['output_dir']}/03_genomic_info/bacphlip_output"),
         results = f"{config['output_dir']}/03_genomic_info/bacphlip_lifestyle.tsv",
@@ -664,19 +679,35 @@ rule bacphlip_lifestyle:
                 # Create header - keep original format with Virulent and Temperate confidence scores
                 echo -e "Sequence\tVirulent\tTemperate\tCompleteness\tCheckV_quality" > {output.with_completeness}
 
-                # Process BACPHLIP results and join with CheckV data
+                # Check if CheckV data is available
+                CHECKV_FILE="{input.checkv_quality}"
+                CHECKV_AVAILABLE=false
+                if [ -n "$CHECKV_FILE" ] && [ -f "$CHECKV_FILE" ]; then
+                    echo "CheckV results found, adding completeness annotations..." >> {log} 2>&1
+                    CHECKV_AVAILABLE=true
+                else
+                    echo "CheckV results not available, completeness will be marked as Unknown" >> {log} 2>&1
+                fi
+
+                # Process BACPHLIP results and join with CheckV data if available
                 # BACPHLIP output format: Sequence\tVirulent_confidence\tTemperate_confidence
                 tail -n +1 $TMP_DIR/bacphlip_raw.tsv | while IFS=$'\t' read -r seq virulent_conf temperate_conf; do
-                    # Look up this sequence in CheckV results
-                    checkv_line=$(grep "^${{seq}}\t" {input.checkv_quality} || echo "")
+                    if [ "$CHECKV_AVAILABLE" = true ]; then
+                        # Look up this sequence in CheckV results
+                        checkv_line=$(grep "^${{seq}}\t" "$CHECKV_FILE" || echo "")
 
-                    if [ -n "$checkv_line" ]; then
-                        # Extract completeness (column 10) and quality (column 8) from CheckV
-                        completeness=$(echo "$checkv_line" | cut -f10)
-                        quality=$(echo "$checkv_line" | cut -f8)
+                        if [ -n "$checkv_line" ]; then
+                            # Extract completeness (column 10) and quality (column 8) from CheckV
+                            completeness=$(echo "$checkv_line" | cut -f10)
+                            quality=$(echo "$checkv_line" | cut -f8)
+                        else
+                            completeness="Unknown"
+                            quality="Not_found_in_CheckV"
+                        fi
                     else
+                        # CheckV data not available
                         completeness="Unknown"
-                        quality="Not_found_in_CheckV"
+                        quality="CheckV_not_run"
                     fi
 
                     echo -e "${{seq}}\t${{virulent_conf}}\t${{temperate_conf}}\t${{completeness}}\t${{quality}}"

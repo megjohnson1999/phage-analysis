@@ -389,11 +389,42 @@ except Exception as e:
         fi
         """
 
+# Helper function to get final sequences for summary
+def get_final_sequences_for_summary(wildcards):
+    """
+    Get the final sequences file based on start_from and do_clustering settings.
+    Handles all cases including starting from intermediate points.
+    """
+    start_from = config.get("start_from", "raw_contigs")
+
+    # If starting from clustering with user-provided file
+    if start_from == "clustering":
+        clustered_file = config.get("input_clustered_seqs", "")
+        if clustered_file:
+            return clustered_file
+        # Fallback to expected output location
+        return f"{config['output_dir']}/02_clustering/vOTU_repSeqs.fasta"
+
+    # If starting from phage_contigs
+    if start_from == "phage_contigs":
+        if config.get("do_clustering", True):
+            # Clustering was run on provided phage contigs
+            return f"{config['output_dir']}/02_clustering/vOTU_repSeqs.fasta"
+        else:
+            # No clustering, use provided phage contigs directly
+            return config.get("input_phage_contigs", "")
+
+    # Default: starting from raw_contigs
+    if config.get("do_clustering", True):
+        return f"{config['output_dir']}/02_clustering/vOTU_repSeqs.fasta"
+    else:
+        return f"{config['output_dir']}/01_phage_predictions/phageContigs.fasta"
+
 # Rule to collect final statistics
 rule collect_final_stats:
     input:
-        # Use clustering output if available, otherwise use phage predictions
-        final_seqs = f"{config['output_dir']}/02_clustering/vOTU_repSeqs.fasta" if config.get("do_clustering", True) else f"{config['output_dir']}/01_phage_predictions/phageContigs.fasta"
+        # Use helper function to determine final sequences based on pipeline configuration
+        final_seqs = get_final_sequences_for_summary
     output:
         summary = f"{SUMMARY_DIR}/final_phages.json"
     log:
@@ -412,23 +443,9 @@ rule collect_final_stats:
 # Rule to generate the final summary report
 rule generate_summary_report:
     input:
-        # Collect all available summaries
-        summaries = [
-            f"{SUMMARY_DIR}/input_stats.json",
-            f"{SUMMARY_DIR}/filtering_stats.json",
-            f"{SUMMARY_DIR}/jaeger_stats.json",
-            f"{SUMMARY_DIR}/genomad_stats.json",
-            f"{SUMMARY_DIR}/phold_stats.json",
-            f"{SUMMARY_DIR}/checkv_stats.json",
-            f"{SUMMARY_DIR}/integration_stats.json",
-            f"{SUMMARY_DIR}/iphop_stats.json",
-            f"{SUMMARY_DIR}/lifestyle_stats.json",
-            f"{SUMMARY_DIR}/final_phages.json"
-        ],
-        # Optional summaries (may not exist)
-        reneo_summary = f"{SUMMARY_DIR}/reneo_stats.json",
-        consensus_summary = f"{SUMMARY_DIR}/consensus_taxonomy.json",
-        clustering_summary = f"{SUMMARY_DIR}/clustering_stats.json"
+        # Depend on all summaries being collected
+        # The actual summaries collected depend on start_from configuration
+        summaries_collected = f"{SUMMARY_DIR}/.all_summaries_collected"
     output:
         report = f"{config['output_dir']}/Pipeline_Summary_Report.html"
     params:
