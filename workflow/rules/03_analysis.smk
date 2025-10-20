@@ -819,3 +819,42 @@ rule taxonomic_consensus:
             exit 1
         fi
         """
+
+# Helper function to get phage prediction file if available
+def get_phage_predictions_input(wildcards):
+    """Return phage predictions file if starting from raw_contigs, otherwise empty list."""
+    start_from = config.get("start_from", "raw_contigs")
+    if start_from == "raw_contigs":
+        pred_file = f"{config['output_dir']}/01_phage_predictions/phagePredictedContigs.tsv"
+        return pred_file if os.path.exists(pred_file) else []
+    return []
+
+# 12. Create final contig summary table
+rule create_final_contig_table:
+    input:
+        phage_seqs = get_phage_input,
+        phage_predictions = get_phage_predictions_input,
+        checkv_results = get_checkv_input,
+        consensus_taxonomy = f"{config['output_dir']}/03_genomic_info/consensus_taxonomy.tsv",
+        lifestyle_consensus = f"{config['output_dir']}/03_genomic_info/lifestyle_consensus.tsv",
+        iphop_predictions = f"{config['output_dir']}/03_iphop_results/iphop_predictions_compiled.tsv"
+    output:
+        summary_table = f"{config['output_dir']}/final_contig_summary.tsv"
+    log:
+        f"{config['output_dir']}/logs/create_final_contig_table.log"
+    conda:
+        config["conda_envs"]["python"]
+    shell:
+        """
+        python {workflow.basedir}/scripts/create_final_contig_table.py \
+            --phage-seqs {input.phage_seqs} \
+            --phage-predictions {input.phage_predictions} \
+            --checkv-results {input.checkv_results} \
+            --consensus-taxonomy {input.consensus_taxonomy} \
+            --lifestyle-consensus {input.lifestyle_consensus} \
+            --iphop-predictions {input.iphop_predictions} \
+            --output {output.summary_table} \
+            > {log} 2>&1
+
+        echo "Final contig summary table created: {output.summary_table}" >> {log}
+        """

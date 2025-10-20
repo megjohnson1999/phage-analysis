@@ -172,6 +172,7 @@ def get_pipeline_outputs():
         f"{config['output_dir']}/03_genomic_info/phabox_output/taxonomy.tsv",
         f"{config['output_dir']}/03_genomic_info/phabox_output/lifestyle.tsv",
         f"{config['output_dir']}/03_genomic_info/vc3_output",
+        f"{config['output_dir']}/final_contig_summary.tsv",
     ])
 
     # Consensus taxonomy (if enabled)
