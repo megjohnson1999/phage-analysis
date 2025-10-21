@@ -26,12 +26,12 @@ def get_required_summaries():
             f"{SUMMARY_DIR}/jaeger_stats.json",
             f"{SUMMARY_DIR}/genomad_stats.json",
             f"{SUMMARY_DIR}/phold_stats.json",
-            f"{SUMMARY_DIR}/checkv_stats.json",
             f"{SUMMARY_DIR}/integration_stats.json",
         ])
 
     # Analysis summaries (always collected)
     summaries.extend([
+        f"{SUMMARY_DIR}/checkv_stats.json",  # Final CheckV runs on analyzed sequences
         f"{SUMMARY_DIR}/iphop_stats.json",
         f"{SUMMARY_DIR}/lifestyle_stats.json",
         f"{SUMMARY_DIR}/consensus_taxonomy.json",
@@ -187,9 +187,11 @@ rule collect_phold_stats:
         """
 
 # Rule to collect CheckV statistics
+# Uses final CheckV assessment which runs on analyzed sequences (clustered reps or all phages)
+# This provides quality metrics for the actual output sequences, not intermediate filtering steps
 rule collect_checkv_stats:
     input:
-        checkv_results = f"{config['output_dir']}/01_checkv_output/quality_summary.tsv"
+        checkv_results = f"{config['output_dir']}/03_checkv_final/quality_summary.tsv"
     output:
         summary = f"{SUMMARY_DIR}/checkv_stats.json"
     log:
