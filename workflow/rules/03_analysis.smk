@@ -675,35 +675,43 @@ rule bacphlip_lifestyle:
                 echo -e "Sequence\tVirulent\tTemperate" > {output.results}
                 echo -e "Sequence\tVirulent\tTemperate\tCompleteness\tCheckV_quality" > {output.with_completeness}
             else
-                # Create temporary directory
-                TMP_DIR=$(mktemp -d)
-
                 # Clean up any existing BACPHLIP directories
                 rm -rf {input.phage_seqs}.BACPHLIP_DIR/
                 rm -rf {input.phage_seqs}.bacphlip/
 
                 # Run BACPHLIP in multi-fasta mode
                 echo "Running BACPHLIP on all sequences..." >> {log} 2>&1
-                bacphlip -i {input.phage_seqs} --multi_fasta -f \
-                    > $TMP_DIR/bacphlip_raw.tsv 2>> {log} || {{
+                bacphlip -i {input.phage_seqs} --multi_fasta -f >> {log} 2>&1 || {{
                         echo "BACPHLIP failed. Creating placeholder output..." >> {log} 2>&1
                         echo -e "Sequence\tVirulent\tTemperate" > {output.results}
                         echo -e "Sequence\tVirulent\tTemperate\tCompleteness\tCheckV_quality" > {output.with_completeness}
-                        rm -rf $TMP_DIR
                         exit 0
                     }}
 
-                # Copy the auto-generated BACPHLIP directory to our organized output location
-                # BACPHLIP creates a directory at {input}.bacphlip with intermediate results
-                if [ -d "{input.phage_seqs}.bacphlip" ]; then
-                    echo "Copying BACPHLIP output directory to organized location..." >> {log} 2>&1
-                    cp -r {input.phage_seqs}.bacphlip/* {output.results_dir}/ 2>> {log} || true
-                    # Clean up the auto-generated directory in the clustering folder
-                    rm -rf {input.phage_seqs}.bacphlip/
+                # BACPHLIP writes results to {input}.bacphlip (not stdout)
+                BACPHLIP_OUTPUT="{input.phage_seqs}.bacphlip"
+
+                if [ ! -f "$BACPHLIP_OUTPUT" ]; then
+                    echo "ERROR: BACPHLIP did not create expected output file: $BACPHLIP_OUTPUT" >> {log} 2>&1
+                    echo -e "Sequence\tVirulent\tTemperate" > {output.results}
+                    echo -e "Sequence\tVirulent\tTemperate\tCompleteness\tCheckV_quality" > {output.with_completeness}
+                    exit 0
                 fi
 
-                # Copy raw results (stdout output from BACPHLIP)
-                cp $TMP_DIR/bacphlip_raw.tsv {output.results}
+                # Copy BACPHLIP results to our output location
+                cp "$BACPHLIP_OUTPUT" {output.results}
+
+                # Copy the auto-generated BACPHLIP directory to our organized output location
+                # BACPHLIP creates a directory at {input}.BACPHLIP_DIR with intermediate results
+                if [ -d "{input.phage_seqs}.BACPHLIP_DIR" ]; then
+                    echo "Copying BACPHLIP output directory to organized location..." >> {log} 2>&1
+                    cp -r {input.phage_seqs}.BACPHLIP_DIR/* {output.results_dir}/ 2>> {log} || true
+                    # Clean up the auto-generated directory
+                    rm -rf {input.phage_seqs}.BACPHLIP_DIR/
+                fi
+
+                # Clean up the bacphlip output file from the input directory
+                rm -f "$BACPHLIP_OUTPUT"
 
                 # Join with CheckV completeness data
                 echo "Adding completeness information..." >> {log} 2>&1
@@ -723,7 +731,7 @@ rule bacphlip_lifestyle:
 
                 # Process BACPHLIP results and join with CheckV data if available
                 # BACPHLIP output format: Sequence\tVirulent_confidence\tTemperate_confidence
-                tail -n +1 $TMP_DIR/bacphlip_raw.tsv | while IFS=$'\t' read -r seq virulent_conf temperate_conf; do
+                tail -n +1 {output.results} | while IFS=$'\t' read -r seq virulent_conf temperate_conf; do
                     if [ "$CHECKV_AVAILABLE" = true ]; then
                         # Look up this sequence in CheckV results
                         checkv_line=$(grep "^${{seq}}\t" "$CHECKV_FILE" || echo "")
@@ -747,15 +755,11 @@ rule bacphlip_lifestyle:
 
                 # Log summary statistics
                 echo "BACPHLIP analysis complete. Summary:" >> {log} 2>&1
-                echo "Total sequences: $(wc -l < $TMP_DIR/bacphlip_raw.tsv)" >> {log} 2>&1
+                echo "Total sequences: $(tail -n +2 {output.results} | wc -l)" >> {log} 2>&1
                 echo "Complete genomes: $(grep -E "\tComplete\t|\tHigh-quality\t" {output.with_completeness} | wc -l)" >> {log} 2>&1
                 echo "Medium-quality: $(grep "\tMedium-quality\t" {output.with_completeness} | wc -l)" >> {log} 2>&1
                 echo "Low-quality: $(grep "\tLow-quality\t" {output.with_completeness} | wc -l)" >> {log} 2>&1
                 echo "Not-determined: $(grep "\tNot-determined\t" {output.with_completeness} | wc -l)" >> {log} 2>&1
-
-                # Clean up
-                rm -rf $TMP_DIR
-                rm -rf {input.phage_seqs}.BACPHLIP_DIR/
             fi
         fi
         """
