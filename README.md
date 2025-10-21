@@ -262,12 +262,16 @@ The pipeline creates organized output directories:
 ```
 output_dir/
 ├── Pipeline_Summary_Report.html         # 📊 Interactive HTML summary report
+├── 01_checkv_output/                    # Initial quality assessment
+│   └── quality_summary.tsv             # CheckV results (used for phage prediction)
 ├── 01_phage_predictions/
 │   ├── phageContigs.fasta              # Final predicted phage sequences
 │   └── phagePredictedContigs.tsv       # Detailed prediction scores
 ├── 02_clustering/                       # (if clustering enabled)
 │   ├── vOTU_repSeqs.fasta              # Representative sequence per vOTU
 │   └── clusters.tsv                     # Cluster membership information
+├── 03_checkv_final/                     # Final quality assessment
+│   └── quality_summary.tsv             # CheckV results matching analyzed sequences
 ├── 03_iphop_results/
 │   └── iphop_predictions_compiled.tsv   # Bacterial host predictions
 ├── 03_genomic_info/

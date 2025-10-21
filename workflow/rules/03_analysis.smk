@@ -3,6 +3,32 @@ Rules for analyzing phage genomes, including host prediction and genomic charact
 These rules can take input from either clustering or prediction steps.
 """
 
+# 0. Run CheckV on final phage sequences (post-clustering quality assessment)
+# This corresponds to the "final checkV checking" step from the original workflow
+rule checkv_final_assessment:
+    input:
+        phage_seqs = get_phage_input  # Either clustered reps or all phages
+    output:
+        results = directory(f"{config['output_dir']}/03_checkv_final"),
+        quality_summary = f"{config['output_dir']}/03_checkv_final/quality_summary.tsv"
+    log:
+        f"{config['output_dir']}/logs/checkv_final_assessment.log"
+    conda:
+        config["conda_envs"]["checkv"]
+    threads: 24
+    shell:
+        """
+        # Run CheckV for quality assessment on final phage set
+        # This runs on either clustered representatives (if clustering enabled)
+        # or all predicted phages (if clustering disabled)
+        checkv end_to_end {input.phage_seqs} \
+            {output.results} \
+            -d {config[databases][checkv][db]} \
+            -t {threads} > {log} 2>&1
+
+        echo "CheckV final assessment complete on $(grep -c '^>' {input.phage_seqs}) sequences" >> {log}
+        """
+
 # 1. Split phage sequences for array-based processing
 rule split_phage_sequences:
     input:
@@ -596,23 +622,24 @@ def get_checkv_input(wildcards):
     """
     Return CheckV quality file if available.
     Priority: 1) input_checkv_results config parameter
-              2) Pipeline output if starting from raw_contigs
+              2) Final CheckV assessment (Stage 3) - matches analyzed sequences
               3) Empty list if not available
+
+    Note: We use the final CheckV (03_checkv_final) which runs on the actual
+    sequences being analyzed (either clustered reps or all phages), not the
+    Stage 1 CheckV which runs on viral contigs before phage prediction.
     """
     # Check if user provided external CheckV results
     if "input_checkv_results" in config and config["input_checkv_results"]:
         return config["input_checkv_results"]
 
-    # Otherwise use pipeline output if starting from raw_contigs
-    start_from = config.get("start_from", "raw_contigs")
-    if start_from == "raw_contigs":
-        return f"{config['output_dir']}/01_checkv_output/quality_summary.tsv"
-
-    # CheckV not available
-    return []
+    # Use the final CheckV assessment that matches the sequences being analyzed
+    # This will exist whether clustering is enabled or not
+    return f"{config['output_dir']}/03_checkv_final/quality_summary.tsv"
 
 # 9. Run BACPHLIP for phage lifestyle prediction
-# NOTE: BACPHLIP assumes complete phage genomes. Results include CheckV completeness flags when available.
+# NOTE: BACPHLIP assumes complete phage genomes. Results include CheckV completeness flags.
+# CheckV data comes from the final assessment (checkv_final_assessment) which matches the input sequences.
 rule bacphlip_lifestyle:
     input:
         phage_seqs = get_phage_input,
