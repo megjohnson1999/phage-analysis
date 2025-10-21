@@ -31,6 +31,10 @@ input_viral_contigs: ""  # Use if start_from: "viral_contigs" (path to passingVi
 input_phage_contigs: ""  # Use if start_from: "phage_contigs" (path to predicted phage contigs FASTA)
 input_clustered_seqs: ""  # Use if start_from: "clustering" (path to vOTU representative sequences FASTA)
 
+# Optional: Provide existing metadata from previous pipeline runs (can be used with any start_from option)
+input_checkv_results: ""  # Path to CheckV quality_summary.tsv file (optional)
+input_phage_predictions: ""  # Path to phage predictions TSV file (optional)
+
 # Pipeline configuration
 do_clustering: true  # Set to false to skip clustering
 generate_summaries: true  # Set to false to skip summary report generation

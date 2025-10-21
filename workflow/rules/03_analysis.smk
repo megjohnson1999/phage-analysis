@@ -594,17 +594,22 @@ rule vcontact3_taxonomy:
 # Helper function to conditionally require CheckV results
 def get_checkv_input(wildcards):
     """
-    Return CheckV quality file only if starting from raw_contigs.
-    Otherwise return empty list (file not required).
+    Return CheckV quality file if available.
+    Priority: 1) input_checkv_results config parameter
+              2) Pipeline output if starting from raw_contigs
+              3) Empty list if not available
     """
-    start_from = config.get("start_from", "raw_contigs")
+    # Check if user provided external CheckV results
+    if "input_checkv_results" in config and config["input_checkv_results"]:
+        return config["input_checkv_results"]
 
+    # Otherwise use pipeline output if starting from raw_contigs
+    start_from = config.get("start_from", "raw_contigs")
     if start_from == "raw_contigs":
         return f"{config['output_dir']}/01_checkv_output/quality_summary.tsv"
-    else:
-        # CheckV didn't run, so don't require it as input
-        # The shell script will handle missing checkv data gracefully
-        return []
+
+    # CheckV not available
+    return []
 
 # 9. Run BACPHLIP for phage lifestyle prediction
 # NOTE: BACPHLIP assumes complete phage genomes. Results include CheckV completeness flags when available.
@@ -822,11 +827,22 @@ rule taxonomic_consensus:
 
 # Helper function to get phage prediction file if available
 def get_phage_predictions_input(wildcards):
-    """Return phage predictions file if starting from raw_contigs, otherwise empty list."""
+    """
+    Return phage predictions file if available.
+    Priority: 1) input_phage_predictions config parameter
+              2) Pipeline output if starting from raw_contigs
+              3) Empty list if not available
+    """
+    # Check if user provided external phage predictions
+    if "input_phage_predictions" in config and config["input_phage_predictions"]:
+        return config["input_phage_predictions"]
+
+    # Otherwise use pipeline output if starting from raw_contigs
     start_from = config.get("start_from", "raw_contigs")
     if start_from == "raw_contigs":
         pred_file = f"{config['output_dir']}/01_phage_predictions/phagePredictedContigs.tsv"
         return pred_file if os.path.exists(pred_file) else []
+
     return []
 
 # 12. Create final contig summary table
@@ -846,15 +862,27 @@ rule create_final_contig_table:
         config["conda_envs"]["python"]
     shell:
         """
-        python {workflow.basedir}/scripts/create_final_contig_table.py \
-            --phage-seqs {input.phage_seqs} \
-            --phage-predictions {input.phage_predictions} \
-            --checkv-results {input.checkv_results} \
-            --consensus-taxonomy {input.consensus_taxonomy} \
-            --lifestyle-consensus {input.lifestyle_consensus} \
-            --iphop-predictions {input.iphop_predictions} \
-            --output {output.summary_table} \
-            > {log} 2>&1
+        # Build command with conditional arguments
+        CMD="python {workflow.basedir}/scripts/create_final_contig_table.py"
+        CMD="$CMD --phage-seqs {input.phage_seqs}"
+
+        # Add optional arguments only if files are present
+        if [ -n "{input.phage_predictions}" ] && [ -f "{input.phage_predictions}" ]; then
+            CMD="$CMD --phage-predictions {input.phage_predictions}"
+        fi
+
+        if [ -n "{input.checkv_results}" ] && [ -f "{input.checkv_results}" ]; then
+            CMD="$CMD --checkv-results {input.checkv_results}"
+        fi
+
+        # These should always be present from the analysis stage
+        CMD="$CMD --consensus-taxonomy {input.consensus_taxonomy}"
+        CMD="$CMD --lifestyle-consensus {input.lifestyle_consensus}"
+        CMD="$CMD --iphop-predictions {input.iphop_predictions}"
+        CMD="$CMD --output {output.summary_table}"
+
+        # Execute the command
+        $CMD > {log} 2>&1
 
         echo "Final contig summary table created: {output.summary_table}" >> {log}
         """
