@@ -124,17 +124,43 @@ def main():
 
     # 3. Consensus taxonomy
     taxonomy = load_optional_table(args.consensus_taxonomy, "Consensus taxonomy")
-    if taxonomy is not None and 'contig_id' in taxonomy.columns:
-        # Keep taxonomy and confidence columns
-        tax_cols = ['contig_id', 'consensus_taxonomy', 'confidence', 'agreement_level']
-        tax_subset = taxonomy[[col for col in tax_cols if col in taxonomy.columns]]
-        # Rename to avoid conflicts
-        tax_subset = tax_subset.rename(columns={
-            'consensus_taxonomy': 'taxonomy',
-            'confidence': 'taxonomy_confidence',
-            'agreement_level': 'taxonomy_agreement'
-        })
-        summary = summary.merge(tax_subset, on='contig_id', how='left')
+    if taxonomy is not None:
+        # Rename contigID to contig_id if needed (similar to CheckV handling)
+        if 'contigID' in taxonomy.columns:
+            taxonomy = taxonomy.rename(columns={'contigID': 'contig_id'})
+        elif taxonomy.columns[0] != 'contig_id':
+            taxonomy = taxonomy.rename(columns={taxonomy.columns[0]: 'contig_id'})
+
+        if 'contig_id' in taxonomy.columns:
+            # Keep taxonomy columns (handle both formats: single column or individual ranks)
+            tax_cols = ['contig_id']
+            # Check for individual taxonomy rank columns
+            rank_cols = ['superkingdom', 'phylum', 'class', 'order', 'family', 'genus', 'species']
+            for col in rank_cols:
+                if col in taxonomy.columns:
+                    tax_cols.append(col)
+
+            # Also check for consensus format columns (if available)
+            consensus_cols = ['consensus_taxonomy', 'confidence', 'agreement_level']
+            for col in consensus_cols:
+                if col in taxonomy.columns:
+                    tax_cols.append(col)
+
+            tax_subset = taxonomy[[col for col in tax_cols if col in taxonomy.columns]]
+
+            # Rename consensus columns to avoid conflicts (if they exist)
+            rename_dict = {}
+            if 'consensus_taxonomy' in tax_subset.columns:
+                rename_dict['consensus_taxonomy'] = 'taxonomy'
+            if 'confidence' in tax_subset.columns:
+                rename_dict['confidence'] = 'taxonomy_confidence'
+            if 'agreement_level' in tax_subset.columns:
+                rename_dict['agreement_level'] = 'taxonomy_agreement'
+
+            if rename_dict:
+                tax_subset = tax_subset.rename(columns=rename_dict)
+
+            summary = summary.merge(tax_subset, on='contig_id', how='left')
 
     # 4. Lifestyle consensus
     lifestyle = load_optional_table(args.lifestyle_consensus, "Lifestyle consensus")
@@ -152,6 +178,16 @@ def main():
     # 5. iPhop host predictions (take top hit)
     iphop = load_optional_table(args.iphop_predictions, "iPhop host predictions")
     if iphop is not None:
+        # First, check if this is CSV format (commas instead of tabs)
+        # The iPhop file might still be in CSV format despite .tsv extension
+        if iphop.columns[0].find(',') != -1:
+            # Re-read as CSV if we detect commas in column names
+            try:
+                iphop = pd.read_csv(args.iphop_predictions, sep=',')
+                print(f"  Note: Reloaded iPhop predictions as CSV format")
+            except:
+                pass  # If re-reading fails, continue with what we have
+
         # Rename query column to contig_id if needed
         if 'query' in iphop.columns:
             iphop = iphop.rename(columns={'query': 'contig_id'})
@@ -161,16 +197,38 @@ def main():
         if 'contig_id' in iphop.columns:
             # Group by contig and take first (highest confidence) prediction
             iphop_cols = ['contig_id']
-            optional_host_cols = ['host', 'score', 'genus', 'family', 'order', 'class', 'phylum']
-            for col in optional_host_cols:
+
+            # Check for actual iPhop column names (with spaces)
+            actual_host_cols = {
+                'Host genome': 'host_genome',
+                'Host taxonomy': 'host_taxonomy',
+                'Main method': 'host_method',
+                'Confidence score': 'host_confidence',
+                'Additional methods': 'host_additional_methods'
+            }
+
+            # Also check for possible alternative column names (without spaces)
+            alt_host_cols = ['host', 'score', 'genus', 'family', 'order', 'class', 'phylum']
+
+            # Add columns that exist
+            for orig_col in actual_host_cols:
+                if orig_col in iphop.columns:
+                    iphop_cols.append(orig_col)
+
+            for col in alt_host_cols:
                 if col in iphop.columns:
                     iphop_cols.append(col)
 
             # Take first prediction per contig (assumes sorted by confidence)
             iphop_subset = iphop[iphop_cols].groupby('contig_id').first().reset_index()
 
-            # Rename columns to be more specific
-            rename_dict = {col: f'host_{col}' for col in iphop_subset.columns if col != 'contig_id'}
+            # Rename columns to standardized names
+            rename_dict = actual_host_cols.copy()
+            # Also add generic renaming for alt columns
+            for col in alt_host_cols:
+                if col in iphop_subset.columns and col != 'contig_id':
+                    rename_dict[col] = f'host_{col}'
+
             iphop_subset = iphop_subset.rename(columns=rename_dict)
 
             summary = summary.merge(iphop_subset, on='contig_id', how='left')
