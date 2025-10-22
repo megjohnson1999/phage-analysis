@@ -17,6 +17,12 @@
 - Variables: Descriptive names that indicate purpose (e.g., FILTERING_WD)
 - Functions: Verb-noun format that describes the action
 
+## Repository Guidelines
+- **DO NOT push markdown documentation files (*.md) to GitHub, EXCEPT for README.md**
+- Markdown documentation files should be kept locally only
+- This includes verification guides, workflow diagrams, troubleshooting docs, etc.
+- If documentation needs to be shared, consider adding it to README.md or creating a separate docs repository
+
 ## Notes
 - Scripts use conda environments - ensure proper environment activation
 - Pipeline integrates various bioinformatics tools (mmseqs2, checkV, genomad)
