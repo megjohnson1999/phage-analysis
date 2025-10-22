@@ -862,20 +862,16 @@ def get_phage_predictions_input(wildcards):
     """
     Return phage predictions file if available.
     Priority: 1) input_phage_predictions config parameter
-              2) Pipeline output if starting from raw_contigs
+              2) Pipeline output (check if file exists in output directory)
               3) Empty list if not available
     """
     # Check if user provided external phage predictions
     if "input_phage_predictions" in config and config["input_phage_predictions"]:
         return config["input_phage_predictions"]
 
-    # Otherwise use pipeline output if starting from raw_contigs
-    start_from = config.get("start_from", "raw_contigs")
-    if start_from == "raw_contigs":
-        pred_file = f"{config['output_dir']}/01_phage_predictions/phagePredictedContigs.tsv"
-        return pred_file if os.path.exists(pred_file) else []
-
-    return []
+    # Check if file exists in output directory (regardless of start_from)
+    pred_file = f"{config['output_dir']}/01_phage_predictions/phagePredictedContigs.tsv"
+    return pred_file if os.path.exists(pred_file) else []
 
 # 12. Create final contig summary table
 rule create_final_contig_table:

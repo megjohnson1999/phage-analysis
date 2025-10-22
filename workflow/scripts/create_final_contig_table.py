@@ -126,26 +126,22 @@ def main():
         summary = summary.merge(checkv_subset, on='contig_id', how='left')
 
     # 2b. MMseqs2 LCA (initial viral screening result)
-    mmseqs_lca = load_optional_table(args.mmseqs_lca, "MMseqs2 LCA")
-    if mmseqs_lca is not None:
-        # Rename first column to contig_id if needed
-        if mmseqs_lca.columns[0] != 'contig_id':
-            mmseqs_lca = mmseqs_lca.rename(columns={mmseqs_lca.columns[0]: 'contig_id'})
+    if args.mmseqs_lca and Path(args.mmseqs_lca).exists():
+        try:
+            # The filtered_lca.tsv file has NO HEADER - need to specify column names
+            # Format: contig_id, taxid, rank, taxname, ... (10 columns total)
+            lca_col_names = ['contig_id', 'taxid', 'rank', 'taxname', 'col5', 'col6', 'col7', 'col8', 'col9', 'col10']
+            mmseqs_lca = pd.read_csv(args.mmseqs_lca, sep='\t', header=None, names=lca_col_names)
+            print(f"  MMseqs2 LCA: Loaded {len(mmseqs_lca)} rows")
 
-        if 'contig_id' in mmseqs_lca.columns:
-            # Keep LCA assignment - look for taxname or taxid column
-            lca_cols = ['contig_id']
-            if 'taxname' in mmseqs_lca.columns:
-                lca_cols.append('taxname')
-            elif 'taxName' in mmseqs_lca.columns:
-                lca_cols.append('taxName')
-
-            if len(lca_cols) > 1:
-                lca_subset = mmseqs_lca[lca_cols]
-                # Rename to mmseqs_lca
-                col_to_rename = lca_cols[1]
-                lca_subset = lca_subset.rename(columns={col_to_rename: 'mmseqs_lca'})
-                summary = summary.merge(lca_subset, on='contig_id', how='left')
+            # Keep only contig_id and taxname (the LCA assignment)
+            lca_subset = mmseqs_lca[['contig_id', 'taxname']].copy()
+            lca_subset = lca_subset.rename(columns={'taxname': 'mmseqs_lca'})
+            summary = summary.merge(lca_subset, on='contig_id', how='left')
+        except Exception as e:
+            print(f"  Warning: Error loading MMseqs2 LCA: {e}")
+    else:
+        print(f"  MMseqs2 LCA: Not available")
 
     # Add mmseqs_lca column if not present (will be empty/NA)
     if 'mmseqs_lca' not in summary.columns:
