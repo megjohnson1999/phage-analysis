@@ -109,6 +109,13 @@ process_phage_predictions <- function(phold_file, jager_file, genomad_file, chec
         Functionaldiversity >= 1 & Functionaldiversity < 3 & (!is.na(realiability_score) | !is.na(genomad_virus_score)) ~ TRUE,
         Functionaldiversity < 1 & !is.na(realiability_score) & !is.na(genomad_virus_score) ~ TRUE,
         TRUE ~ FALSE
+      ),
+      prediction_rule = case_when(
+        Functionaldiversity >= 3 ~ "Functional_diversity>=3",
+        Functionaldiversity < 3 & genomad_topology %in% c("DTR", "ITR", "Provirus") ~ "Special_topology_DTR_ITR_Provirus",
+        Functionaldiversity >= 1 & Functionaldiversity < 3 & (!is.na(realiability_score) | !is.na(genomad_virus_score)) ~ "Functional_diversity_with_tool_support",
+        Functionaldiversity < 1 & !is.na(realiability_score) & !is.na(genomad_virus_score) ~ "Both_tools_agree",
+        TRUE ~ NA_character_
       )
     ) %>%
     filter(is_phage == TRUE) %>%

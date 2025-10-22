@@ -64,6 +64,8 @@ def main():
                        help='Path to lifestyle consensus TSV (optional)')
     parser.add_argument('--iphop-predictions', required=False,
                        help='Path to iPhop host predictions TSV (optional)')
+    parser.add_argument('--mmseqs-lca', required=False,
+                       help='Path to MMseqs2 filtered LCA table (optional)')
     parser.add_argument('--output', required=True,
                        help='Output path for summary table (TSV)')
 
@@ -92,17 +94,18 @@ def main():
     # 1. Phage prediction rules (why was it called a phage?)
     phage_pred = load_optional_table(args.phage_predictions, "Phage predictions")
     if phage_pred is not None and 'contig_id' in phage_pred.columns:
-        # Keep relevant columns: prediction_rule, genomad_score, jaeger_score, phold_category
-        pred_cols = ['contig_id', 'prediction_rule']
-        if 'genomad_score' in phage_pred.columns:
-            pred_cols.append('genomad_score')
-        if 'jaeger_score' in phage_pred.columns:
-            pred_cols.append('jaeger_score')
-        if 'phold_category' in phage_pred.columns:
-            pred_cols.append('phold_category')
+        # Keep prediction_rule column if available
+        pred_cols = ['contig_id']
+        if 'prediction_rule' in phage_pred.columns:
+            pred_cols.append('prediction_rule')
 
-        phage_pred_subset = phage_pred[pred_cols]
-        summary = summary.merge(phage_pred_subset, on='contig_id', how='left')
+        if len(pred_cols) > 1:  # Only merge if we have columns besides contig_id
+            phage_pred_subset = phage_pred[pred_cols]
+            summary = summary.merge(phage_pred_subset, on='contig_id', how='left')
+
+    # Add prediction_rule column if not present (will be empty/NA)
+    if 'prediction_rule' not in summary.columns:
+        summary['prediction_rule'] = None
 
     # 2. CheckV quality assessment
     checkv = load_optional_table(args.checkv_results, "CheckV quality")
@@ -121,6 +124,32 @@ def main():
 
         checkv_subset = checkv[checkv_cols]
         summary = summary.merge(checkv_subset, on='contig_id', how='left')
+
+    # 2b. MMseqs2 LCA (initial viral screening result)
+    mmseqs_lca = load_optional_table(args.mmseqs_lca, "MMseqs2 LCA")
+    if mmseqs_lca is not None:
+        # Rename first column to contig_id if needed
+        if mmseqs_lca.columns[0] != 'contig_id':
+            mmseqs_lca = mmseqs_lca.rename(columns={mmseqs_lca.columns[0]: 'contig_id'})
+
+        if 'contig_id' in mmseqs_lca.columns:
+            # Keep LCA assignment - look for taxname or taxid column
+            lca_cols = ['contig_id']
+            if 'taxname' in mmseqs_lca.columns:
+                lca_cols.append('taxname')
+            elif 'taxName' in mmseqs_lca.columns:
+                lca_cols.append('taxName')
+
+            if len(lca_cols) > 1:
+                lca_subset = mmseqs_lca[lca_cols]
+                # Rename to mmseqs_lca
+                col_to_rename = lca_cols[1]
+                lca_subset = lca_subset.rename(columns={col_to_rename: 'mmseqs_lca'})
+                summary = summary.merge(lca_subset, on='contig_id', how='left')
+
+    # Add mmseqs_lca column if not present (will be empty/NA)
+    if 'mmseqs_lca' not in summary.columns:
+        summary['mmseqs_lca'] = None
 
     # 3. Consensus taxonomy
     taxonomy = load_optional_table(args.consensus_taxonomy, "Consensus taxonomy")

@@ -907,6 +907,12 @@ rule create_final_contig_table:
             CMD="$CMD --checkv-results {input.checkv_results}"
         fi
 
+        # Auto-detect Stage 1 files (LCA from MMseqs2 initial screening)
+        if [ -f "{config[output_dir]}/01_filtered_mmseqs/filtered_lca.tsv" ]; then
+            CMD="$CMD --mmseqs-lca {config[output_dir]}/01_filtered_mmseqs/filtered_lca.tsv"
+            echo "Auto-detected MMseqs2 LCA file" >> {log}
+        fi
+
         # These should always be present from the analysis stage
         CMD="$CMD --consensus-taxonomy {input.consensus_taxonomy}"
         CMD="$CMD --lifestyle-consensus {input.lifestyle_consensus}"
