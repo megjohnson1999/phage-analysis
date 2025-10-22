@@ -1,4 +1,0 @@
-query	target	evalue	pident	fident	nident	mismatch	qcov	tcov	qstart	qend	qlen	tstart	tend	tlen	alnlen	bits	qheader	theader	taxid	taxname	taxlineage
-contig_001	viral_protein_123	1e-50	85.5	0.82	245	36	0.95	0.87	1	300	300	50	350	400	295	450	contig_001_protein	viral_protein_123	12345	Caudoviricetes	d_Viruses;p_Uroviricota;c_Caudoviricetes;o_Crassvirales;f_Crevaviridae
-contig_002	viral_protein_456	2e-45	78.2	0.75	189	45	0.88	0.92	10	250	280	25	275	320	240	380	contig_002_protein	viral_protein_456	67890	Phixviricota	d_Viruses;p_Phixviricota;c_Malgrandaviricetes;o_Petitvirales;f_Microviridae
-contig_003	viral_protein_789	5e-60	92.1	0.91	298	12	0.98	0.96	1	320	320	1	320	330	320	580	contig_003_protein	viral_protein_789	11111	Duplodnaviria	d_Viruses;p_Uroviricota;c_Caudoviricetes
