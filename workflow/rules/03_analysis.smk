@@ -275,13 +275,13 @@ rule iphop_aggregate_results:
             # Get the first genome file to extract header
             FIRST_FILE=$(head -n 1 "$TMP_DIR/genome_files.txt")
 
-            # Create the output file with header (convert CSV to TSV)
-            head -n 1 "$FIRST_FILE" | tr ',' '\t' > {output.predictions}
+            # Create the output file with header (keep as CSV)
+            head -n 1 "$FIRST_FILE" > {output.predictions}
 
             # Process genome-level files
             while read -r pred_file; do
-                # Skip header line (first line) from each file and convert CSV to TSV
-                awk -F ',' 'NR>1 && $1!="" {{OFS="\t"; print}}' "$pred_file" >> "$TMP_DIR/aggregated_data.tmp"
+                # Skip header line (first line) from each file and keep as CSV
+                tail -n +2 "$pred_file" | grep -v '^$' >> "$TMP_DIR/aggregated_data.tmp"
             done < "$TMP_DIR/genome_files.txt"
 
             # Count genome-level records
@@ -294,11 +294,12 @@ rule iphop_aggregate_results:
         elif [ "$GENUS_COUNT" -gt 0 ]; then
             # Fallback to genus-level if no genome-level found
             FIRST_FILE=$(head -n 1 "$TMP_DIR/genus_files.txt")
-            head -n 1 "$FIRST_FILE" | tr ',' '\t' > {output.predictions}
+            head -n 1 "$FIRST_FILE" > {output.predictions}
 
             # Process genus-level files
             while read -r pred_file; do
-                awk -F ',' 'NR>1 && $1!="" {{OFS="\t"; print}}' "$pred_file" >> "$TMP_DIR/aggregated_data.tmp"
+                # Skip header line (first line) from each file and keep as CSV
+                tail -n +2 "$pred_file" | grep -v '^$' >> "$TMP_DIR/aggregated_data.tmp"
             done < "$TMP_DIR/genus_files.txt"
 
             if [ -f "$TMP_DIR/aggregated_data.tmp" ]; then
@@ -313,8 +314,8 @@ rule iphop_aggregate_results:
             cat "$TMP_DIR/aggregated_data.tmp" >> {output.predictions}
             echo "Successfully compiled iPhop results with $TOTAL_RECORDS data records" >> {log} 2>&1
         else
-            # Create empty output with header structure if no predictions found
-            echo -e "Virus\tHost_genome\tHost_taxonomy\tMain_method\tConfidence_score\tAdditional_methods" > {output.predictions}
+            # Create empty output with header structure if no predictions found (keep as CSV)
+            echo "Virus,Host_genome,Host_taxonomy,Main_method,Confidence_score,Additional_methods" > {output.predictions}
             echo "No iPhop predictions found, created empty file with header" >> {log} 2>&1
         fi
 

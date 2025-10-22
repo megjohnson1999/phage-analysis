@@ -176,18 +176,19 @@ def main():
         summary = summary.merge(life_subset, on='contig_id', how='left')
 
     # 5. iPhop host predictions (take top hit)
-    iphop = load_optional_table(args.iphop_predictions, "iPhop host predictions")
+    # iPhop outputs CSV format, so always read as CSV (not TSV)
+    if args.iphop_predictions and Path(args.iphop_predictions).exists():
+        try:
+            iphop = pd.read_csv(args.iphop_predictions, sep=',')
+            print(f"  iPhop host predictions: Loaded {len(iphop)} rows")
+        except Exception as e:
+            print(f"  Warning: Error loading iPhop predictions: {e}")
+            iphop = None
+    else:
+        print(f"  iPhop host predictions: Not available")
+        iphop = None
+
     if iphop is not None:
-        # Check if the file is actually CSV format (mixed delimiter bug from aggregation)
-        # If there's only one column, the data rows are likely comma-separated
-        if len(iphop.columns) == 1 or (len(iphop) > 0 and ',' in str(iphop.iloc[0, 0])):
-            # Re-read as CSV
-            try:
-                iphop = pd.read_csv(args.iphop_predictions, sep=',')
-                print(f"  Note: Reloaded iPhop predictions as CSV format")
-            except Exception as e:
-                print(f"  Warning: Could not reload as CSV: {e}")
-                pass  # If re-reading fails, continue with what we have
 
         # Rename query column to contig_id if needed
         if 'query' in iphop.columns:
