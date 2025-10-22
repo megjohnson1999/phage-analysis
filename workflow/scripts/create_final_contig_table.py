@@ -178,14 +178,15 @@ def main():
     # 5. iPhop host predictions (take top hit)
     iphop = load_optional_table(args.iphop_predictions, "iPhop host predictions")
     if iphop is not None:
-        # First, check if this is CSV format (commas instead of tabs)
-        # The iPhop file might still be in CSV format despite .tsv extension
-        if iphop.columns[0].find(',') != -1:
-            # Re-read as CSV if we detect commas in column names
+        # Check if the file is actually CSV format (mixed delimiter bug from aggregation)
+        # If there's only one column, the data rows are likely comma-separated
+        if len(iphop.columns) == 1 or (len(iphop) > 0 and ',' in str(iphop.iloc[0, 0])):
+            # Re-read as CSV
             try:
                 iphop = pd.read_csv(args.iphop_predictions, sep=',')
                 print(f"  Note: Reloaded iPhop predictions as CSV format")
-            except:
+            except Exception as e:
+                print(f"  Warning: Could not reload as CSV: {e}")
                 pass  # If re-reading fails, continue with what we have
 
         # Rename query column to contig_id if needed
