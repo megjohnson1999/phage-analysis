@@ -92,10 +92,12 @@ if start_from_check == "raw_contigs":
             raise ValueError("When using 'assembly_graph', 'reads_dir' must be provided for Reneo to work.")
 
 # Make sure reads_dir is provided when needed
-# Only required for raw_contigs start (for viral enrichment) or when using assembly_graph
-if start_from_check in ["raw_contigs", "reneo"]:
-    if not config.get("reads_dir"):
-        raise ValueError("'reads_dir' must be provided in the config when starting from raw contigs or reneo.")
+# Only required when actually running Reneo (start_from=raw_contigs with assembly_graph)
+# Not needed when starting FROM pre-existing Reneo output (start_from=reneo)
+if start_from_check == "raw_contigs":
+    # Check if we'll actually run Reneo (assembly_graph is provided)
+    if config.get("assembly_graph") and not config.get("reads_dir"):
+        raise ValueError("'reads_dir' must be provided when using 'assembly_graph' (Reneo requires reads).")
 
 # Validate start_from configuration
 start_from = config.get("start_from", "raw_contigs")
