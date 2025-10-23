@@ -296,23 +296,69 @@ rule filter_mmseqs_lca:
         """
 
 
-# 3b. Extract passing viral contigs
+# Helper function to get viral contigs input based on start_from
+def get_viral_contigs_extraction_input(wildcards):
+    """
+    Get input for extract_viral_contigs rule based on start_from config.
+    If start_from=viral_contigs, return dummy inputs since we'll copy the user file.
+    """
+    start = config.get("start_from", "raw_contigs")
+
+    if start == "viral_contigs":
+        # Return dummy inputs - the rule will copy from input_viral_contigs instead
+        return {
+            "contigs": "/dev/null",
+            "passing_ids": "/dev/null"
+        }
+
+    # Normal case: extract from filtered assembly
+    if workflow.globals["use_reneo"]:
+        contigs_file = f"{config['output_dir']}/01_reneo_output/genomes_and_unresolved_edges_1KB.fasta"
+    else:
+        contigs_file = f"{config['output_dir']}/01_filtered_assembly/filtered_assembly_1KB.fasta"
+
+    return {
+        "contigs": contigs_file,
+        "passing_ids": f"{config['output_dir']}/01_filtered_mmseqs/passing_contig_ids.txt"
+    }
+
+# 3b. Extract passing viral contigs OR copy user-provided viral contigs
 rule extract_viral_contigs:
     input:
-        contigs = f"{config['output_dir']}/01_reneo_output/genomes_and_unresolved_edges_1KB.fasta" 
-            if workflow.globals["use_reneo"] else 
-            f"{config['output_dir']}/01_filtered_assembly/filtered_assembly_1KB.fasta",
-        passing_ids = f"{config['output_dir']}/01_filtered_mmseqs/passing_contig_ids.txt"
+        unpack(get_viral_contigs_extraction_input)
     output:
         viral_contigs = f"{config['output_dir']}/01_filtered_mmseqs/passing_Viralcontigs.fasta"
     log:
         f"{config['output_dir']}/logs/extract_viral_contigs.log"
     conda:
         config["conda_envs"]["seqkit"]
+    params:
+        start_from = config.get("start_from", "raw_contigs"),
+        input_viral_contigs = config.get("input_viral_contigs", "")
     shell:
         """
-        # Extract viral contigs from the filtered assembly
-        seqkit grep -f {input.passing_ids} {input.contigs} > {output.viral_contigs} 2> {log}
+        # Check if we're starting from existing viral contigs
+        if [ "{params.start_from}" = "viral_contigs" ]; then
+            echo "Starting from existing viral contigs in {params.input_viral_contigs}" > {log}
+            mkdir -p {config[output_dir]}/01_filtered_mmseqs
+
+            # Copy the viral contigs file to expected location
+            if [ -f "{params.input_viral_contigs}" ]; then
+                echo "Copying viral contigs..." >> {log}
+                cp "{params.input_viral_contigs}" "{output.viral_contigs}" 2>> {log}
+                echo "Successfully copied $(grep -c '^>' {output.viral_contigs} || echo 0) viral contigs" >> {log}
+            else
+                echo "ERROR: Could not find viral contigs file: {params.input_viral_contigs}" >> {log}
+                exit 1
+            fi
+
+            exit 0
+        fi
+
+        # Otherwise, extract viral contigs from the filtered assembly
+        echo "Extracting viral contigs from filtered assembly" > {log}
+        seqkit grep -f {input.passing_ids} {input.contigs} > {output.viral_contigs} 2>> {log}
+        echo "Extracted $(grep -c '^>' {output.viral_contigs} || echo 0) viral contigs" >> {log}
         """
 
 # 4. Run Jaeger for phage prediction
