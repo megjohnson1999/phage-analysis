@@ -15,7 +15,14 @@ def should_skip_reneo(wildcards):
 # Set the global variable in the workflow module
 import sys
 import os
-workflow.globals["use_reneo"] = not should_skip_reneo(None)
+
+# Check if we're starting from existing Reneo output
+start_from = config.get("start_from", "raw_contigs")
+if start_from == "reneo":
+    # When starting from reneo, we treat it as if reneo was run
+    workflow.globals["use_reneo"] = True
+else:
+    workflow.globals["use_reneo"] = not should_skip_reneo(None)
 
 # Helper function to determine which assembly file to use
 def get_assembly_input(wildcards):
@@ -60,8 +67,8 @@ def get_direct_filter_input(wildcards):
     # Return dummy input for all other cases
     return {"assembly": "/dev/null"}
 
-# 1. Run Reneo for binning
-# Always define this rule, but it will only run when use_reneo is True
+# 1. Run Reneo for binning OR copy existing Reneo output
+# This rule handles both running Reneo and copying pre-existing output
 rule reneo_binning:
     input:
         unpack(get_reneo_input)
@@ -73,23 +80,49 @@ rule reneo_binning:
         config["conda_envs"]["reneo"] if not config.get("conda_base_path") else None
     params:
         conda_env = config["conda_envs"]["reneo"],
-        conda_base = config.get("conda_base_path", "")
+        conda_base = config.get("conda_base_path", ""),
+        start_from = config.get("start_from", "raw_contigs"),
+        input_reneo_dir = config.get("input_reneo_dir", "")
     threads: 24
     shell:
         """
+        # Check if we're starting from existing Reneo output
+        if [ "{params.start_from}" = "reneo" ]; then
+            echo "Starting from existing Reneo output in {params.input_reneo_dir}" > {log}
+            mkdir -p {config[output_dir]}/01_reneo_output
+
+            # Look for the reneo output file in the input directory
+            if [ -f "{params.input_reneo_dir}/genomes_and_unresolved_edges_1KB.fasta" ]; then
+                echo "Found filtered reneo output (1KB), copying..." >> {log}
+                cp "{params.input_reneo_dir}/genomes_and_unresolved_edges_1KB.fasta" "{output}" 2>> {log}
+            elif [ -f "{params.input_reneo_dir}/genomes_and_unresolved_edges.fasta" ]; then
+                echo "Found unfiltered reneo output, copying..." >> {log}
+                cp "{params.input_reneo_dir}/genomes_and_unresolved_edges.fasta" "{output}" 2>> {log}
+            else
+                echo "ERROR: Could not find reneo output in {params.input_reneo_dir}" >> {log}
+                echo "Expected: genomes_and_unresolved_edges.fasta or genomes_and_unresolved_edges_1KB.fasta" >> {log}
+                ls -la "{params.input_reneo_dir}" >> {log} 2>&1 || echo "Directory does not exist or is not accessible" >> {log}
+                exit 1
+            fi
+
+            echo "Successfully copied reneo output" >> {log}
+            exit 0
+        fi
+
+        # Otherwise, run Reneo normally
         if [ "{input.assembly_graph}" = "/dev/null" ]; then
             echo "Skipping Reneo - not configured for this run" > {log}
             touch {output}
             exit 0
         fi
-        
+
         mkdir -p {config[output_dir]}/01_reneo_output
 
         # Handle conda environment activation
         if [ -n "{params.conda_base}" ]; then
             # Use manually specified conda installation
             echo "Using conda base path: {params.conda_base}" >> {log} 2>&1
-            
+
             # Check if this is a path to an existing environment or just environment name
             if [[ "{params.conda_env}" == /* ]]; then
                 # Full path to environment
@@ -103,7 +136,7 @@ rule reneo_binning:
         else
             # Rely on Snakemake's conda handling or current environment
             echo "Using Snakemake's conda environment handling" >> {log} 2>&1
-            
+
             # Check if reneo is available
             if ! command -v reneo &> /dev/null; then
                 echo "ERROR: reneo not found in environment. Please ensure:" >> {log}
