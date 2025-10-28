@@ -65,10 +65,25 @@ if is_placeholder_path(config.get("assembly_graph")):
 if is_placeholder_path(config.get("reads_dir")):
     config["reads_dir"] = ""
 
+# Check if this is a rerun on an existing output directory
+# If output_dir has pipeline outputs, skip most input validation (let Snakemake handle it)
+output_dir_exists = os.path.exists(config.get("output_dir", ""))
+has_existing_outputs = False
+if output_dir_exists:
+    # Check for key intermediate directories that indicate a previous run
+    check_paths = [
+        "02_viral_sequences",
+        "03_genomic_info",
+        "pipeline_summaries",
+        "logs"
+    ]
+    existing_count = sum(1 for p in check_paths if os.path.exists(os.path.join(config["output_dir"], p)))
+    has_existing_outputs = existing_count >= 2  # At least 2 key directories exist
+
 # Validate required inputs - must provide exactly one
-# Skip validation if starting from intermediate files
+# Skip validation if re-running on existing output directory
 start_from_check = config.get("start_from", "raw_contigs")
-if start_from_check == "raw_contigs":
+if not has_existing_outputs and start_from_check == "raw_contigs":
     if not config.get("assembly_file") and not config.get("assembly_graph"):
         raise ValueError("Either 'assembly_file' or 'assembly_graph' must be provided in the config when start_from='raw_contigs'.")
 
@@ -92,42 +107,43 @@ if start_from_check == "raw_contigs":
             raise ValueError("When using 'assembly_graph', 'reads_dir' must be provided for Reneo to work.")
 
 # Make sure reads_dir is provided when needed
-# Only required when actually running Reneo (start_from=raw_contigs with assembly_graph)
-# Not needed when starting FROM pre-existing Reneo output (start_from=reneo)
-if start_from_check == "raw_contigs":
+# Skip if re-running on existing output directory
+if not has_existing_outputs and start_from_check == "raw_contigs":
     # Check if we'll actually run Reneo (assembly_graph is provided)
     if config.get("assembly_graph") and not config.get("reads_dir"):
         raise ValueError("'reads_dir' must be provided when using 'assembly_graph' (Reneo requires reads).")
 
 # Validate start_from configuration
+# Skip if re-running on existing output directory
 start_from = config.get("start_from", "raw_contigs")
 valid_start_points = ["raw_contigs", "reneo", "viral_contigs", "phage_contigs", "clustering"]
 
-if start_from not in valid_start_points:
-    raise ValueError(f"Invalid start_from value: '{start_from}'. Must be one of: {', '.join(valid_start_points)}")
+if not has_existing_outputs:
+    if start_from not in valid_start_points:
+        raise ValueError(f"Invalid start_from value: '{start_from}'. Must be one of: {', '.join(valid_start_points)}")
 
-# Validate alternative inputs when using non-default start points
-if start_from != "raw_contigs":
-    if start_from == "reneo":
-        reneo_dir = config.get("input_reneo_dir", "")
-        if not reneo_dir or is_placeholder_path(reneo_dir):
-            raise ValueError("When start_from='reneo', you must provide 'input_reneo_dir' in config or via --config")
-        if not os.path.exists(reneo_dir):
-            raise ValueError(f"Reneo output directory does not exist: {reneo_dir}")
+    # Validate alternative inputs when using non-default start points
+    if start_from != "raw_contigs":
+        if start_from == "reneo":
+            reneo_dir = config.get("input_reneo_dir", "")
+            if not reneo_dir or is_placeholder_path(reneo_dir):
+                raise ValueError("When start_from='reneo', you must provide 'input_reneo_dir' in config or via --config")
+            if not os.path.exists(reneo_dir):
+                raise ValueError(f"Reneo output directory does not exist: {reneo_dir}")
 
-    elif start_from == "viral_contigs":
-        viral_file = config.get("input_viral_contigs", "")
-        if not viral_file or is_placeholder_path(viral_file):
-            raise ValueError("When start_from='viral_contigs', you must provide 'input_viral_contigs' in config or via --config")
-        if not os.path.exists(viral_file):
-            raise ValueError(f"Viral contigs file does not exist: {viral_file}")
+        elif start_from == "viral_contigs":
+            viral_file = config.get("input_viral_contigs", "")
+            if not viral_file or is_placeholder_path(viral_file):
+                raise ValueError("When start_from='viral_contigs', you must provide 'input_viral_contigs' in config or via --config")
+            if not os.path.exists(viral_file):
+                raise ValueError(f"Viral contigs file does not exist: {viral_file}")
 
-    elif start_from == "phage_contigs":
-        phage_file = config.get("input_phage_contigs", "")
-        if not phage_file or is_placeholder_path(phage_file):
-            raise ValueError("When start_from='phage_contigs', you must provide 'input_phage_contigs' in config or via --config")
-        if not os.path.exists(phage_file):
-            raise ValueError(f"Phage contigs file does not exist: {phage_file}")
+        elif start_from == "phage_contigs":
+            phage_file = config.get("input_phage_contigs", "")
+            if not phage_file or is_placeholder_path(phage_file):
+                raise ValueError("When start_from='phage_contigs', you must provide 'input_phage_contigs' in config or via --config")
+            if not os.path.exists(phage_file):
+                raise ValueError(f"Phage contigs file does not exist: {phage_file}")
 
     elif start_from == "clustering":
         clustered_file = config.get("input_clustered_seqs", "")
@@ -194,9 +210,39 @@ def get_pipeline_outputs():
             f"{config['output_dir']}/Pipeline_Summary_Report.html"
         ])
 
+    # Config snapshot (always save for reproducibility)
+    outputs.append(f"{config['output_dir']}/config_snapshot.yaml")
+
     return outputs
 
 # Default target rule
 rule all:
     input:
         get_pipeline_outputs()
+
+# Save config snapshot for reproducibility
+rule save_config_snapshot:
+    output:
+        config_file = f"{config['output_dir']}/config_snapshot.yaml"
+    run:
+        import yaml
+        from datetime import datetime
+
+        # Create output directory if it doesn't exist
+        os.makedirs(os.path.dirname(output.config_file), exist_ok=True)
+
+        # Prepare config snapshot with metadata
+        snapshot = {
+            '_metadata': {
+                'timestamp': datetime.now().isoformat(),
+                'snakemake_version': workflow.snakemake_version,
+                'workdir': os.getcwd()
+            },
+            'config': dict(config)
+        }
+
+        # Save to file
+        with open(output.config_file, 'w') as f:
+            yaml.dump(snapshot, f, default_flow_style=False, sort_keys=False)
+
+        print(f"Config snapshot saved to: {output.config_file}")

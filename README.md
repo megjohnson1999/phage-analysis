@@ -62,36 +62,32 @@ pip install snakemake-executor-plugin-slurm
 
 ## Quick Start
 
-**Tip**: Use `screen` or `tmux` to keep the pipeline running even if your SSH connection drops!
+**Recommended workflow**: Use a config file for each analysis run to ensure reproducibility!
 
 ```bash
-# Start a screen session
+# 1. Copy and customize the config template
+cp config/config.yaml my_analysis_config.yaml
+# Edit my_analysis_config.yaml with your specific paths
+
+# 2. Start a screen session (keeps pipeline running if SSH connection drops)
 screen -S phage_run
 
-# Navigate to the workflow directory
+# 3. Navigate to the workflow directory
 cd phage-analysis/workflow
 
-# Option 1: Run with FASTA assembly
-snakemake --profile ../profile/slurm \
-  --config assembly_file="/path/to/assembly.fasta" \
-           reads_dir="/path/to/reads/" \
-           output_dir="/path/to/output/"
-
-# Option 2: Run with GFA graph (Reneo workflow)
-snakemake --profile ../profile/slurm \
-  --config assembly_graph="/path/to/assembly.gfa" \
-           reads_dir="/path/to/reads/" \
-           output_dir="/path/to/output/"
-
-# Option 3: Skip clustering step (works with FASTA or GFA input)
-snakemake --profile ../profile/slurm \
-  --config assembly_file="/path/to/assembly.fasta" \
-           reads_dir="/path/to/reads/" \
-           output_dir="/path/to/output/" \
-           do_clustering=false
+# 4. Run the pipeline with your config file
+snakemake --profile ../profile/slurm --configfile ../my_analysis_config.yaml
 
 # Detach from screen: Ctrl+A, then D
 # Check on it later: screen -r phage_run
+```
+
+**For quick tests**, you can override settings via command line:
+```bash
+# Override specific parameters from config file
+snakemake --profile ../profile/slurm \
+  --configfile ../my_analysis_config.yaml \
+  --config output_dir="/new/test/path"
 ```
 
 ## Configuration
@@ -167,6 +163,84 @@ default-resources:
 slurm_account: "your_account_name"
 ```
 
+## Best Practices
+
+### Config File Management
+
+**Always use a dedicated config file for each analysis run** rather than relying on command-line arguments. This ensures:
+- ✅ Complete reproducibility of your analysis
+- ✅ Easy reruns and troubleshooting
+- ✅ Clear documentation of parameters used
+- ✅ Simple sharing with collaborators
+
+**Recommended workflow:**
+
+```bash
+# 1. Create a directory for your run-specific configs
+mkdir -p run_configs
+
+# 2. Copy and customize the template for each analysis
+cp config/config.yaml run_configs/sample_X_analysis.yaml
+
+# 3. Edit the config with your specific parameters
+nano run_configs/sample_X_analysis.yaml
+
+# 4. Run the pipeline
+cd workflow
+snakemake --profile ../profile/slurm --configfile ../run_configs/sample_X_analysis.yaml
+```
+
+**The pipeline automatically saves a snapshot** of your config to `{output_dir}/config_snapshot.yaml` for each run. This file includes:
+- All configuration parameters used
+- Timestamp of the run
+- Snakemake version
+- Working directory
+
+### Regenerating Outputs from Previous Runs
+
+If you need to regenerate specific outputs (e.g., after updating scripts), you can:
+
+**Option 1: Use the saved config snapshot**
+```bash
+cd workflow
+snakemake --profile ../profile/slurm \
+  --configfile /path/to/previous/run/output_dir/config_snapshot.yaml \
+  -f \
+  /path/to/previous/run/output_dir/final_contig_summary.tsv
+```
+
+**Option 2: Run the script directly** (for single-file regeneration)
+```bash
+python workflow/scripts/create_final_contig_table.py \
+  --phage-seqs <output_dir>/02_viral_sequences/final_viral_combined.fasta \
+  --consensus-taxonomy <output_dir>/03_genomic_info/consensus_taxonomy.tsv \
+  --lifestyle-consensus <output_dir>/03_genomic_info/lifestyle_consensus.tsv \
+  --iphop-predictions <output_dir>/03_iphop_results/iphop_predictions_compiled.tsv \
+  --output <output_dir>/final_contig_summary.tsv
+```
+
+### Organizing Your Work
+
+```
+your_project/
+├── phage-analysis/           # This repository (cloned)
+│   ├── config/
+│   │   └── config.yaml      # Template (don't edit directly)
+│   └── workflow/
+├── run_configs/             # Your analysis-specific configs
+│   ├── sample1.yaml
+│   ├── sample2.yaml
+│   └── metaG_batch1.yaml
+└── outputs/                 # Analysis outputs
+    ├── sample1/
+    │   ├── config_snapshot.yaml  # Auto-saved config
+    │   ├── final_contig_summary.tsv
+    │   └── ...
+    └── sample2/
+        ├── config_snapshot.yaml
+        └── ...
+```
+
 ## Running the Pipeline
 
 ### Basic Usage
@@ -187,50 +261,55 @@ snakemake --profile ../profile/slurm --configfile ../config/my_config.yaml
 # Reattach later with: screen -r phage_pipeline
 ```
 
-### Command Line Options
-
-You can override config file settings via command line:
+### Useful Snakemake Options
 
 ```bash
-# Override specific parameters
+# Dry run to see what would be executed (recommended before actual run!)
+snakemake -n --profile ../profile/slurm --configfile ../run_configs/my_config.yaml
+
+# Force regeneration of specific output files
+snakemake -f --profile ../profile/slurm \
+  --configfile ../run_configs/my_config.yaml \
+  /path/to/output_dir/final_contig_summary.tsv
+
+# Run specific targets only
 snakemake --profile ../profile/slurm \
-  --config assembly_file="/new/path/assembly.fasta" \
-           output_dir="/new/output/path"
+  --configfile ../run_configs/my_config.yaml \
+  /path/to/output_dir/03_genomic_info/consensus_taxonomy.tsv
 
-# Dry run to see what would be executed
-snakemake -n --profile ../profile/slurm
-
-# Run specific targets
+# Override specific parameters (for quick tests)
 snakemake --profile ../profile/slurm \
-  results/01_phage_predictions/phageContigs.fasta
+  --configfile ../run_configs/my_config.yaml \
+  --config output_dir="/scratch/test_output"
 
-# Local execution (no SLURM)
-snakemake --cores 8 --use-conda
+# Local execution without SLURM
+snakemake --cores 8 --use-conda --configfile ../run_configs/my_config.yaml
 ```
 
 ### Input Modes
 
-**Option 1: FASTA Workflow**
+The pipeline supports two input modes. **Configure these in your config file:**
+
+**Option 1: FASTA Workflow** (faster)
 - Input: Assembled contigs in FASTA format
-- Faster
-- Example:
-  ```bash
-  snakemake --profile ../profile/slurm \
-    --config assembly_file="assembly.fasta" \
-             reads_dir="reads/" \
-             output_dir="results/"
+- In your config file, set:
+  ```yaml
+  assembly_file: "/path/to/assembly.fasta"
+  assembly_graph: ""  # Leave empty
+  reads_dir: "/path/to/reads/"
+  output_dir: "/path/to/output/"
   ```
 
-**Option 2: Reneo Graph-Based Workflow**
+**Option 2: Reneo Graph-Based Workflow** (enhanced binning)
 - Input: Assembly graph in GFA format
-- Uses Reneo for enhanced contig binning
+- Uses Reneo for improved contig binning
 - Requires Gurobi license (see below)
-- Example:
-  ```bash
-  snakemake --profile ../profile/slurm \
-    --config assembly_graph="assembly.gfa" \
-             reads_dir="reads/" \
-             output_dir="results/"
+- In your config file, set:
+  ```yaml
+  assembly_file: ""  # Leave empty
+  assembly_graph: "/path/to/assembly.gfa"
+  reads_dir: "/path/to/reads/"
+  output_dir: "/path/to/output/"
   ```
 
 ### Reneo Configuration (for GFA input)
@@ -315,6 +394,7 @@ The report is generated automatically when the pipeline completes successfully.
 - Increase resources for specific rules:
   ```bash
   snakemake --profile ../profile/slurm \
+    --configfile ../run_configs/my_config.yaml \
     --set-resources iphop_single_prediction:mem_mb=100000
   ```
 
@@ -348,27 +428,33 @@ snakemake --use-conda --cores 4 \
 ```
 
 ### Real Data Examples
+
+**Best practice**: Create config files for each analysis!
+
 ```bash
 # Always start in a screen session for long runs!
 screen -S my_phage_analysis
+cd workflow
 
-# Metagenomic assembly from SPAdes
+# Example 1: Metagenomic assembly from SPAdes
+# First, create config: run_configs/spades_sample.yaml with:
+#   assembly_file: "spades_output/scaffolds.fasta"
+#   reads_dir: "illumina_reads/"
+#   output_dir: "phage_results/"
 snakemake --profile ../profile/slurm \
-  --config assembly_file="spades_output/scaffolds.fasta" \
-           reads_dir="illumina_reads/" \
-           output_dir="phage_results/"
+  --configfile ../run_configs/spades_sample.yaml
 
-# Assembly graph from metaFlye with Reneo
+# Example 2: Assembly graph from metaFlye with Reneo
+# Create config: run_configs/flye_sample.yaml with:
+#   assembly_graph: "flye_output/assembly_graph.gfa"
+#   reads_dir: "nanopore_reads/"
+#   output_dir: "phage_results_reneo/"
 snakemake --profile ../profile/slurm \
-  --config assembly_graph="flye_output/assembly_graph.gfa" \
-           reads_dir="nanopore_reads/" \
-           output_dir="phage_results_reneo/"
+  --configfile ../run_configs/flye_sample.yaml
 
-# Large dataset with custom resources
+# Example 3: Large dataset with custom resources
 snakemake --profile ../profile/slurm \
-  --config assembly_file="megahit_output/final.contigs.fa" \
-           reads_dir="hiseq_reads/" \
-           output_dir="large_dataset_results/" \
+  --configfile ../run_configs/large_dataset.yaml \
   --set-resources iphop_single_prediction:mem_mb=200000 \
                   iphop_single_prediction:runtime=2880
 
