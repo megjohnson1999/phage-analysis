@@ -71,11 +71,10 @@ output_dir_exists = os.path.exists(config.get("output_dir", ""))
 has_existing_outputs = False
 if output_dir_exists:
     # Check for key intermediate directories that indicate a previous run
-    # Include both old and new directory naming schemes
     check_paths = [
-        "02_viral_sequences",  # New structure
-        "01_phage_predictions",  # Old structure
-        "03_genomic_info",
+        "01_phage_predictions",  # Phase 1 output
+        "02_clustering",         # Phase 2 output
+        "03_genomic_info",       # Phase 3 output
         "pipeline_summaries",
         "logs",
         "final_contig_summary.tsv"  # If final output exists, definitely a previous run
