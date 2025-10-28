@@ -71,14 +71,17 @@ output_dir_exists = os.path.exists(config.get("output_dir", ""))
 has_existing_outputs = False
 if output_dir_exists:
     # Check for key intermediate directories that indicate a previous run
+    # Include both old and new directory naming schemes
     check_paths = [
-        "02_viral_sequences",
+        "02_viral_sequences",  # New structure
+        "01_phage_predictions",  # Old structure
         "03_genomic_info",
         "pipeline_summaries",
-        "logs"
+        "logs",
+        "final_contig_summary.tsv"  # If final output exists, definitely a previous run
     ]
     existing_count = sum(1 for p in check_paths if os.path.exists(os.path.join(config["output_dir"], p)))
-    has_existing_outputs = existing_count >= 2  # At least 2 key directories exist
+    has_existing_outputs = existing_count >= 2  # At least 2 key directories/files exist
 
 # Validate required inputs - must provide exactly one
 # Skip validation if re-running on existing output directory
