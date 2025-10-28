@@ -117,7 +117,7 @@ def main():
         # Keep key CheckV columns
         checkv_cols = ['contig_id']
         optional_cols = ['checkv_quality', 'completeness', 'contamination',
-                        'provirus', 'contig_length', 'proviral_length']
+                        'contig_length']
         for col in optional_cols:
             if col in checkv.columns:
                 checkv_cols.append(col)
@@ -261,6 +261,17 @@ def main():
             summary = summary.merge(iphop_subset, on='contig_id', how='left')
 
     print()
+
+    # Reorder columns to put contig_length right after contig_id
+    if 'contig_length' in summary.columns:
+        # Get current columns
+        cols = list(summary.columns)
+        # Remove contig_length from wherever it is
+        cols.remove('contig_length')
+        # Insert it right after contig_id (at position 1)
+        cols.insert(1, 'contig_length')
+        # Reorder the DataFrame
+        summary = summary[cols]
 
     # Save output
     summary.to_csv(args.output, sep='\t', index=False)
