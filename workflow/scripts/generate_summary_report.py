@@ -211,7 +211,14 @@ def generate_html_report(summaries, output_file, config_info=None):
         elif step_name == "lifestyle_stats":
             for key, value in data.items():
                 if isinstance(value, dict) and "total_predictions" in value:
-                    return f"{format_number(value['total_predictions'])} lifestyle predictions"
+                    total = value.get('total_predictions', 0)
+                    # Try to get source breakdown (BACPHLIP vs Phabox2)
+                    if "by_source" in value:
+                        by_source = value["by_source"]
+                        bacphlip = by_source.get("BACPHLIP", 0)
+                        phabox2 = by_source.get("Phabox2", 0)
+                        return f"{format_number(total)} lifestyle predictions (BACPHLIP: {bacphlip}, Phabox2: {phabox2})"
+                    return f"{format_number(total)} lifestyle predictions"
 
         elif step_name == "consensus_taxonomy":
             for key, value in data.items():
@@ -223,6 +230,17 @@ def generate_html_report(summaries, output_file, config_info=None):
                 if isinstance(value, dict) and "total_sequences" in value:
                     return f"{format_number(value['total_sequences'])} clusters"
 
+        elif step_name == "final_summary":
+            for key, value in data.items():
+                if isinstance(value, dict) and "total_contigs" in value:
+                    total = value.get('total_contigs', 0)
+                    # Try to get annotation coverage
+                    if "annotation_coverage" in value:
+                        coverage = value["annotation_coverage"]
+                        tax_pct = coverage.get("taxonomy_percentage", 0)
+                        return f"{format_number(total)} contigs ({tax_pct:.1f}% with taxonomy)"
+                    return f"{format_number(total)} contigs in final summary"
+
         elif step_name == "final_phages":
             for key, value in data.items():
                 if isinstance(value, dict) and "total_sequences" in value:
@@ -233,7 +251,8 @@ def generate_html_report(summaries, output_file, config_info=None):
     step_order = [
         "input_stats", "reneo_stats", "filtering_stats", "jaeger_stats",
         "genomad_stats", "phold_stats", "checkv_stats", "integration_stats",
-        "iphop_stats", "lifestyle_stats", "consensus_taxonomy", "clustering_stats", "final_phages"
+        "iphop_stats", "lifestyle_stats", "consensus_taxonomy", "clustering_stats",
+        "final_summary", "final_phages"
     ]
 
     pipeline_steps = ""

@@ -208,11 +208,10 @@ rule collect_iphop_stats:
             > {log} 2>&1
         """
 
-# Rule to collect lifestyle prediction statistics
+# Rule to collect lifestyle prediction statistics from consensus
 rule collect_lifestyle_stats:
     input:
-        phabox_lifestyle = f"{config['output_dir']}/03_genomic_info/phabox_output/lifestyle.tsv"
-        # bacphlip_results = f"{config['output_dir']}/03_genomic_info/bacphlip_lifestyle_with_completeness.tsv"  # Disabled for now
+        lifestyle_consensus = f"{config['output_dir']}/03_genomic_info/lifestyle_consensus.tsv"
     output:
         summary = f"{SUMMARY_DIR}/lifestyle_stats.json"
     log:
@@ -221,43 +220,52 @@ rule collect_lifestyle_stats:
         "../envs/python.yaml"
     shell:
         """
-        # Count lifestyle predictions from Phabox2 (only source)
-        PHABOX_COUNT=0
-        if [ -f "{input.phabox_lifestyle}" ]; then
-            # Count lines excluding header (subtract 1)
-            PHABOX_COUNT=$(( $(wc -l < "{input.phabox_lifestyle}") - 1 ))
-            echo "Found $PHABOX_COUNT Phabox2 lifestyle predictions" >> {log}
-        fi
-        
-        # BACPHLIP disabled for now - uncomment below to re-enable
-        # BACPHLIP_COUNT=0
-        # BACPHLIP_FILE="{config[output_dir]}/03_genomic_info/bacphlip_lifestyle_with_completeness.tsv"
-        # if [ -f "$BACPHLIP_FILE" ]; then
-        #     BACPHLIP_COUNT=$(( $(wc -l < "$BACPHLIP_FILE") - 1 ))
-        #     echo "Found $BACPHLIP_COUNT BACPHLIP lifestyle predictions" >> {log}
-        # fi
-        
-        # Use Phabox2 count (only source currently enabled)
-        TOTAL_COUNT=$PHABOX_COUNT
-        
-        # Create summary JSON
-        cat > {output.summary} << EOF
-{{
-  "step": "lifestyle_stats",
-  "timestamp": "$(date -Iseconds)",
-  "inputs": {{
-    "lifestyle_results": {{
-      "tool": "phabox2",
-      "total_predictions": $TOTAL_COUNT,
-      "phabox2_predictions": $PHABOX_COUNT
+        echo "Collecting lifestyle consensus statistics..." > {log}
+
+        python -c "
+import pandas as pd
+import json
+from datetime import datetime
+
+# Read lifestyle consensus
+df = pd.read_csv('{input.lifestyle_consensus}', sep='\t')
+
+# Count totals
+total = len(df)
+
+# Count by source
+source_counts = df['source'].value_counts().to_dict() if 'source' in df.columns else {{}}
+
+# Count by lifestyle
+lifestyle_counts = df['lifestyle'].value_counts().to_dict() if 'lifestyle' in df.columns else {{}}
+
+# Calculate mean confidence
+mean_confidence = df['confidence'].mean() if 'confidence' in df.columns else 0
+
+# Create summary
+summary = {{
+    'step': 'lifestyle_stats',
+    'timestamp': datetime.now().isoformat(),
+    'inputs': {{
+        'lifestyle_consensus': {{
+            'total_predictions': total,
+            'by_source': source_counts,
+            'by_lifestyle': lifestyle_counts,
+            'mean_confidence': round(mean_confidence, 3)
+        }}
     }}
-  }},
-  "outputs": {{}},
-  "statistics": {{}}
 }}
-EOF
-        
-        echo "Lifestyle stats summary created with $TOTAL_COUNT Phabox2 predictions" >> {log}
+
+# Write to JSON
+with open('{output.summary}', 'w') as f:
+    json.dump(summary, f, indent=2)
+
+print(f'Lifestyle consensus stats: {{total}} predictions')
+print(f'Sources: {{source_counts}}')
+print(f'Lifestyles: {{lifestyle_counts}}')
+" >> {log} 2>&1
+
+        echo "Lifestyle stats summary created from consensus" >> {log}
         """
 
 # Rule to collect clustering statistics (only if clustering is enabled)
@@ -373,6 +381,77 @@ rule collect_final_stats:
             > {log} 2>&1
         """
 
+# Rule to collect final contig summary table statistics
+rule collect_final_summary_stats:
+    input:
+        final_summary = f"{config['output_dir']}/final_contig_summary.tsv"
+    output:
+        summary = f"{SUMMARY_DIR}/final_summary.json"
+    log:
+        f"{config['output_dir']}/logs/summaries/collect_final_summary_stats.log"
+    conda:
+        "../envs/python.yaml"
+    shell:
+        """
+        echo "Collecting final contig summary statistics..." > {log}
+
+        python -c "
+import pandas as pd
+import json
+from datetime import datetime
+
+# Read final summary table
+df = pd.read_csv('{input.final_summary}', sep='\t')
+
+# Count totals
+total_contigs = len(df)
+
+# Count annotation coverage
+has_taxonomy = df['phylum'].notna().sum() if 'phylum' in df.columns else 0
+has_lifestyle = df['lifestyle'].notna().sum() if 'lifestyle' in df.columns else 0
+has_host = df['host_genome'].notna().sum() if 'host_genome' in df.columns else 0
+has_checkv = df['checkv_quality'].notna().sum() if 'checkv_quality' in df.columns else 0
+
+# Count quality distribution
+quality_dist = {{}}
+if 'checkv_quality' in df.columns:
+    quality_dist = df['checkv_quality'].value_counts().to_dict()
+
+# Count lifestyle distribution
+lifestyle_dist = {{}}
+if 'lifestyle' in df.columns:
+    lifestyle_dist = df['lifestyle'].value_counts().to_dict()
+
+# Create summary
+summary = {{
+    'step': 'final_summary',
+    'timestamp': datetime.now().isoformat(),
+    'inputs': {{
+        'final_contig_summary': {{
+            'total_contigs': total_contigs,
+            'annotation_coverage': {{
+                'has_taxonomy': {{'count': has_taxonomy, 'percentage': round(has_taxonomy/total_contigs*100, 1) if total_contigs > 0 else 0}},
+                'has_lifestyle': {{'count': has_lifestyle, 'percentage': round(has_lifestyle/total_contigs*100, 1) if total_contigs > 0 else 0}},
+                'has_host_prediction': {{'count': has_host, 'percentage': round(has_host/total_contigs*100, 1) if total_contigs > 0 else 0}},
+                'has_quality_assessment': {{'count': has_checkv, 'percentage': round(has_checkv/total_contigs*100, 1) if total_contigs > 0 else 0}}
+            }},
+            'quality_distribution': quality_dist,
+            'lifestyle_distribution': lifestyle_dist
+        }}
+    }}
+}}
+
+# Write to JSON
+with open('{output.summary}', 'w') as f:
+    json.dump(summary, f, indent=2)
+
+print(f'Final summary stats: {{total_contigs}} contigs')
+print(f'Annotation coverage - Taxonomy: {{has_taxonomy}}, Lifestyle: {{has_lifestyle}}, Hosts: {{has_host}}')
+" >> {log} 2>&1
+
+        echo "Final summary table statistics collected" >> {log}
+        """
+
 # Rule to generate the final summary report
 rule generate_summary_report:
     input:
@@ -387,6 +466,7 @@ rule generate_summary_report:
             f"{SUMMARY_DIR}/integration_stats.json",
             f"{SUMMARY_DIR}/iphop_stats.json",
             f"{SUMMARY_DIR}/lifestyle_stats.json",
+            f"{SUMMARY_DIR}/final_summary.json",
             f"{SUMMARY_DIR}/final_phages.json"
         ],
         # Optional summaries (may not exist)
@@ -449,6 +529,7 @@ rule collect_all_summaries:
         f"{SUMMARY_DIR}/lifestyle_stats.json",
         f"{SUMMARY_DIR}/consensus_taxonomy.json",
         f"{SUMMARY_DIR}/clustering_stats.json",
+        f"{SUMMARY_DIR}/final_summary.json",
         f"{SUMMARY_DIR}/final_phages.json"
     output:
         flag = f"{SUMMARY_DIR}/.all_summaries_collected"
