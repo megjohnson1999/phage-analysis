@@ -262,19 +262,26 @@ The pipeline creates organized output directories:
 ```
 output_dir/
 ├── Pipeline_Summary_Report.html         # 📊 Interactive HTML summary report
+├── final_contig_summary.tsv            # ⭐ Comprehensive annotation table (all results in one file)
+├── 01_checkv_output/                    # Initial quality assessment
+│   └── quality_summary.tsv             # CheckV results (used for phage prediction)
 ├── 01_phage_predictions/
 │   ├── phageContigs.fasta              # Final predicted phage sequences
 │   └── phagePredictedContigs.tsv       # Detailed prediction scores
 ├── 02_clustering/                       # (if clustering enabled)
 │   ├── vOTU_repSeqs.fasta              # Representative sequence per vOTU
 │   └── clusters.tsv                     # Cluster membership information
+├── 03_checkv_final/                     # Final quality assessment
+│   └── quality_summary.tsv             # CheckV results matching analyzed sequences
 ├── 03_iphop_results/
 │   └── iphop_predictions_compiled.tsv   # Bacterial host predictions
 ├── 03_genomic_info/
 │   ├── consensus_taxonomy.tsv          # 🎯 Integrated taxonomy consensus
 │   ├── consensus_taxonomy_summary.json # Consensus statistics and coverage
-│   ├── mmseqs_taxonomy.tsv             # Sequence-based taxonomy  
-│   ├── bacphlip_lifestyle.tsv          # Lifestyle predictions
+│   ├── lifestyle_consensus.tsv         # 🎯 Integrated lifestyle predictions (BACPHLIP + Phabox2)
+│   ├── mmseqs_taxonomy.tsv             # Sequence-based taxonomy
+│   ├── bacphlip_lifestyle.tsv          # BACPHLIP raw predictions
+│   ├── bacphlip_lifestyle_with_completeness.tsv # BACPHLIP with CheckV quality
 │   ├── phabox_output/                  # Phabox2 results
 │   │   ├── final_prediction_summary.tsv # ML-based taxonomy and lifestyle
 │   │   ├── taxonomy.tsv                # Legacy format (may be empty)
@@ -284,6 +291,24 @@ output_dir/
 ├── pipeline_summaries/                 # JSON summary files for each step
 └── logs/                               # Detailed logs for each step
 ```
+
+### Key Output Files
+
+**`final_contig_summary.tsv`** - The main results file consolidating all annotations:
+- Contig ID and length
+- Phage prediction rule
+- CheckV quality metrics (completeness, contamination, provirus status)
+- MMseqs2 LCA assignment from initial viral screening
+- Consensus taxonomy (integrated from multiple tools)
+- Lifestyle predictions (virulent/temperate/chronic) with confidence scores
+- Host predictions from iPhop
+
+This single file provides a complete overview of all analyzed sequences with their annotations.
+
+**`lifestyle_consensus.tsv`** - Integrated lifestyle predictions combining:
+- BACPHLIP predictions (prioritized when confidence ≥ 0.7)
+- Phabox2 predictions (used as fallback)
+- Source tracking and confidence scores
 
 ### Summary Report
 

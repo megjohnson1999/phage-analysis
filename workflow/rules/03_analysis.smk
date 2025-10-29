@@ -3,6 +3,31 @@ Rules for analyzing phage genomes, including host prediction and genomic charact
 These rules can take input from either clustering or prediction steps.
 """
 
+# 0. Run final CheckV assessment on analyzed phage sequences
+rule checkv_final_assessment:
+    input:
+        phage_seqs = get_phage_input  # Either clustered reps or all phages
+    output:
+        results = directory(f"{config['output_dir']}/03_checkv_final"),
+        quality_summary = f"{config['output_dir']}/03_checkv_final/quality_summary.tsv"
+    log:
+        f"{config['output_dir']}/logs/checkv_final_assessment.log"
+    conda:
+        config["conda_envs"]["checkv"]
+    threads: 24
+    shell:
+        """
+        # Run CheckV for quality assessment on final phage set
+        # This runs on either clustered representatives (if clustering enabled)
+        # or all predicted phages (if clustering disabled)
+        checkv end_to_end {input.phage_seqs} \
+            {output.results} \
+            -d {config[databases][checkv][db]} \
+            -t {threads} > {log} 2>&1
+
+        echo "CheckV final assessment complete on $(grep -c '^>' {input.phage_seqs}) sequences" >> {log}
+        """
+
 # 1. Split phage sequences for array-based processing
 rule split_phage_sequences:
     input:
@@ -595,11 +620,10 @@ rule vcontact3_taxonomy:
 # NOTE: BACPHLIP assumes complete phage genomes. Results include CheckV completeness flags.
 rule bacphlip_lifestyle:
     input:
-        phage_seqs = get_phage_input,
-        checkv_quality = f"{config['output_dir']}/01_checkv_output/quality_summary.tsv"
+        phage_seqs = get_phage_input
     output:
-        results = f"{config['output_dir']}/03_genomic_info/bacphlip_lifestyle.tsv",
-        with_completeness = f"{config['output_dir']}/03_genomic_info/bacphlip_lifestyle_with_completeness.tsv"
+        results_dir = directory(f"{config['output_dir']}/03_genomic_info/bacphlip_output"),
+        results = f"{config['output_dir']}/03_genomic_info/bacphlip_lifestyle.tsv"
     log:
         f"{config['output_dir']}/logs/bacphlip_lifestyle.log"
     conda:
@@ -607,78 +631,63 @@ rule bacphlip_lifestyle:
     threads: 8
     shell:
         """
+        # Create output directory
+        mkdir -p {output.results_dir}
+
         # Check if input file exists and has content
         if [ ! -f "{input.phage_seqs}" ] || [ ! -s "{input.phage_seqs}" ]; then
             echo "Warning: Input file is empty or missing: {input.phage_seqs}" > {log} 2>&1
             echo "Creating empty BACPHLIP output files..." >> {log} 2>&1
-            echo -e "Sequence\tLifestyle\tConfidence" > {output.results}
-            echo -e "Sequence\tLifestyle\tConfidence\tCompleteness\tCheckV_quality" > {output.with_completeness}
+            echo -e "Sequence\tVirulent\tTemperate" > {output.results}
         else
             # Count sequences in input file
             SEQ_COUNT=$(grep -c ">" {input.phage_seqs} || echo "0")
             echo "Processing $SEQ_COUNT sequences with BACPHLIP" > {log} 2>&1
-            
+
             if [ "$SEQ_COUNT" -eq 0 ]; then
                 echo "Warning: Input file contains 0 sequences" >> {log} 2>&1
                 echo "Creating empty BACPHLIP output files..." >> {log} 2>&1
-                echo -e "Sequence\tLifestyle\tConfidence" > {output.results}
-                echo -e "Sequence\tLifestyle\tConfidence\tCompleteness\tCheckV_quality" > {output.with_completeness}
+                echo -e "Sequence\tVirulent\tTemperate" > {output.results}
             else
-                # Create temporary directory
-                TMP_DIR=$(mktemp -d)
-                
-                # Clean up any existing BACPHLIP directory
+                # Clean up any existing BACPHLIP directories
                 rm -rf {input.phage_seqs}.BACPHLIP_DIR/
-                
+                rm -rf {input.phage_seqs}.bacphlip/
+
                 # Run BACPHLIP in multi-fasta mode
                 echo "Running BACPHLIP on all sequences..." >> {log} 2>&1
-                bacphlip -i {input.phage_seqs} --multi_fasta -f \
-                    > $TMP_DIR/bacphlip_raw.tsv 2>> {log} || {{
+                bacphlip -i {input.phage_seqs} --multi_fasta -f >> {log} 2>&1 || {{
                         echo "BACPHLIP failed. Creating placeholder output..." >> {log} 2>&1
-                        echo -e "Sequence\tLifestyle\tConfidence" > {output.results}
-                        echo -e "Sequence\tLifestyle\tConfidence\tCompleteness\tCheckV_quality" > {output.with_completeness}
-                        rm -rf $TMP_DIR
+                        echo -e "Sequence\tVirulent\tTemperate" > {output.results}
                         exit 0
                     }}
-                
-                # Copy raw results
-                cp $TMP_DIR/bacphlip_raw.tsv {output.results}
-                
-                # Join with CheckV completeness data
-                echo "Adding completeness information..." >> {log} 2>&1
-                
-                # Create header
-                echo -e "Sequence\tLifestyle\tConfidence\tCompleteness\tCheckV_quality" > {output.with_completeness}
-                
-                # Process BACPHLIP results and join with CheckV data
-                # Note: CheckV quality_summary.tsv has columns: contig_id, various metrics..., checkv_quality
-                tail -n +2 $TMP_DIR/bacphlip_raw.tsv | while IFS=$'\t' read -r seq lifestyle conf; do
-                    # Look up this sequence in CheckV results
-                    checkv_line=$(grep "^${{seq}}\t" {input.checkv_quality} || echo "")
-                    
-                    if [ -n "$checkv_line" ]; then
-                        # Extract completeness (column 10) and quality (column 8) from CheckV
-                        completeness=$(echo "$checkv_line" | cut -f10)
-                        quality=$(echo "$checkv_line" | cut -f8)
-                    else
-                        completeness="Unknown"
-                        quality="Not_found_in_CheckV"
-                    fi
-                    
-                    echo -e "${{seq}}\t${{lifestyle}}\t${{conf}}\t${{completeness}}\t${{quality}}"
-                done >> {output.with_completeness}
-                
+
+                # BACPHLIP writes results to {input}.bacphlip (not stdout)
+                BACPHLIP_OUTPUT="{input.phage_seqs}.bacphlip"
+
+                if [ ! -f "$BACPHLIP_OUTPUT" ]; then
+                    echo "ERROR: BACPHLIP did not create expected output file: $BACPHLIP_OUTPUT" >> {log} 2>&1
+                    echo -e "Sequence\tVirulent\tTemperate" > {output.results}
+                    exit 0
+                fi
+
+                # Copy BACPHLIP results to our output location
+                cp "$BACPHLIP_OUTPUT" {output.results}
+
+                # Copy the auto-generated BACPHLIP directory to our organized output location
+                # BACPHLIP creates a directory at {input}.BACPHLIP_DIR with intermediate results
+                if [ -d "{input.phage_seqs}.BACPHLIP_DIR" ]; then
+                    echo "Copying BACPHLIP output directory to organized location..." >> {log} 2>&1
+                    cp -r {input.phage_seqs}.BACPHLIP_DIR/* {output.results_dir}/ 2>> {log} || true
+                    # Clean up the auto-generated directory
+                    rm -rf {input.phage_seqs}.BACPHLIP_DIR/
+                fi
+
+                # Clean up the bacphlip output file from the input directory
+                rm -f "$BACPHLIP_OUTPUT"
+
                 # Log summary statistics
                 echo "BACPHLIP analysis complete. Summary:" >> {log} 2>&1
                 echo "Total sequences: $(tail -n +2 {output.results} | wc -l)" >> {log} 2>&1
-                echo "Complete genomes: $(grep -E "\tComplete\t|\tHigh-quality\t" {output.with_completeness} | wc -l)" >> {log} 2>&1
-                echo "Medium-quality: $(grep "\tMedium-quality\t" {output.with_completeness} | wc -l)" >> {log} 2>&1
-                echo "Low-quality: $(grep "\tLow-quality\t" {output.with_completeness} | wc -l)" >> {log} 2>&1
-                echo "Not-determined: $(grep "\tNot-determined\t" {output.with_completeness} | wc -l)" >> {log} 2>&1
-                
-                # Clean up
-                rm -rf $TMP_DIR
-                rm -rf {input.phage_seqs}.BACPHLIP_DIR/
             fi
         fi
         """
@@ -730,4 +739,169 @@ rule taxonomic_consensus:
             echo "ERROR: Consensus taxonomy file was not created" >> {log} 2>&1
             exit 1
         fi
+        """
+
+# 10b. Annotate BACPHLIP results with CheckV completeness
+# This runs independently after both BACPHLIP and CheckV complete
+rule bacphlip_annotate_completeness:
+    input:
+        bacphlip_results = f"{config['output_dir']}/03_genomic_info/bacphlip_lifestyle.tsv",
+        checkv_quality = f"{config['output_dir']}/03_checkv_final/quality_summary.tsv"
+    output:
+        with_completeness = f"{config['output_dir']}/03_genomic_info/bacphlip_lifestyle_with_completeness.tsv"
+    log:
+        f"{config['output_dir']}/logs/bacphlip_annotate_completeness.log"
+    conda:
+        config["conda_envs"]["python"]
+    shell:
+        """
+        echo "Annotating BACPHLIP results with CheckV completeness..." > {log} 2>&1
+
+        # Create header - keep original format with Virulent and Temperate confidence scores
+        echo -e "Sequence\tVirulent\tTemperate\tCompleteness\tCheckV_quality" > {output.with_completeness}
+
+        # Check if CheckV data is available
+        CHECKV_FILE="{input.checkv_quality}"
+        if [ -f "$CHECKV_FILE" ]; then
+            echo "CheckV results found, adding completeness annotations..." >> {log} 2>&1
+
+            # Process BACPHLIP results and join with CheckV data
+            # BACPHLIP output format: Sequence\tVirulent_confidence\tTemperate_confidence
+            tail -n +2 {input.bacphlip_results} | while IFS=$'\t' read -r seq virulent_conf temperate_conf; do
+                # Look up this sequence in CheckV results
+                checkv_line=$(grep "^${{seq}}\t" "$CHECKV_FILE" || echo "")
+
+                if [ -n "$checkv_line" ]; then
+                    # Extract completeness (column 10) and quality (column 8) from CheckV
+                    completeness=$(echo "$checkv_line" | cut -f10)
+                    quality=$(echo "$checkv_line" | cut -f8)
+                else
+                    completeness="Unknown"
+                    quality="Not_found_in_CheckV"
+                fi
+
+                echo -e "${{seq}}\t${{virulent_conf}}\t${{temperate_conf}}\t${{completeness}}\t${{quality}}"
+            done >> {output.with_completeness}
+        else
+            echo "CheckV results not available, completeness will be marked as Unknown" >> {log} 2>&1
+
+            # Process BACPHLIP results without CheckV data
+            tail -n +2 {input.bacphlip_results} | while IFS=$'\t' read -r seq virulent_conf temperate_conf; do
+                echo -e "${{seq}}\t${{virulent_conf}}\t${{temperate_conf}}\tUnknown\tCheckV_not_run"
+            done >> {output.with_completeness}
+        fi
+
+        # Log summary statistics
+        echo "Annotation complete. Summary:" >> {log} 2>&1
+        echo "Total sequences: $(tail -n +2 {output.with_completeness} | wc -l)" >> {log} 2>&1
+        echo "Complete genomes: $(grep -E "\tComplete\t|\tHigh-quality\t" {output.with_completeness} | wc -l)" >> {log} 2>&1
+        echo "Medium-quality: $(grep "\tMedium-quality\t" {output.with_completeness} | wc -l)" >> {log} 2>&1
+        echo "Low-quality: $(grep "\tLow-quality\t" {output.with_completeness} | wc -l)" >> {log} 2>&1
+        echo "Not-determined: $(grep "\tNot-determined\t" {output.with_completeness} | wc -l)" >> {log} 2>&1
+        """
+
+# 11. Create lifestyle consensus from BACPHLIP and Phabox2
+rule lifestyle_consensus:
+    input:
+        bacphlip = f"{config['output_dir']}/03_genomic_info/bacphlip_lifestyle.tsv",
+        phabox = f"{config['output_dir']}/03_genomic_info/phabox_output/lifestyle.tsv"
+    output:
+        consensus = f"{config['output_dir']}/03_genomic_info/lifestyle_consensus.tsv"
+    log:
+        f"{config['output_dir']}/logs/lifestyle_consensus.log"
+    conda:
+        config["conda_envs"]["python"]
+    params:
+        threshold = 0.7  # Minimum confidence for BACPHLIP predictions
+    shell:
+        """
+        echo "Creating lifestyle consensus..." > {log} 2>&1
+
+        # Run the lifestyle consensus script
+        python {workflow.basedir}/scripts/lifestyle_consensus.py \
+            --bacphlip {input.bacphlip} \
+            --phabox {input.phabox} \
+            --output {output.consensus} \
+            --threshold {params.threshold} \
+            >> {log} 2>&1
+
+        # Log results summary
+        if [ -f {output.consensus} ]; then
+            CONSENSUS_COUNT=$(tail -n +2 {output.consensus} | wc -l)
+            echo "Successfully created lifestyle consensus for $CONSENSUS_COUNT contigs" >> {log} 2>&1
+
+            # Count predictions by source
+            echo "Predictions by source:" >> {log} 2>&1
+            echo "  BACPHLIP: $(grep -c "BACPHLIP" {output.consensus} || echo 0)" >> {log} 2>&1
+            echo "  Phabox2: $(grep -c "Phabox2" {output.consensus} || echo 0)" >> {log} 2>&1
+
+            # Count lifestyle categories
+            echo "Lifestyle predictions:" >> {log} 2>&1
+            echo "  Virulent: $(grep -c "virulent" {output.consensus} || echo 0)" >> {log} 2>&1
+            echo "  Temperate: $(grep -c "temperate" {output.consensus} || echo 0)" >> {log} 2>&1
+            echo "  Chronic: $(grep -c "chronic" {output.consensus} || echo 0)" >> {log} 2>&1
+        else
+            echo "ERROR: Lifestyle consensus file was not created" >> {log} 2>&1
+            exit 1
+        fi
+        """
+
+# Helper function to get CheckV results (simplified for non-start_from branch)
+def get_checkv_input(wildcards):
+    """Return CheckV quality file from final assessment."""
+    return f"{config['output_dir']}/03_checkv_final/quality_summary.tsv"
+
+# Helper function to get phage prediction file if available
+def get_phage_predictions_input(wildcards):
+    """Return phage predictions file if it exists."""
+    import os
+    pred_file = f"{config['output_dir']}/01_phage_predictions/phagePredictedContigs.tsv"
+    return pred_file if os.path.exists(pred_file) else []
+
+# 12. Create final contig summary table
+rule create_final_contig_table:
+    input:
+        phage_seqs = get_phage_input,
+        phage_predictions = get_phage_predictions_input,
+        checkv_results = get_checkv_input,
+        consensus_taxonomy = f"{config['output_dir']}/03_genomic_info/consensus_taxonomy.tsv",
+        lifestyle_consensus = f"{config['output_dir']}/03_genomic_info/lifestyle_consensus.tsv",
+        iphop_predictions = f"{config['output_dir']}/03_iphop_results/iphop_predictions_compiled.tsv"
+    output:
+        summary_table = f"{config['output_dir']}/final_contig_summary.tsv"
+    log:
+        f"{config['output_dir']}/logs/create_final_contig_table.log"
+    conda:
+        config["conda_envs"]["python"]
+    shell:
+        """
+        # Build command with conditional arguments
+        CMD="python {workflow.basedir}/scripts/create_final_contig_table.py"
+        CMD="$CMD --phage-seqs {input.phage_seqs}"
+
+        # Add optional arguments only if files are present
+        if [ -n "{input.phage_predictions}" ] && [ -f "{input.phage_predictions}" ]; then
+            CMD="$CMD --phage-predictions {input.phage_predictions}"
+        fi
+
+        if [ -n "{input.checkv_results}" ] && [ -f "{input.checkv_results}" ]; then
+            CMD="$CMD --checkv-results {input.checkv_results}"
+        fi
+
+        # Auto-detect Stage 1 files (LCA from MMseqs2 initial screening)
+        if [ -f "{config[output_dir]}/01_filtered_mmseqs/filtered_lca.tsv" ]; then
+            CMD="$CMD --mmseqs-lca {config[output_dir]}/01_filtered_mmseqs/filtered_lca.tsv"
+            echo "Auto-detected MMseqs2 LCA file" >> {log}
+        fi
+
+        # These should always be present from the analysis stage
+        CMD="$CMD --consensus-taxonomy {input.consensus_taxonomy}"
+        CMD="$CMD --lifestyle-consensus {input.lifestyle_consensus}"
+        CMD="$CMD --iphop-predictions {input.iphop_predictions}"
+        CMD="$CMD --output {output.summary_table}"
+
+        # Execute the command
+        $CMD > {log} 2>&1
+
+        echo "Final contig summary table created: {output.summary_table}" >> {log}
         """
