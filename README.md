@@ -16,6 +16,7 @@ A comprehensive Snakemake workflow for identifying, clustering, and characterizi
 - **Taxonomic classification**: Multiple approaches via MMseqs2, Phabox2, and vContact3
 - **Taxonomic consensus**: Hierarchical integration of taxonomy predictions from multiple tools
 - **Functional annotation**: Protein prediction and annotation
+- **Per-sample abundance**: Calculate phage and ORF abundance across samples using CoverM (optional)
 - **Progress tracking**: Automated summary collection and HTML report generation
 
 The pipeline includes a robust taxonomic consensus system that combines predictions from MMseqs2 (protein similarity), Phabox2 (ML-based), and vContact3 (gene content), with automatic format detection and hierarchical validation. For detailed technical information, see [WORKFLOW_SUMMARY.md](WORKFLOW_SUMMARY.md).
@@ -118,6 +119,8 @@ reads_dir: "/path/to/reads/"
 
 # Optional
 do_clustering: true                         # Set false to skip clustering
+calculate_abundance: false                  # Set true to calculate contig and ORF abundance
+abundance_coverage_threshold: 0.75          # Min coverage to count abundance (0.0-1.0)
 
 # Database paths (update these!)
 databases:
@@ -151,6 +154,13 @@ The pipeline generates organized results in your specified `output_dir`:
 - `03_genomic_info/consensus_taxonomy.tsv` - Integrated taxonomy from multiple tools
 - `03_genomic_info/lifestyle_consensus.tsv` - Lifestyle predictions (BACPHLIP + Phabox2)
 - `03_iphop_results/iphop_predictions_compiled.tsv` - Host predictions
+
+**Abundance Outputs** (when `calculate_abundance: true`):
+- `04_abundance/tpm_matrix.tsv` - Contig TPM abundance (contigs × samples)
+- `04_abundance/count_matrix.tsv` - Contig read counts (contigs × samples)
+- `04_abundance/orf_tpm_matrix.tsv` - ORF TPM abundance (ORFs × samples)
+- `04_abundance/orf_count_matrix.tsv` - ORF read counts (ORFs × samples)
+- `04_abundance/orf_annotations.tsv` - ORF metadata linking to contigs
 
 **To view the HTML report:**
 ```bash
