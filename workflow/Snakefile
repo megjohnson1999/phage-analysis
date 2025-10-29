@@ -17,6 +17,7 @@ include: "rules/01_prediction.smk"
 include: "rules/02_clustering.smk"
 include: "rules/03_analysis.smk"
 include: "rules/04_summaries.smk"
+include: "rules/05_abundance.smk"
 
 # Import needed for file existence checks
 import os
@@ -145,4 +146,10 @@ rule all:
                 outdir=config["output_dir"]
              ), "{outdir}/Pipeline_Summary_Report.html".format(
                 outdir=config["output_dir"]
-             )] if config.get("generate_summaries", True) else [])
+             )] if config.get("generate_summaries", True) else []) +
+            # Add per-sample abundance matrices if enabled (default: False)
+            (["{outdir}/04_abundance/tpm_matrix.tsv".format(
+                outdir=config["output_dir"]
+             ), "{outdir}/04_abundance/count_matrix.tsv".format(
+                outdir=config["output_dir"]
+             )] if config.get("calculate_abundance", False) else [])
