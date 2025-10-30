@@ -2,6 +2,10 @@
 
 A comprehensive Snakemake workflow for identifying, clustering, and characterizing phages from metagenomic assemblies.
 
+## Pipeline Overview
+
+![Phage Analysis Workflow](phage-analysis-102925.drawio.svg)
+
 ## Features
 
 - **Multi-tool phage prediction**: Jaeger, geNomad, PHOLD, CheckV
