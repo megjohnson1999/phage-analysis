@@ -201,10 +201,10 @@ def main():
         summary = summary.merge(life_subset, on='contig_id', how='left')
 
     # 5. iPhop host predictions (take top hit)
-    # iPhop outputs CSV format, so always read as CSV (not TSV)
+    # iPhop compiled results are in TSV format (converted from CSV during aggregation)
     if args.iphop_predictions and Path(args.iphop_predictions).exists():
         try:
-            iphop = pd.read_csv(args.iphop_predictions, sep=',')
+            iphop = pd.read_csv(args.iphop_predictions, sep='\t')
             print(f"  iPhop host predictions: Loaded {len(iphop)} rows")
         except Exception as e:
             print(f"  Warning: Error loading iPhop predictions: {e}")
