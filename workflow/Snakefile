@@ -152,4 +152,10 @@ rule all:
                 outdir=config["output_dir"]
              ), "{outdir}/04_abundance/count_matrix.tsv".format(
                 outdir=config["output_dir"]
+             ), "{outdir}/04_abundance/orf_tpm_matrix.tsv".format(
+                outdir=config["output_dir"]
+             ), "{outdir}/04_abundance/orf_count_matrix.tsv".format(
+                outdir=config["output_dir"]
+             ), "{outdir}/04_abundance/orf_annotations.tsv".format(
+                outdir=config["output_dir"]
              )] if config.get("calculate_abundance", False) else [])
