@@ -180,11 +180,33 @@ def parse_tool_results(tool, result_file):
         
         elif tool == "iphop":
             df = pd.read_csv(result_file, sep='\t')
+            # Handle different possible column names from iPhop output
+            # Genome-level: Virus, Host genome, Host taxonomy, Main method, Confidence score, Additional methods
+            # Genus-level: query, host, score, identity, coverage, kingdom, phylum, class, order, family, genus
+
+            # Check for confidence score column (with or without space)
+            confidence_col = None
+            if 'Confidence score' in df.columns:
+                confidence_col = 'Confidence score'
+            elif 'score' in df.columns:
+                confidence_col = 'score'
+
+            mean_confidence = df[confidence_col].mean() if confidence_col and len(df) > 0 else 0
+
+            # Count unique hosts (try multiple column names)
+            unique_hosts = 0
+            if 'Host genome' in df.columns:
+                unique_hosts = df['Host genome'].nunique()
+            elif 'host' in df.columns:
+                unique_hosts = df['host'].nunique()
+            elif 'genus' in df.columns:
+                unique_hosts = df['genus'].nunique()
+
             return {
                 "tool": tool,
                 "total_predictions": len(df),
-                "unique_hosts": df['genus'].nunique() if 'genus' in df.columns else 0,
-                "mean_confidence": df['score'].mean() if 'score' in df.columns else 0
+                "unique_hosts": unique_hosts,
+                "mean_confidence": float(mean_confidence) if mean_confidence else 0
             }
             
         elif tool == "mmseqs":

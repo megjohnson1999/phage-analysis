@@ -2,6 +2,10 @@
 
 A comprehensive Snakemake workflow for identifying, clustering, and characterizing phages from metagenomic assemblies.
 
+## Pipeline Overview
+
+![Phage Analysis Workflow](phage-analysis-102925.drawio.svg)
+
 ## Features
 
 - **Multi-tool phage prediction**: Jaeger, geNomad, PHOLD, CheckV
@@ -14,377 +18,179 @@ A comprehensive Snakemake workflow for identifying, clustering, and characterizi
 - **Functional annotation**: Protein prediction and annotation
 - **Progress tracking**: Automated summary collection and HTML report generation
 
-### Taxonomic Consensus Integration
-
-The pipeline includes a robust taxonomic consensus system that combines predictions from multiple tools:
-
-- **MMseqs2**: Protein similarity-based taxonomy (highest priority)
-- **Phabox2**: Machine learning-based phage-specific predictions  
-- **vContact3**: Gene content-based clustering taxonomy
-
-The consensus system:
-- ✅ **Handles multiple input formats**: Automatically detects and processes LCA vs BLAST format outputs
-- ✅ **Hierarchical validation**: Ensures taxonomic consistency across classification levels
-- ✅ **Comprehensive coverage**: Integrates results from all available tools
-- ✅ **Quality prioritization**: Uses tool-specific strengths (e.g., Phabox2 for phage-specific features)
-
-For a detailed technical overview, see [WORKFLOW_SUMMARY.md](WORKFLOW_SUMMARY.md).
+The pipeline includes a robust taxonomic consensus system that combines predictions from MMseqs2 (protein similarity), Phabox2 (ML-based), and vContact3 (gene content), with automatic format detection and hierarchical validation. For detailed technical information, see [WORKFLOW_SUMMARY.md](WORKFLOW_SUMMARY.md).
 
 ## Requirements
 
 - Snakemake version 8+
 - [Mamba](https://anaconda.org/conda-forge/mamba) for environment management
 - [snakemake-executor-plugin-slurm](https://snakemake.github.io/snakemake-plugin-catalog/plugins/executor/slurm.html) for SLURM execution
-- For Reneo workflow: Gurobi license (see Reneo section below)
+- For Reneo (GFA) workflow: Gurobi license
 
 ## Installation
 
-1. Clone this repository:
 ```bash
+# 1. Clone repository
 git clone https://github.com/megjohnson1999/phage-analysis.git
 cd phage-analysis
-```
 
-2. Install Snakemake and dependencies:
-```bash
-# Create a conda environment for running the pipeline
+# 2. Create conda environment
 conda create -n phage-pipeline python=3.11
 conda activate phage-pipeline
 
-# Install Snakemake v8+, mamba, and SLURM executor
+# 3. Install Snakemake and dependencies
 conda install -c conda-forge -c bioconda snakemake=8 mamba
 pip install snakemake-executor-plugin-slurm
+
+# 4. Download required databases (CheckV, geNomad, PHOLD, etc.)
+# See tool documentation or use existing institutional databases
 ```
-
-3. Download required databases (see Database Setup section below)
-
-4. Configure the pipeline (see Configuration section below)
 
 ## Quick Start
 
-**Tip**: Use `screen` or `tmux` to keep the pipeline running even if your SSH connection drops!
+### 1. Copy and Edit Configuration File
+
+```bash
+# Copy the example config
+cp config/config.yaml config/my_config.yaml
+
+# Edit with your paths (see Configuration section below for details)
+nano config/my_config.yaml  # or use your preferred editor
+```
+
+**Key settings you MUST change:**
+- `output_dir`: Where to save results
+- `assembly_file` OR `assembly_graph`: Your input file (provide one, not both)
+- `reads_dir`: Directory containing your FASTQ read files
+- All database paths under `databases:` section
+
+**Optional settings:**
+- `do_clustering: false` - Skip clustering to speed up analysis
+- SLURM resources in `profile/slurm/config.yaml`
+
+### 2. Run the Pipeline
+
+**Tip**: Use `screen` or `tmux` to keep the pipeline running if your SSH connection drops!
 
 ```bash
 # Start a screen session
 screen -S phage_run
 
-# Navigate to the workflow directory
+# Navigate to workflow directory
 cd phage-analysis/workflow
 
-# Option 1: Run with FASTA assembly
-snakemake --profile ../profile/slurm \
-  --config assembly_file="/path/to/assembly.fasta" \
-           reads_dir="/path/to/reads/" \
-           output_dir="/path/to/output/"
-
-# Option 2: Run with GFA graph (Reneo workflow)
-snakemake --profile ../profile/slurm \
-  --config assembly_graph="/path/to/assembly.gfa" \
-           reads_dir="/path/to/reads/" \
-           output_dir="/path/to/output/"
-
-# Option 3: Skip clustering step (works with FASTA or GFA input)
-snakemake --profile ../profile/slurm \
-  --config assembly_file="/path/to/assembly.fasta" \
-           reads_dir="/path/to/reads/" \
-           output_dir="/path/to/output/" \
-           do_clustering=false
+# Run with your config file
+snakemake --profile ../profile/slurm --configfile ../config/my_config.yaml
 
 # Detach from screen: Ctrl+A, then D
-# Check on it later: screen -r phage_run
+# Reattach later: screen -r phage_run
+```
+
+**Additional options:**
+```bash
+# Dry run to preview what will be executed
+snakemake -n --profile ../profile/slurm --configfile ../config/my_config.yaml
+
+# Local execution without SLURM
+snakemake --use-conda --cores 8 --configfile ../config/my_config.yaml
+
+# Override config values from command line (if needed)
+snakemake --profile ../profile/slurm --configfile ../config/my_config.yaml \
+  --config do_clustering=false
 ```
 
 ## Configuration
 
-### 1. Database Setup
+### Minimal Configuration
 
-The pipeline requires several databases. You can either:
-- Use existing databases at your institution (update paths in config)
-- Download databases yourself:
+Edit `config/my_config.yaml` with your paths:
 
-```bash
-# Example database downloads (adjust paths as needed)
-# CheckV
-wget https://portal.nersc.gov/CheckV/checkv-db-v1.5.tar.gz
-tar -xzf checkv-db-v1.5.tar.gz
-
-# geNomad
-genomad download-database genomad_db/
-
-# PHOLD
-phold install -d phold_db/
-
-# Other databases: see tool documentation
-```
-
-### 2. Edit Configuration File
-
-Copy and modify the example configuration:
-```bash
-cp config/config.yaml config/my_config.yaml
-```
-
-Key settings in `config/my_config.yaml`:
 ```yaml
-# Output location
-output_dir: "/path/to/your/outputs"
+# Output directory
+output_dir: "/path/to/outputs"
 
-# Input files (provide ONE of these):
-assembly_file: "/path/to/assembly.fasta"  # For standard workflow
-assembly_graph: ""                        # Leave empty if using FASTA
+# Input (provide ONE of these)
+assembly_file: "/path/to/assembly.fasta"    # For FASTA workflow
+assembly_graph: ""                          # Or GFA path for Reneo
 
-# OR for Reneo workflow:
-assembly_file: ""                         # Leave empty if using GFA
-assembly_graph: "/path/to/graph.gfa"      # For Reneo workflow
+# Required
+reads_dir: "/path/to/reads/"
 
-# Required for both workflows
-reads_dir: "/path/to/reads/"              # Directory with FASTQ files
+# Optional
+do_clustering: true                         # Set false to skip clustering
 
-# Optional settings
-do_clustering: true                        # Set false to skip vOTU clustering
-
-# Database paths - update these!
+# Database paths (update these!)
 databases:
   checkv:
-    db: "/path/to/checkv-db-v1.5"
+    db: "/path/to/checkv-db"
   genomad:
     db: "/path/to/genomad_db"
-  # ... etc
+  # ... see config/config.yaml for all databases
 ```
 
-### 3. SLURM Configuration (if using HPC)
+### SLURM Configuration
 
-Edit `profile/slurm/config.yaml` for your cluster:
-```yaml
-default-resources:
-  - mem_mb=50000      # Default memory (50GB)
-  - runtime=1440      # Default runtime (24 hours)
-  - nodes=1
-  - tasks=1
-  - cpus_per_task=24
+Edit `profile/slurm/config.yaml` for your HPC cluster:
+- Adjust `default-resources` (memory, runtime, CPUs)
+- Set `slurm_account` to your account name
 
-# Adjust for your SLURM account
-slurm_account: "your_account_name"
-```
+See `config/config.yaml` for all available options and detailed comments.
 
-## Running the Pipeline
+## Key Output Files
 
-### Basic Usage
+The pipeline generates organized results in your specified `output_dir`:
 
-**Important**: We recommend running the pipeline in a `screen` or `tmux` session to prevent interruption if your connection drops:
+**Main Results:**
+- **`final_contig_summary.tsv`** - Comprehensive table with all annotations (contig info, phage predictions, CheckV quality, taxonomy consensus, lifestyle, host predictions)
+- **`Pipeline_Summary_Report.html`** - Interactive HTML report with statistics, progress tracking, and visualizations
 
+**Detailed Results:**
+- `01_phage_predictions/phageContigs.fasta` - Predicted phage sequences
+- `02_clustering/vOTU_repSeqs.fasta` - Representative sequences per vOTU (if clustering enabled)
+- `03_checkv_final/quality_summary.tsv` - Quality metrics
+- `03_genomic_info/consensus_taxonomy.tsv` - Integrated taxonomy from multiple tools
+- `03_genomic_info/lifestyle_consensus.tsv` - Lifestyle predictions (BACPHLIP + Phabox2)
+- `03_iphop_results/iphop_predictions_compiled.tsv` - Host predictions
+
+**To view the HTML report:**
 ```bash
-# Start a screen session
-screen -S phage_pipeline
+# On your local machine after copying from cluster
+open Pipeline_Summary_Report.html
 
-# Navigate to workflow directory
-cd phage-analysis/workflow
-
-# Run with your configuration file
-snakemake --profile ../profile/slurm --configfile ../config/my_config.yaml
-
-# Detach from screen with Ctrl+A then D
-# Reattach later with: screen -r phage_pipeline
+# Or copy from cluster
+scp user@cluster:/path/to/output_dir/Pipeline_Summary_Report.html .
 ```
-
-### Command Line Options
-
-You can override config file settings via command line:
-
-```bash
-# Override specific parameters
-snakemake --profile ../profile/slurm \
-  --config assembly_file="/new/path/assembly.fasta" \
-           output_dir="/new/output/path"
-
-# Dry run to see what would be executed
-snakemake -n --profile ../profile/slurm
-
-# Run specific targets
-snakemake --profile ../profile/slurm \
-  results/01_phage_predictions/phageContigs.fasta
-
-# Local execution (no SLURM)
-snakemake --cores 8 --use-conda
-```
-
-### Input Modes
-
-**Option 1: FASTA Workflow**
-- Input: Assembled contigs in FASTA format
-- Faster
-- Example:
-  ```bash
-  snakemake --profile ../profile/slurm \
-    --config assembly_file="assembly.fasta" \
-             reads_dir="reads/" \
-             output_dir="results/"
-  ```
-
-**Option 2: Reneo Graph-Based Workflow**
-- Input: Assembly graph in GFA format
-- Uses Reneo for enhanced contig binning
-- Requires Gurobi license (see below)
-- Example:
-  ```bash
-  snakemake --profile ../profile/slurm \
-    --config assembly_graph="assembly.gfa" \
-             reads_dir="reads/" \
-             output_dir="results/"
-  ```
-
-### Reneo Configuration (for GFA input)
-
-**Important: Reneo requires a Gurobi license.**
-
-**Option 1: Use existing Reneo environment** (recommended):
-```yaml
-# In your config file:
-conda_base_path: "/path/to/your/conda"  # e.g., "/home/user/miniforge3"
-conda_envs:
-  reneo: "reneo"  # name of existing environment
-```
-
-**Option 2: Let Snakemake create environment**:
-```yaml
-conda_base_path: ""  # Leave empty
-conda_envs:
-  reneo: "../envs/reneo.yaml"
-```
-Then set up Gurobi license in the created environment.
-
-**Note**: If Reneo's virus detection fails (common with test data), the pipeline will continue using all processed sequences.
-
-## Pipeline Outputs
-
-The pipeline creates organized output directories:
-
-```
-output_dir/
-├── Pipeline_Summary_Report.html         # 📊 Interactive HTML summary report
-├── 01_phage_predictions/
-│   ├── phageContigs.fasta              # Final predicted phage sequences
-│   └── phagePredictedContigs.tsv       # Detailed prediction scores
-├── 02_clustering/                       # (if clustering enabled)
-│   ├── vOTU_repSeqs.fasta              # Representative sequence per vOTU
-│   └── clusters.tsv                     # Cluster membership information
-├── 03_iphop_results/
-│   └── iphop_predictions_compiled.tsv   # Bacterial host predictions
-├── 03_genomic_info/
-│   ├── consensus_taxonomy.tsv          # 🎯 Integrated taxonomy consensus
-│   ├── consensus_taxonomy_summary.json # Consensus statistics and coverage
-│   ├── mmseqs_taxonomy.tsv             # Sequence-based taxonomy  
-│   ├── bacphlip_lifestyle.tsv          # Lifestyle predictions
-│   ├── phabox_output/                  # Phabox2 results
-│   │   ├── final_prediction_summary.tsv # ML-based taxonomy and lifestyle
-│   │   ├── taxonomy.tsv                # Legacy format (may be empty)
-│   │   └── lifestyle.tsv               # Legacy format (may be empty)
-│   └── vc3_output/                     # vContact3 gene-content taxonomy
-│       └── exports/final_assignments.csv # Taxonomy predictions
-├── pipeline_summaries/                 # JSON summary files for each step
-└── logs/                               # Detailed logs for each step
-```
-
-### Summary Report
-
-The pipeline automatically generates a comprehensive HTML summary report (`Pipeline_Summary_Report.html`) that includes:
-
-- **Configuration Overview**: Shows your input files and pipeline settings
-- **Overall Statistics**: Key metrics like total input sequences, viral contigs found, and final phages
-- **Progress Tracking**: Visual progress bar and completion status for each pipeline step
-- **Detailed Results**: Step-by-step breakdown with sequence counts, quality metrics, and tool outputs
-
-**To view the report**:
-```bash
-# Open in web browser (Linux/Mac)
-open output_dir/Pipeline_Summary_Report.html
-
-# Or copy to your local machine and open
-scp user@cluster:path/to/output_dir/Pipeline_Summary_Report.html .
-```
-
-The report is generated automatically when the pipeline completes successfully.
 
 ## Troubleshooting
 
-### Memory/Time Issues
-- Increase resources for specific rules:
-  ```bash
-  snakemake --profile ../profile/slurm \
-    --set-resources iphop_single_prediction:mem_mb=100000
-  ```
-
-### Reneo Issues
-- Check Gurobi license: `python -c "import gurobipy"`
-- Review wrapper log: `logs/reneo_binning.log`
-- If virus detection fails, pipeline continues with all sequences
-
-### Empty Results
-- Check input file quality and size
-- Review logs for tool-specific errors
-- Ensure databases are properly downloaded
-
-### Database Errors
-- Verify database paths in config
-- Check database versions match tool requirements
-- Ensure sufficient disk space
-
-## Example Commands
-
-### Small Test Dataset
+**Memory/Time Issues**
 ```bash
-# Test with provided test data
-cd workflow
+# Increase resources for specific rules
 snakemake --profile ../profile/slurm \
-  --configfile ../test_data/test_config.yaml
-
-# Test locally without SLURM
-snakemake --use-conda --cores 4 \
-  --configfile ../test_data/test_config_local.yaml
-```
-
-### Real Data Examples
-```bash
-# Always start in a screen session for long runs!
-screen -S my_phage_analysis
-
-# Metagenomic assembly from SPAdes
-snakemake --profile ../profile/slurm \
-  --config assembly_file="spades_output/scaffolds.fasta" \
-           reads_dir="illumina_reads/" \
-           output_dir="phage_results/"
-
-# Assembly graph from metaFlye with Reneo
-snakemake --profile ../profile/slurm \
-  --config assembly_graph="flye_output/assembly_graph.gfa" \
-           reads_dir="nanopore_reads/" \
-           output_dir="phage_results_reneo/"
-
-# Large dataset with custom resources
-snakemake --profile ../profile/slurm \
-  --config assembly_file="megahit_output/final.contigs.fa" \
-           reads_dir="hiseq_reads/" \
-           output_dir="large_dataset_results/" \
-  --set-resources iphop_single_prediction:mem_mb=200000 \
+  --set-resources iphop_single_prediction:mem_mb=100000 \
                   iphop_single_prediction:runtime=2880
-
-# Detach and let it run: Ctrl+A, D
 ```
 
-## Contributing
+**Reneo Issues**
+- Check Gurobi license: `python -c "import gurobipy"`
+- Review `logs/reneo_binning.log`
+- Pipeline continues if virus detection fails
 
-We welcome contributions! Please:
-1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
+**Empty Results**
+- Verify input file quality and minimum contig lengths
+- Check logs in `output_dir/logs/` for tool-specific errors
+- Ensure databases are downloaded and paths are correct
+
+**Database Errors**
+- Verify all database paths in config file
+- Check database versions match tool requirements
+- Ensure sufficient disk space for databases and outputs
 
 ## Support
 
 - **Issues**: [GitHub Issues](https://github.com/megjohnson1999/phage-analysis/issues)
-- **Documentation**: See [WORKFLOW_SUMMARY.md](WORKFLOW_SUMMARY.md) for technical details
-- **Test Data**: Example files in `test_data/` directory
+- **Documentation**: See [WORKFLOW_SUMMARY.md](WORKFLOW_SUMMARY.md) for detailed technical information
+- **Test Data**: Example configuration and data in `test_data/` directory
 
 ## Citation
 
