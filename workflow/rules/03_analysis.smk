@@ -280,7 +280,8 @@ rule iphop_aggregate_results:
             # Process genome-level files
             while read -r pred_file; do
                 # Skip header line (first line) from each file and convert CSV to TSV
-                awk -F ',' 'NR>1 && $1!="" {{OFS="\t"; print}}' "$pred_file" >> "$TMP_DIR/aggregated_data.tmp"
+                # Note: $1=$1 forces field reconstruction which applies OFS (tab separator)
+                awk -F ',' 'NR>1 && $1!="" {{OFS="\t"; $1=$1; print}}' "$pred_file" >> "$TMP_DIR/aggregated_data.tmp"
             done < "$TMP_DIR/genome_files.txt"
 
             # Count genome-level records
@@ -297,7 +298,8 @@ rule iphop_aggregate_results:
 
             # Process genus-level files
             while read -r pred_file; do
-                awk -F ',' 'NR>1 && $1!="" {{OFS="\t"; print}}' "$pred_file" >> "$TMP_DIR/aggregated_data.tmp"
+                # Note: $1=$1 forces field reconstruction which applies OFS (tab separator)
+                awk -F ',' 'NR>1 && $1!="" {{OFS="\t"; $1=$1; print}}' "$pred_file" >> "$TMP_DIR/aggregated_data.tmp"
             done < "$TMP_DIR/genus_files.txt"
 
             if [ -f "$TMP_DIR/aggregated_data.tmp" ]; then
