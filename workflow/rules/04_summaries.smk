@@ -231,16 +231,16 @@ from datetime import datetime
 df = pd.read_csv('{input.lifestyle_consensus}', sep='\t')
 
 # Count totals
-total = len(df)
+total = int(len(df))
 
-# Count by source
-source_counts = df['source'].value_counts().to_dict() if 'source' in df.columns else {{}}
+# Count by source (convert to int to avoid numpy int64 serialization issues)
+source_counts = {{k: int(v) for k, v in df['source'].value_counts().to_dict().items()}} if 'source' in df.columns else {{}}
 
-# Count by lifestyle
-lifestyle_counts = df['lifestyle'].value_counts().to_dict() if 'lifestyle' in df.columns else {{}}
+# Count by lifestyle (convert to int to avoid numpy int64 serialization issues)
+lifestyle_counts = {{k: int(v) for k, v in df['lifestyle'].value_counts().to_dict().items()}} if 'lifestyle' in df.columns else {{}}
 
-# Calculate mean confidence
-mean_confidence = df['confidence'].mean() if 'confidence' in df.columns else 0
+# Calculate mean confidence (convert to float to avoid numpy float64 serialization issues)
+mean_confidence = float(df['confidence'].mean()) if 'confidence' in df.columns else 0
 
 # Create summary
 summary = {{
@@ -404,23 +404,23 @@ from datetime import datetime
 df = pd.read_csv('{input.final_summary}', sep='\t')
 
 # Count totals
-total_contigs = len(df)
+total_contigs = int(len(df))
 
-# Count annotation coverage
-has_taxonomy = df['phylum'].notna().sum() if 'phylum' in df.columns else 0
-has_lifestyle = df['lifestyle'].notna().sum() if 'lifestyle' in df.columns else 0
-has_host = df['host_genome'].notna().sum() if 'host_genome' in df.columns else 0
-has_checkv = df['checkv_quality'].notna().sum() if 'checkv_quality' in df.columns else 0
+# Count annotation coverage (convert to int to avoid numpy int64 serialization issues)
+has_taxonomy = int(df['phylum'].notna().sum()) if 'phylum' in df.columns else 0
+has_lifestyle = int(df['lifestyle'].notna().sum()) if 'lifestyle' in df.columns else 0
+has_host = int(df['host_genome'].notna().sum()) if 'host_genome' in df.columns else 0
+has_checkv = int(df['checkv_quality'].notna().sum()) if 'checkv_quality' in df.columns else 0
 
 # Count quality distribution
 quality_dist = {{}}
 if 'checkv_quality' in df.columns:
-    quality_dist = df['checkv_quality'].value_counts().to_dict()
+    quality_dist = {{k: int(v) for k, v in df['checkv_quality'].value_counts().to_dict().items()}}
 
 # Count lifestyle distribution
 lifestyle_dist = {{}}
 if 'lifestyle' in df.columns:
-    lifestyle_dist = df['lifestyle'].value_counts().to_dict()
+    lifestyle_dist = {{k: int(v) for k, v in df['lifestyle'].value_counts().to_dict().items()}}
 
 # Create summary
 summary = {{
