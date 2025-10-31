@@ -237,7 +237,8 @@ def generate_html_report(summaries, output_file, config_info=None):
                     # Try to get annotation coverage
                     if "annotation_coverage" in value:
                         coverage = value["annotation_coverage"]
-                        tax_pct = coverage.get("taxonomy_percentage", 0)
+                        # Get taxonomy percentage from nested structure
+                        tax_pct = coverage.get("has_taxonomy", {}).get("percentage", 0)
                         return f"{format_number(total)} contigs ({tax_pct:.1f}% with taxonomy)"
                     return f"{format_number(total)} contigs in final summary"
 
