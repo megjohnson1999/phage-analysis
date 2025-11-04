@@ -132,6 +132,22 @@ rule reneo_binning:
                     exit 1
                 fi
             }}
+
+        # Clean up large temporary directories to save space
+        echo "Cleaning up temporary directories..." >> {log} 2>&1
+        if [ -d "{config[output_dir]}/01_reneo_output/temp" ]; then
+            echo "Removing temp directory (size: $(du -sh {config[output_dir]}/01_reneo_output/temp 2>/dev/null | cut -f1))" >> {log} 2>&1
+            rm -rf "{config[output_dir]}/01_reneo_output/temp"
+        fi
+        if [ -d "{config[output_dir]}/01_reneo_output/work" ]; then
+            echo "Removing work directory (size: $(du -sh {config[output_dir]}/01_reneo_output/work 2>/dev/null | cut -f1))" >> {log} 2>&1
+            rm -rf "{config[output_dir]}/01_reneo_output/work"
+        fi
+        if [ -d "{config[output_dir]}/01_reneo_output/.snakemake" ]; then
+            echo "Removing .snakemake directory (size: $(du -sh {config[output_dir]}/01_reneo_output/.snakemake 2>/dev/null | cut -f1))" >> {log} 2>&1
+            rm -rf "{config[output_dir]}/01_reneo_output/.snakemake"
+        fi
+        echo "Cleanup complete" >> {log} 2>&1
         """
 
 # 1b. Filter contigs by length (1KB) from Reneo output
