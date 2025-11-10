@@ -29,6 +29,8 @@ rule calculate_abundance:
         runtime=1440  # 24 hours
     shell:
         """
+        set +u  # Disable strict mode for unbound variables
+
         echo "========================================" > {log}
         echo "Calculating Per-Sample Abundance" >> {log}
         echo "========================================" >> {log}
@@ -45,10 +47,13 @@ rule calculate_abundance:
         declare -a R1_FILES
         declare -a R2_FILES
 
-        # Search for R1/R2 pattern
+        # Search for R1/R2 pattern (both compressed and uncompressed)
         for r1 in {input.reads_dir}/*_R1*.fastq.gz {input.reads_dir}/*_R1*.fq.gz \
                   {input.reads_dir}/*_1.fastq.gz {input.reads_dir}/*_1.fq.gz \
-                  {input.reads_dir}/*.1.fastq.gz {input.reads_dir}/*.1.fq.gz; do
+                  {input.reads_dir}/*.1.fastq.gz {input.reads_dir}/*.1.fq.gz \
+                  {input.reads_dir}/*_R1*.fastq {input.reads_dir}/*_R1*.fq \
+                  {input.reads_dir}/*_1.fastq {input.reads_dir}/*_1.fq \
+                  {input.reads_dir}/*.1.fastq {input.reads_dir}/*.1.fq; do
             if [ -f "$r1" ]; then
                 # Try to find corresponding R2 file
                 r2="${{r1/_R1/_R2}}"
@@ -165,6 +170,8 @@ rule calculate_orf_abundance:
         runtime=1440  # 24 hours
     shell:
         """
+        set +u  # Disable strict mode for unbound variables
+
         echo "========================================" > {log}
         echo "Calculating Per-Sample ORF Abundance" >> {log}
         echo "========================================" >> {log}
@@ -191,10 +198,13 @@ rule calculate_orf_abundance:
         declare -a R1_FILES
         declare -a R2_FILES
 
-        # Search for R1/R2 pattern
+        # Search for R1/R2 pattern (both compressed and uncompressed)
         for r1 in {input.reads_dir}/*_R1*.fastq.gz {input.reads_dir}/*_R1*.fq.gz \
                   {input.reads_dir}/*_1.fastq.gz {input.reads_dir}/*_1.fq.gz \
-                  {input.reads_dir}/*.1.fastq.gz {input.reads_dir}/*.1.fq.gz; do
+                  {input.reads_dir}/*.1.fastq.gz {input.reads_dir}/*.1.fq.gz \
+                  {input.reads_dir}/*_R1*.fastq {input.reads_dir}/*_R1*.fq \
+                  {input.reads_dir}/*_1.fastq {input.reads_dir}/*_1.fq \
+                  {input.reads_dir}/*.1.fastq {input.reads_dir}/*.1.fq; do
             if [ -f "$r1" ]; then
                 # Try to find corresponding R2 file
                 r2="${{r1/_R1/_R2}}"
