@@ -86,13 +86,13 @@ rule calculate_abundance:
             PAIRED_READS+=("${{R1_FILES[$i]}}" "${{R2_FILES[$i]}}")
         done
 
-        # Run CoverM in genome mode
-        # This calculates abundance metrics by mapping reads to phage contigs
+        # Run CoverM in contig mode
+        # This calculates abundance metrics for each individual contig
         echo "Running CoverM on ${{#R1_FILES[@]}} sample pairs..." >> {log}
 
-        coverm genome \
+        coverm contig \
             --coupled "${{PAIRED_READS[@]}}" \
-            --genome-fasta-files {input.phage_seqs} \
+            --reference {input.phage_seqs} \
             --methods rpkm tpm count variance mean covered_fraction covered_bases \
             --min-covered-fraction 0 \
             --threads {threads} \
@@ -237,13 +237,13 @@ rule calculate_orf_abundance:
             PAIRED_READS+=("${{R1_FILES[$i]}}" "${{R2_FILES[$i]}}")
         done
 
-        # Run CoverM in genome mode on ORF sequences
-        # This calculates abundance metrics by mapping reads to ORFs
+        # Run CoverM in contig mode on ORF sequences
+        # This calculates abundance metrics for each individual ORF
         echo "Running CoverM on ORF sequences with ${{#R1_FILES[@]}} sample pairs..." >> {log}
 
-        coverm genome \
+        coverm contig \
             --coupled "${{PAIRED_READS[@]}}" \
-            --genome-fasta-files {input.orf_seqs} \
+            --reference {input.orf_seqs} \
             --methods rpkm tpm count variance mean covered_fraction covered_bases \
             --min-covered-fraction 0 \
             --threads {threads} \
