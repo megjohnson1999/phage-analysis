@@ -73,7 +73,8 @@ rule reneo_binning:
         config["conda_envs"]["reneo"] if not config.get("conda_base_path") else None
     params:
         conda_env = config["conda_envs"]["reneo"],
-        conda_base = config.get("conda_base_path", "")
+        conda_base = config.get("conda_base_path", ""),
+        cleanup_enabled = config.get("cleanup_temp_dirs", True)
     threads: 24
     shell:
         """
@@ -134,7 +135,7 @@ rule reneo_binning:
             }}
 
         # Clean up large temporary directories to save space (if enabled)
-        CLEANUP_ENABLED={config.get("cleanup_temp_dirs", True)}
+        CLEANUP_ENABLED={params.cleanup_enabled}
         if [ "$CLEANUP_ENABLED" = "True" ]; then
             echo "Cleaning up temporary directories..." >> {log} 2>&1
             if [ -d "{config[output_dir]}/01_reneo_output/temp" ]; then

@@ -243,6 +243,8 @@ rule iphop_aggregate_results:
         )
     output:
         predictions = f"{config['output_dir']}/03_iphop_results/iphop_predictions_compiled.tsv"
+    params:
+        cleanup_enabled = config.get("cleanup_temp_dirs", True)
     log:
         f"{config['output_dir']}/logs/iphop_aggregate_results.log"
     conda:
@@ -323,7 +325,7 @@ rule iphop_aggregate_results:
         rm -rf "$TMP_DIR"
 
         # Clean up iPhop temporary directories to save disk space (if enabled)
-        CLEANUP_ENABLED={config.get("cleanup_temp_dirs", True)}
+        CLEANUP_ENABLED={params.cleanup_enabled}
         if [ "$CLEANUP_ENABLED" = "True" ]; then
             echo "Cleaning up iPhop temporary directories..." >> {log} 2>&1
             if [ -d "{config[output_dir]}/03_iphop_results/tmp" ]; then
