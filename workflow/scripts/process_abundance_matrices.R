@@ -40,6 +40,7 @@ abd_cov <- vroom(coverm_file,
                  col_names = c("sampleID", "contigID", "rpkm", "tpm",
                                "count", "variance", "mean",
                                "covered_fraction", "covered_bases"),
+                 skip = 1,  # Skip header row from CoverM output
                  show_col_types = FALSE)
 
 cat(sprintf("  Loaded %d rows\n", nrow(abd_cov)))
