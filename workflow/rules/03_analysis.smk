@@ -322,13 +322,18 @@ rule iphop_aggregate_results:
         # Clean up temporary directory
         rm -rf "$TMP_DIR"
 
-        # Clean up iPhop temporary directories to save disk space
-        echo "Cleaning up iPhop temporary directories..." >> {log} 2>&1
-        if [ -d "{config[output_dir]}/03_iphop_results/tmp" ]; then
-            echo "Removing tmp directory (size: $(du -sh {config[output_dir]}/03_iphop_results/tmp 2>/dev/null | cut -f1))" >> {log} 2>&1
-            rm -rf "{config[output_dir]}/03_iphop_results/tmp"
+        # Clean up iPhop temporary directories to save disk space (if enabled)
+        CLEANUP_ENABLED={config.get("cleanup_temp_dirs", True)}
+        if [ "$CLEANUP_ENABLED" = "True" ]; then
+            echo "Cleaning up iPhop temporary directories..." >> {log} 2>&1
+            if [ -d "{config[output_dir]}/03_iphop_results/tmp" ]; then
+                echo "Removing tmp directory (size: $(du -sh {config[output_dir]}/03_iphop_results/tmp 2>/dev/null | cut -f1))" >> {log} 2>&1
+                rm -rf "{config[output_dir]}/03_iphop_results/tmp"
+            fi
+            echo "Cleanup complete" >> {log} 2>&1
+        else
+            echo "iPhop temp directory cleanup disabled (cleanup_temp_dirs: false in config)" >> {log} 2>&1
         fi
-        echo "Cleanup complete" >> {log} 2>&1
         """
 
 # 3. Run Prodigal for ORF prediction on phage sequences

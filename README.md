@@ -121,6 +121,7 @@ reads_dir: "/path/to/reads/"
 do_clustering: true                         # Set false to skip clustering
 calculate_abundance: false                  # Set true to calculate contig and ORF abundance
 abundance_coverage_threshold: 0.75          # Min coverage to count abundance (0.0-1.0)
+cleanup_temp_dirs: true                     # Set false to keep intermediate temp files (saves space but removes flexibility for partial reruns)
 
 # Database paths (update these!)
 databases:
@@ -170,6 +171,26 @@ open Pipeline_Summary_Report.html
 # Or copy from cluster
 scp user@cluster:/path/to/output_dir/Pipeline_Summary_Report.html .
 ```
+
+## Disk Space Management
+
+The pipeline automatically cleans up large temporary files when `cleanup_temp_dirs: true` (default):
+
+**What gets cleaned:**
+- `01_reneo_output/temp/` - BAM files and coverage intermediate files
+- `01_reneo_output/work/` - Reneo workflow intermediate files
+- `03_iphop_results/tmp/` - Individual iPhop prediction files per sample
+
+**When cleanup happens:**
+- After successful completion of each step
+- Only after final outputs are verified
+- Logged in rule-specific log files
+
+**Trade-offs:**
+- ✓ **Enabled** (default): Saves significant disk space (especially with many samples)
+- ✓ **Disabled** (`cleanup_temp_dirs: false`): Allows cheaper partial reruns if aggregation fails
+
+**Note:** If temp files are deleted and you need to rerun a step, Snakemake will automatically regenerate them from the previous step. For example, deleting `iphop_predictions_compiled.tsv` will trigger re-running all iPhop predictions (not just aggregation).
 
 ## Troubleshooting
 

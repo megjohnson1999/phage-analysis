@@ -27,6 +27,7 @@ run_consensus: true  # Set to false to skip taxonomic consensus
 run_crassus: false  # Set to true to enable CrassUS for Crassvirales taxonomy (requires separate installation)
 calculate_abundance: false  # Set to true to calculate per-sample abundance using CoverM
 abundance_coverage_threshold: 0.75  # Minimum fraction of contig covered to count abundance (0.0-1.0)
+cleanup_temp_dirs: true  # Set to false to keep intermediate temporary files (Reneo temp/work, iPhop tmp)
 
 databases:
   iphop:
