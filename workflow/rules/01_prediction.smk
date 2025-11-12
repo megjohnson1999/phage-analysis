@@ -73,7 +73,8 @@ rule reneo_binning:
         config["conda_envs"]["reneo"] if not config.get("conda_base_path") else None
     params:
         conda_env = config["conda_envs"]["reneo"],
-        conda_base = config.get("conda_base_path", "")
+        conda_base = config.get("conda_base_path", ""),
+        cleanup_enabled = config.get("cleanup_temp_dirs", True)
     threads: 24
     shell:
         """
@@ -132,6 +133,27 @@ rule reneo_binning:
                     exit 1
                 fi
             }}
+
+        # Clean up large temporary directories to save space (if enabled)
+        CLEANUP_ENABLED={params.cleanup_enabled}
+        if [ "$CLEANUP_ENABLED" = "True" ]; then
+            echo "Cleaning up temporary directories..." >> {log} 2>&1
+            if [ -d "{config[output_dir]}/01_reneo_output/temp" ]; then
+                echo "Removing temp directory (size: $(du -sh {config[output_dir]}/01_reneo_output/temp 2>/dev/null | cut -f1))" >> {log} 2>&1
+                rm -rf "{config[output_dir]}/01_reneo_output/temp"
+            fi
+            if [ -d "{config[output_dir]}/01_reneo_output/work" ]; then
+                echo "Removing work directory (size: $(du -sh {config[output_dir]}/01_reneo_output/work 2>/dev/null | cut -f1))" >> {log} 2>&1
+                rm -rf "{config[output_dir]}/01_reneo_output/work"
+            fi
+            if [ -d "{config[output_dir]}/01_reneo_output/.snakemake" ]; then
+                echo "Removing .snakemake directory (size: $(du -sh {config[output_dir]}/01_reneo_output/.snakemake 2>/dev/null | cut -f1))" >> {log} 2>&1
+                rm -rf "{config[output_dir]}/01_reneo_output/.snakemake"
+            fi
+            echo "Cleanup complete" >> {log} 2>&1
+        else
+            echo "Temp directory cleanup disabled (cleanup_temp_dirs: false in config)" >> {log} 2>&1
+        fi
         """
 
 # 1b. Filter contigs by length (1KB) from Reneo output

@@ -1,0 +1,9 @@
+name: coverm
+channels:
+  - conda-forge
+  - bioconda
+  - defaults
+dependencies:
+  - coverm>=0.7.0
+  - samtools>=1.15
+  - minimap2>=2.24

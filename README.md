@@ -16,6 +16,7 @@ A comprehensive Snakemake workflow for identifying, clustering, and characterizi
 - **Taxonomic classification**: Multiple approaches via MMseqs2, Phabox2, and vContact3
 - **Taxonomic consensus**: Hierarchical integration of taxonomy predictions from multiple tools
 - **Functional annotation**: Protein prediction and annotation
+- **Per-sample abundance**: Calculate phage and ORF abundance across samples using CoverM (optional)
 - **Progress tracking**: Automated summary collection and HTML report generation
 
 The pipeline includes a robust taxonomic consensus system that combines predictions from MMseqs2 (protein similarity), Phabox2 (ML-based), and vContact3 (gene content), with automatic format detection and hierarchical validation. For detailed technical information, see [WORKFLOW_SUMMARY.md](WORKFLOW_SUMMARY.md).
@@ -118,6 +119,9 @@ reads_dir: "/path/to/reads/"
 
 # Optional
 do_clustering: true                         # Set false to skip clustering
+calculate_abundance: false                  # Set true to calculate contig and ORF abundance
+abundance_coverage_threshold: 0.75          # Min coverage to count abundance (0.0-1.0)
+cleanup_temp_dirs: true                     # Set false to keep intermediate temp files (saves space but removes flexibility for partial reruns)
 
 # Database paths (update these!)
 databases:
@@ -152,6 +156,13 @@ The pipeline generates organized results in your specified `output_dir`:
 - `03_genomic_info/lifestyle_consensus.tsv` - Lifestyle predictions (BACPHLIP + Phabox2)
 - `03_iphop_results/iphop_predictions_compiled.tsv` - Host predictions
 
+**Abundance Outputs** (when `calculate_abundance: true`):
+- `04_abundance/tpm_matrix.tsv` - Contig TPM abundance (contigs × samples)
+- `04_abundance/count_matrix.tsv` - Contig read counts (contigs × samples)
+- `04_abundance/orf_tpm_matrix.tsv` - ORF TPM abundance (ORFs × samples)
+- `04_abundance/orf_count_matrix.tsv` - ORF read counts (ORFs × samples)
+- `04_abundance/orf_annotations.tsv` - ORF metadata linking to contigs
+
 **To view the HTML report:**
 ```bash
 # On your local machine after copying from cluster
@@ -160,6 +171,26 @@ open Pipeline_Summary_Report.html
 # Or copy from cluster
 scp user@cluster:/path/to/output_dir/Pipeline_Summary_Report.html .
 ```
+
+## Disk Space Management
+
+The pipeline automatically cleans up large temporary files when `cleanup_temp_dirs: true` (default):
+
+**What gets cleaned:**
+- `01_reneo_output/temp/` - BAM files and coverage intermediate files
+- `01_reneo_output/work/` - Reneo workflow intermediate files
+- `03_iphop_results/tmp/` - Individual iPhop prediction files per sample
+
+**When cleanup happens:**
+- After successful completion of each step
+- Only after final outputs are verified
+- Logged in rule-specific log files
+
+**Trade-offs:**
+- ✓ **Enabled** (default): Saves significant disk space (especially with many samples)
+- ✓ **Disabled** (`cleanup_temp_dirs: false`): Allows cheaper partial reruns if aggregation fails
+
+**Note:** If temp files are deleted and you need to rerun a step, Snakemake will automatically regenerate them from the previous step. For example, deleting `iphop_predictions_compiled.tsv` will trigger re-running all iPhop predictions (not just aggregation).
 
 ## Troubleshooting
 
