@@ -445,8 +445,8 @@ except Exception as e:
 # Rule to collect final statistics
 rule collect_final_stats:
     input:
-        # Use clustering output if available, otherwise use phage predictions
-        final_seqs = f"{config['output_dir']}/02_clustering/vOTU_repSeqs.fasta" if config.get("do_clustering", True) else f"{config['output_dir']}/01_phage_predictions/phageContigs.fasta"
+        # Use get_phage_input() helper to get correct input based on entry point and clustering
+        final_seqs = get_phage_input
     output:
         summary = f"{SUMMARY_DIR}/final_phages.json"
     log:
