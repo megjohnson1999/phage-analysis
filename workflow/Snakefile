@@ -36,28 +36,32 @@ if is_placeholder_path(config.get("assembly_file")):
 if is_placeholder_path(config.get("assembly_graph")):
     config["assembly_graph"] = ""
 
-# Validate required inputs - must provide exactly one
-if not config.get("assembly_file") and not config.get("assembly_graph"):
-    raise ValueError("Either 'assembly_file' or 'assembly_graph' must be provided in the config.")
+# Validate required inputs based on entry point
+start_from = config.get("start_from", "assembly")
 
-if config.get("assembly_file") and config.get("assembly_graph"):
-    raise ValueError("Please provide either 'assembly_file' OR 'assembly_graph', not both. Use 'assembly_file' for FASTA-only workflow or 'assembly_graph' for Reneo workflow.")
+# Only require assembly inputs when starting from "assembly"
+if start_from == "assembly":
+    if not config.get("assembly_file") and not config.get("assembly_graph"):
+        raise ValueError("Either 'assembly_file' or 'assembly_graph' must be provided when start_from='assembly'.")
 
-# Validate assembly_file input
-if config.get("assembly_file"):
-    # Check if assembly_file exists
-    if not os.path.exists(config.get("assembly_file", "")):
-        raise ValueError(f"The specified assembly_file '{config.get('assembly_file')}' does not exist.")
+    if config.get("assembly_file") and config.get("assembly_graph"):
+        raise ValueError("Please provide either 'assembly_file' OR 'assembly_graph', not both. Use 'assembly_file' for FASTA-only workflow or 'assembly_graph' for Reneo workflow.")
 
-# Validate assembly_graph input  
-if config.get("assembly_graph"):
-    # Check if assembly_graph file exists
-    if not os.path.exists(config.get("assembly_graph", "")):
-        raise ValueError(f"The specified assembly_graph file '{config.get('assembly_graph')}' does not exist.")
-    
-    # Ensure reads_dir is provided (required for Reneo)
-    if not config.get("reads_dir"):
-        raise ValueError("When using 'assembly_graph', 'reads_dir' must be provided for Reneo to work.")
+    # Validate assembly_file input
+    if config.get("assembly_file"):
+        # Check if assembly_file exists
+        if not os.path.exists(config.get("assembly_file", "")):
+            raise ValueError(f"The specified assembly_file '{config.get('assembly_file')}' does not exist.")
+
+    # Validate assembly_graph input
+    if config.get("assembly_graph"):
+        # Check if assembly_graph file exists
+        if not os.path.exists(config.get("assembly_graph", "")):
+            raise ValueError(f"The specified assembly_graph file '{config.get('assembly_graph')}' does not exist.")
+
+        # Ensure reads_dir is provided (required for Reneo)
+        if not config.get("reads_dir"):
+            raise ValueError("When using 'assembly_graph', 'reads_dir' must be provided for Reneo to work.")
 
 # Make sure reads_dir is provided in all cases
 if not config.get("reads_dir"):
@@ -80,7 +84,6 @@ if not config.get("reads_dir"):
 # ================================================================================
 
 # Validate entry point configuration
-start_from = config.get("start_from", "assembly")
 valid_entry_points = ["assembly", "reneo_output", "viral_contigs", "predicted_phages", "clustered_sequences"]
 
 if start_from not in valid_entry_points:
