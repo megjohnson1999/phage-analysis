@@ -1,0 +1,43 @@
+# Example Config: Starting from Clustered Sequences (vOTUs)
+#
+# USE THIS WHEN:
+#   - You already have clustered vOTU representatives
+#   - You want to skip prediction and clustering
+#   - You want to run analysis and/or abundance on pre-made vOTUs
+#
+# SKIPS: Assembly filtering, prediction, clustering
+# RUNS: Analysis → Summaries (and optionally abundance)
+
+# Directory configuration
+output_dir: "/path/to/your/project/outputs"
+
+# Input files
+reads_dir: "/path/to/reads"  # Required for abundance calculation
+
+# Entry point configuration
+start_from: "clustered_sequences"
+clustered_sequences_file: "/path/to/your/vOTU_representatives.fasta"  # FASTA with vOTU rep sequences
+
+# Pipeline flags
+do_clustering: false  # Don't re-cluster (already have vOTUs)
+generate_summaries: true
+calculate_abundance: true  # EXAMPLE: Just calculate abundance on existing vOTUs
+run_consensus: true
+run_crassus: false
+cleanup_temp_dirs: true
+abundance_coverage_threshold: 0.75
+
+# Database paths (example - update with your paths)
+databases:
+  checkv:
+    db: "/ref/sahlab/data/viral_analysis_DBs/checkV_DB/checkv-db-v1.5"
+  iphop:
+    db: "/ref/sahlab/data/viral_analysis_DBs/iphop_DBs/Aug_2023_pub_rw"
+  phabox:
+    db: "/ref/sahlab/data/viral_analysis_DBs/phabox_db_v2"
+  vcontact3:
+    db: "/ref/sahlab/data/viral_analysis_DBs/vcontact3_DB223"
+  mmseqs2:
+    db: "/ref/sahlab/data/nr/nr_mmseqs15_DB"
+  coverm:  # Needed for abundance calculation
+    db: "/path/to/coverm/if/needed"

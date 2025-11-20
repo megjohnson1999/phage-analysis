@@ -20,6 +20,54 @@ assembly_file: "/path/to/assembly.fasta"  # Path to assembly file for FASTA-only
 assembly_graph: ""   # Path to assembly graph file for Reneo workflow
 reads_dir: "/path/to/reads"  # Directory containing sequencing reads
 
+# ================================================================================
+# Pipeline Entry Points
+# ================================================================================
+#
+# The pipeline supports starting from different stages by providing pre-computed
+# intermediate files. This allows you to skip expensive upstream steps.
+#
+# Entry Points:
+#
+#   "assembly" (default)
+#     - Start from raw assembly file
+#     - Runs: Assembly filtering → Prediction → Clustering → Analysis
+#     - Requires: assembly_file OR assembly_graph
+#
+#   "reneo_output"
+#     - Start from Reneo-binned contigs (skip Reneo step)
+#     - Runs: Prediction → Clustering → Analysis
+#     - Requires: reneo_output_file (FASTA, min 1000bp)
+#     - Skips: Reneo binning
+#
+#   "viral_contigs"
+#     - Start from viral contigs (skip MMseqs filtering)
+#     - Runs: Prediction → Clustering → Analysis
+#     - Requires: viral_contigs_file (FASTA, min 1000bp)
+#     - Skips: Assembly filtering, MMseqs
+#
+#   "predicted_phages"
+#     - Start from phage predictions (skip prediction tools)
+#     - Runs: Clustering → Analysis
+#     - Requires: predicted_phages_file (FASTA)
+#     - Skips: Assembly filtering, prediction tools
+#
+#   "clustered_sequences"
+#     - Start from clustered vOTUs (skip prediction & clustering)
+#     - Runs: Analysis only
+#     - Requires: clustered_sequences_file (FASTA of vOTU representatives)
+#     - Skips: Assembly filtering, prediction, clustering
+#
+# ================================================================================
+
+start_from: "assembly"  # Options: assembly, reneo_output, viral_contigs, predicted_phages, clustered_sequences
+
+# Entry point input files (only provide the one that matches your start_from setting)
+# reneo_output_file: "/path/to/reneo_contigs.fasta"
+# viral_contigs_file: "/path/to/viral_contigs.fasta"
+# predicted_phages_file: "/path/to/predicted_phages.fasta"
+# clustered_sequences_file: "/path/to/vOTUs.fasta"
+
 # Pipeline configuration
 do_clustering: true  # Set to false to skip clustering
 generate_summaries: true  # Set to false to skip summary report generation
