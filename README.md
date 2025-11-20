@@ -123,6 +123,14 @@ calculate_abundance: false                  # Set true to calculate contig and O
 abundance_coverage_threshold: 0.75          # Min coverage to count abundance (0.0-1.0)
 cleanup_temp_dirs: true                     # Set false to keep intermediate temp files (saves space but removes flexibility for partial reruns)
 
+# Entry point configuration (skip expensive upstream steps)
+start_from: "assembly"                      # Options: assembly, reneo_output, viral_contigs, predicted_phages, clustered_sequences
+# Entry point input files (provide the one matching your start_from setting):
+# reneo_output_file: "/path/to/reneo_contigs.fasta"
+# viral_contigs_file: "/path/to/viral_contigs.fasta"
+# predicted_phages_file: "/path/to/predicted_phages.fasta"
+# clustered_sequences_file: "/path/to/vOTUs.fasta"
+
 # Database paths (update these!)
 databases:
   checkv:
@@ -131,6 +139,43 @@ databases:
     db: "/path/to/genomad_db"
   # ... see config/config.yaml for all databases
 ```
+
+### Flexible Entry Points
+
+The pipeline supports starting from different stages, allowing you to skip expensive upstream steps if you already have intermediate results:
+
+| Entry Point | Input Required | Skips | Runs |
+|-------------|---------------|-------|------|
+| **`assembly`** (default) | Assembly file or graph | Nothing | Everything |
+| **`reneo_output`** | Reneo-binned contigs (FASTA) | Reneo binning | Filtering → Prediction → Clustering → Analysis |
+| **`viral_contigs`** | Viral contigs (FASTA) | Filtering + Reneo | Prediction → Clustering → Analysis |
+| **`predicted_phages`** | Predicted phage contigs (FASTA) | Filtering + Prediction | Clustering → Analysis |
+| **`clustered_sequences`** | vOTU representatives (FASTA) | Filtering + Prediction + Clustering | Analysis only |
+
+**Example Usage:**
+
+```yaml
+# Start from predicted phages (skip expensive prediction step)
+start_from: "predicted_phages"
+predicted_phages_file: "/path/to/my_predicted_phages.fasta"
+reads_dir: "/path/to/reads"  # Still needed for abundance
+
+# Standard settings still apply
+do_clustering: true           # Will cluster your phages into vOTUs
+calculate_abundance: true     # Optional - calculate per-sample abundance
+generate_summaries: true      # Generate HTML report
+```
+
+**Input File Requirements:**
+- FASTA format with nucleotide sequences
+- Minimum sequence length: 1000 bp
+- Unique sequence IDs (no duplicates)
+- For `clustered_sequences`: provide vOTU representative sequences
+
+**See Also:**
+- `config/examples/config_from_reneo_output.yaml` - Example for starting from Reneo output
+- `config/examples/config_from_predicted_phages.yaml` - Example for starting from predictions
+- `config/examples/config_from_clustered_sequences.yaml` - Example for starting from vOTUs
 
 ### SLURM Configuration
 

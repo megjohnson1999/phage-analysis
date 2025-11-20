@@ -7,9 +7,13 @@ This step is optional and can be skipped based on config settings.
 def skip_clustering(wildcards):
     return not config.get("do_clustering", True)
 
-# Define the phage input file - either from clustering or from prediction
+# Define the phage input file - handles different entry points and clustering options
 def get_phage_input(wildcards):
-    if config.get("do_clustering", True):
+    # If starting from clustered sequences, always use that file (via symlink)
+    if config.get("start_from") == "clustered_sequences":
+        return f"{config['output_dir']}/02_clustering/vOTU_repSeqs.fasta"
+    # Otherwise, use clustering output if enabled, or prediction output if not
+    elif config.get("do_clustering", True):
         return f"{config['output_dir']}/02_clustering/vOTU_repSeqs.fasta"
     else:
         return f"{config['output_dir']}/01_phage_predictions/phageContigs.fasta"
