@@ -12,15 +12,158 @@ min_version("8.0")
 
 configfile: "../config/config.yaml"
 
-# Import rules
-include: "rules/01_prediction.smk"
-include: "rules/02_clustering.smk"
-include: "rules/03_analysis.smk"
-include: "rules/04_summaries.smk"
-include: "rules/05_abundance.smk"
-
 # Import needed for file existence checks
 import os
+
+# ================================================================================
+# Module Configuration System
+# ================================================================================
+
+def get_modules():
+    """
+    Determine which pipeline modules to run based on configuration.
+
+    Supports two modes:
+    1. analysis_type presets: Simple predefined workflows
+    2. Granular module control: Fine-grained control over individual modules
+
+    Returns dictionary with module names as keys and boolean values
+    """
+    # Check for old-style config flags and show deprecation warning
+    old_flags = {
+        "do_clustering": config.get("do_clustering"),
+        "generate_summaries": config.get("generate_summaries"),
+        "calculate_abundance": config.get("calculate_abundance")
+    }
+
+    # If old flags are explicitly set (not None), use them but warn
+    if any(v is not None for v in old_flags.values()):
+        print("\n" + "="*80)
+        print("WARNING: Using deprecated config flags")
+        print("="*80)
+        print("The following flags are deprecated and will be removed in a future version:")
+        print("  - do_clustering")
+        print("  - generate_summaries")
+        print("  - calculate_abundance")
+        print("\nPlease migrate to the new 'analysis_type' or 'modules' config system.")
+        print("See config/config.yaml for examples.")
+        print("="*80 + "\n")
+
+        # Map old flags to new module system
+        return {
+            "prediction": True,  # Always required
+            "clustering": old_flags.get("do_clustering", True),
+            "analysis": True,  # Always required when prediction runs
+            "summaries": old_flags.get("generate_summaries", True),
+            "abundance": old_flags.get("calculate_abundance", False)
+        }
+
+    # Check for analysis_type preset
+    analysis_type = config.get("analysis_type")
+    if analysis_type:
+        presets = {
+            "prediction_only": {
+                "prediction": True,
+                "clustering": False,
+                "analysis": False,
+                "summaries": False,
+                "abundance": False
+            },
+            "standard": {
+                "prediction": True,
+                "clustering": True,
+                "analysis": True,
+                "summaries": True,
+                "abundance": False
+            },
+            "comprehensive": {
+                "prediction": True,
+                "clustering": True,
+                "analysis": True,
+                "summaries": True,
+                "abundance": True
+            }
+        }
+
+        if analysis_type not in presets:
+            raise ValueError(
+                f"Invalid analysis_type: '{analysis_type}'. "
+                f"Must be one of: {list(presets.keys())}"
+            )
+
+        return presets[analysis_type]
+
+    # Use granular module configuration
+    modules_config = config.get("modules", {})
+
+    # Default: standard analysis (everything except abundance)
+    return {
+        "prediction": True,  # Always required
+        "clustering": modules_config.get("clustering", True),
+        "analysis": modules_config.get("analysis", True),
+        "summaries": modules_config.get("summaries", True),
+        "abundance": modules_config.get("abundance", False)
+    }
+
+MODULES = get_modules()
+
+# Validate module dependencies
+def validate_modules():
+    """Validate that required module dependencies are met"""
+    errors = []
+
+    # Abundance requires clustering (needs vOTUs for abundance calculation)
+    if MODULES.get("abundance") and not MODULES.get("clustering"):
+        errors.append(
+            "Module dependency error: 'abundance' module requires 'clustering' module.\n"
+            "  Either enable clustering or disable abundance calculation."
+        )
+
+    # Analysis requires prediction (needs predicted sequences)
+    if MODULES.get("analysis") and not MODULES.get("prediction"):
+        errors.append(
+            "Module dependency error: 'analysis' module requires 'prediction' module.\n"
+            "  Cannot run analysis without prediction."
+        )
+
+    # Summaries should have something to summarize
+    if MODULES.get("summaries") and not MODULES.get("analysis"):
+        print("\nWARNING: 'summaries' module enabled but 'analysis' is disabled.")
+        print("  Summary reports will have limited information without analysis results.\n")
+
+    if errors:
+        raise ValueError("\n" + "\n".join(errors))
+
+    # Print module status
+    print("\n" + "="*80)
+    print("Pipeline Modules Configuration")
+    print("="*80)
+    for module, enabled in MODULES.items():
+        status = "ENABLED" if enabled else "DISABLED"
+        print(f"  {module:15s}: {status}")
+    print("="*80 + "\n")
+
+validate_modules()
+
+# ================================================================================
+# Conditional Module Imports
+# ================================================================================
+
+# Always include prediction module (required)
+include: "rules/01_prediction.smk"
+
+# Conditionally include optional modules
+if MODULES.get("clustering"):
+    include: "rules/02_clustering.smk"
+
+if MODULES.get("analysis"):
+    include: "rules/03_analysis.smk"
+
+if MODULES.get("summaries"):
+    include: "rules/04_summaries.smk"
+
+if MODULES.get("abundance"):
+    include: "rules/05_abundance.smk"
 
 # Helper function to check if a path is a placeholder
 def is_placeholder_path(path):
@@ -63,31 +206,78 @@ if config.get("assembly_graph"):
 if not config.get("reads_dir"):
     raise ValueError("'reads_dir' must be provided in the config.")
 
+# Validate entry point configuration
+start_from = config.get("start_from", "assembly")
+valid_entry_points = ["assembly", "clustered_sequences"]
+
+if start_from not in valid_entry_points:
+    raise ValueError(f"Invalid start_from value '{start_from}'. Must be one of: {valid_entry_points}")
+
+# Validate entry point inputs
+if start_from == "clustered_sequences":
+    if not config.get("clustered_sequences_file"):
+        raise ValueError("When start_from='clustered_sequences', you must provide 'clustered_sequences_file' in the config.")
+
+    if is_placeholder_path(config.get("clustered_sequences_file")):
+        raise ValueError("Please provide a valid path for 'clustered_sequences_file' (not a placeholder).")
+
+    if not os.path.exists(config.get("clustered_sequences_file")):
+        raise ValueError(f"The specified clustered_sequences_file '{config.get('clustered_sequences_file')}' does not exist.")
+
+    # Create symlink to place user file at expected location (02_clustering/vOTU_repSeqs.fasta)
+    # This allows downstream rules to work without modification
+    os.makedirs(f"{config['output_dir']}/02_clustering", exist_ok=True)
+    expected_location = f"{config['output_dir']}/02_clustering/vOTU_repSeqs.fasta"
+
+    # Only create symlink if it doesn't already exist or points to wrong target
+    if os.path.exists(expected_location) or os.path.islink(expected_location):
+        # Check if it's already the correct symlink
+        if os.path.islink(expected_location):
+            current_target = os.readlink(expected_location)
+            if os.path.abspath(current_target) != os.path.abspath(config.get("clustered_sequences_file")):
+                # Remove old symlink and create new one
+                os.remove(expected_location)
+                os.symlink(os.path.abspath(config.get("clustered_sequences_file")), expected_location)
+        elif os.path.isfile(expected_location):
+            # Regular file exists - don't overwrite, but warn user
+            print(f"Warning: File already exists at {expected_location}. Using existing file instead of creating symlink.")
+    else:
+        # Create new symlink
+        os.symlink(os.path.abspath(config.get("clustered_sequences_file")), expected_location)
+        print(f"Created symlink: {expected_location} -> {config.get('clustered_sequences_file')}")
+
 # Will be set by 01_prediction.smk
 use_reneo = False
 
 # Default target rule
 rule all:
     input:
-        # Start with appropriate filtered assembly based on whether Reneo will run
-        [f"{config['output_dir']}/01_reneo_output/genomes_and_unresolved_edges_1KB.fasta"] 
-        if workflow.globals["use_reneo"] else 
-        [f"{config['output_dir']}/01_filtered_assembly/filtered_assembly_1KB.fasta"],
-            
+        # Stage 1 & 2 outputs (skip if starting from clustered_sequences)
+        lambda wildcards: (
+            # Stage 1: Filtered assembly (only for "assembly" entry point)
+            ([f"{config['output_dir']}/01_reneo_output/genomes_and_unresolved_edges_1KB.fasta"]
+             if workflow.globals["use_reneo"] else
+             [f"{config['output_dir']}/01_filtered_assembly/filtered_assembly_1KB.fasta"]) +
+            # Stage 2: Clustering output (only if clustering enabled and "assembly" entry point)
+            ([f"{config['output_dir']}/02_clustering/vOTU_repSeqs.fasta"]
+             if MODULES.get("clustering") else [])
+        ) if start_from == "assembly" else [],
+
+        # Stage 3: Analysis outputs (always included)
         # Explicitly include splitting steps to ensure they appear in the plan
         f"{config['output_dir']}/03_split_seqs/split_file_list.txt",
-        
+
         # Add checkpoint triggers
         f"{config['output_dir']}/03_iphop_results/.splits_ready",
-        
+
         # Add the input file checkpoints
         f"{config['output_dir']}/03_iphop_results/.input_files_found",
-        
+
         # Add helpers that run the single prediction jobs
         f"{config['output_dir']}/03_iphop_results/.all_predictions_done",
-        
-        # Final output files depending on whether clustering is enabled
-        lambda wildcards: 
+
+        # Final output files (always included)
+        lambda wildcards:
             expand(
                 "{outdir}/03_iphop_results/iphop_predictions_compiled.tsv",
                 outdir=config["output_dir"]
@@ -111,7 +301,7 @@ rule all:
                 outdir=config["output_dir"]
             ) +
             expand(
-                "{outdir}/03_genomic_info/phabox_output/lifestyle.tsv", 
+                "{outdir}/03_genomic_info/phabox_output/lifestyle.tsv",
                 outdir=config["output_dir"]
             ) +
             # Add vContact3 output (gene-content based taxonomy)
@@ -138,16 +328,13 @@ rule all:
                 "{outdir}/final_contig_summary.tsv",
                 outdir=config["output_dir"]
             ) +
-            (["{outdir}/02_clustering/vOTU_repSeqs.fasta".format(
-                outdir=config["output_dir"]
-             )] if config.get("do_clustering", True) else []) +
-            # Add summary collection and report generation if enabled (default: True)
+            # Add summary collection and report generation if enabled
             (["{outdir}/pipeline_summaries/.all_summaries_collected".format(
                 outdir=config["output_dir"]
              ), "{outdir}/Pipeline_Summary_Report.html".format(
                 outdir=config["output_dir"]
-             )] if config.get("generate_summaries", True) else []) +
-            # Add per-sample abundance matrices if enabled (default: False)
+             )] if MODULES.get("summaries") else []) +
+            # Add per-sample abundance matrices if enabled
             (["{outdir}/04_abundance/tpm_matrix.tsv".format(
                 outdir=config["output_dir"]
              ), "{outdir}/04_abundance/count_matrix.tsv".format(
@@ -158,4 +345,4 @@ rule all:
                 outdir=config["output_dir"]
              ), "{outdir}/04_abundance/orf_annotations.tsv".format(
                 outdir=config["output_dir"]
-             )] if config.get("calculate_abundance", False) else [])
+             )] if MODULES.get("abundance") else [])

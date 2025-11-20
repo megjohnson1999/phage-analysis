@@ -20,14 +20,55 @@ assembly_file: "/path/to/assembly.fasta"  # Path to assembly file for FASTA-only
 assembly_graph: ""   # Path to assembly graph file for Reneo workflow
 reads_dir: "/path/to/reads"  # Directory containing sequencing reads
 
-# Pipeline configuration
-do_clustering: true  # Set to false to skip clustering
-generate_summaries: true  # Set to false to skip summary report generation
+# ================================================================================
+# Pipeline Module Configuration
+# ================================================================================
+#
+# Choose which pipeline modules to run using ONE of these methods:
+#
+# METHOD 1: Quick Presets (recommended for most users)
+# ------------------------------------------------------
+# Use 'analysis_type' to select a predefined workflow:
+#
+#   "prediction_only": Just phage prediction (no clustering or analysis)
+#   "standard": Prediction + Clustering + Analysis + Summaries (no abundance)
+#   "comprehensive": Everything including abundance calculation
+#
+# Uncomment ONE of the following lines:
+analysis_type: "standard"
+# analysis_type: "prediction_only"
+# analysis_type: "comprehensive"
+#
+# METHOD 2: Granular Control (advanced users)
+# --------------------------------------------
+# Or, comment out 'analysis_type' above and use 'modules' for fine-grained control:
+#
+# modules:
+#   clustering: true      # Cluster predicted phages into vOTUs
+#   analysis: true        # Run taxonomic/lifestyle/host prediction
+#   summaries: true       # Generate summary reports
+#   abundance: false      # Calculate per-sample abundance (requires clustering)
+#
+# Note: prediction module always runs (required)
+#
+# ================================================================================
+
+# DEPRECATED FLAGS (will be removed in future version)
+# Use 'analysis_type' or 'modules' instead
+# do_clustering: true
+# generate_summaries: true
+# calculate_abundance: false
+
+# Additional pipeline options
 run_consensus: true  # Set to false to skip taxonomic consensus
 run_crassus: false  # Set to true to enable CrassUS for Crassvirales taxonomy (requires separate installation)
-calculate_abundance: false  # Set to true to calculate per-sample abundance using CoverM
 abundance_coverage_threshold: 0.75  # Minimum fraction of contig covered to count abundance (0.0-1.0)
 cleanup_temp_dirs: true  # Set to false to keep intermediate temporary files (Reneo temp/work, iPhop tmp)
+
+# Entry point configuration
+# Allows starting pipeline from intermediate stages (skips expensive upstream steps)
+start_from: "assembly"  # Options: "assembly" (default, full pipeline), "clustered_sequences" (skip prediction/clustering)
+clustered_sequences_file: ""  # Path to FASTA file when start_from="clustered_sequences" (nucleotide, min 1000bp, unique IDs)
 
 databases:
   iphop:

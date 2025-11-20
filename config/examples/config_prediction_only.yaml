@@ -1,0 +1,25 @@
+# Example Config: Prediction Only
+# This runs only phage prediction - no clustering or analysis
+
+# Directory configuration
+output_dir: "/path/to/your/project/outputs"
+
+# Input files
+assembly_file: "/path/to/assembly.fasta"
+reads_dir: "/path/to/reads"
+
+# Module configuration - PREDICTION ONLY
+analysis_type: "prediction_only"
+
+# Other settings...
+run_consensus: true
+run_crassus: false
+cleanup_temp_dirs: true
+start_from: "assembly"
+
+# Database paths (use your actual paths)
+databases:
+  genomad:
+    db: "/ref/sahlab/data/viral_analysis_DBs/genomad_DBs/genomad_db"
+  checkv:
+    db: "/ref/sahlab/data/viral_analysis_DBs/checkV_DB/checkv-db-v1.5"

@@ -1,0 +1,40 @@
+# Example Config: Granular Module Control
+# This shows fine-grained control over individual modules
+
+# Directory configuration
+output_dir: "/path/to/your/project/outputs"
+
+# Input files
+assembly_file: "/path/to/assembly.fasta"
+reads_dir: "/path/to/reads"
+
+# Module configuration - GRANULAR CONTROL
+# Comment out or remove 'analysis_type' to use granular control
+# analysis_type: "standard"
+
+modules:
+  clustering: true      # Cluster predicted phages into vOTUs
+  analysis: true        # Run taxonomic/lifestyle/host prediction
+  summaries: false      # Skip summary report generation
+  abundance: false      # Skip abundance calculation
+
+# Other settings...
+run_consensus: true
+run_crassus: false
+cleanup_temp_dirs: true
+start_from: "assembly"
+
+# Database paths (use your actual paths)
+databases:
+  genomad:
+    db: "/ref/sahlab/data/viral_analysis_DBs/genomad_DBs/genomad_db"
+  checkv:
+    db: "/ref/sahlab/data/viral_analysis_DBs/checkV_DB/checkv-db-v1.5"
+  iphop:
+    db: "/ref/sahlab/data/viral_analysis_DBs/iphop_DBs/Aug_2023_pub_rw"
+  phabox:
+    db: "/ref/sahlab/data/viral_analysis_DBs/phabox_db_v2"
+  vcontact3:
+    db: "/ref/sahlab/data/viral_analysis_DBs/vcontact3_DB223"
+  mmseqs2:
+    db: "/ref/sahlab/data/nr/nr_mmseqs15_DB"
