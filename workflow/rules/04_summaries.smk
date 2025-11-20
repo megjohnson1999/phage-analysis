@@ -18,7 +18,6 @@ def get_summary_inputs():
     This prevents requesting stats from skipped steps based on entry point.
     """
     start_from = config.get("start_from", "assembly")
-    print(f"DEBUG: get_summary_inputs called with start_from={start_from}")
     summaries = []
 
     # Always include these (run for all entry points)
@@ -60,11 +59,8 @@ def get_summary_inputs():
             f"{SUMMARY_DIR}/phold_stats.json",
             f"{SUMMARY_DIR}/integration_stats.json",
         ])
-    elif start_from == "predicted_phages":
-        # Skip all prediction steps
-        summaries.extend([
-            f"{SUMMARY_DIR}/phold_stats.json",  # Phold runs on predicted phages
-        ])
+    # elif start_from == "predicted_phages":
+    #     # Skip all prediction/filtering steps - only clustering and analysis
     # elif start_from == "clustered_sequences":
     #     # Only analysis stats (already included above)
 
@@ -75,10 +71,6 @@ def get_summary_inputs():
     # Add consensus taxonomy if enabled
     if config.get("run_consensus", True):
         summaries.append(f"{SUMMARY_DIR}/consensus_taxonomy.json")
-
-    print(f"DEBUG: get_summary_inputs returning {len(summaries)} summaries:")
-    for s in summaries:
-        print(f"  - {s}")
 
     return summaries
 
@@ -228,10 +220,21 @@ rule collect_phold_stats:
             > {log} 2>&1
         """
 
+# Helper function to get correct CheckV results based on entry point
+def get_checkv_results(wildcards):
+    """Return the appropriate CheckV results file based on what actually ran."""
+    start_from = config.get("start_from", "assembly")
+    # If we ran prediction, use prediction-stage CheckV
+    if start_from in ["assembly", "reneo_output", "viral_contigs"]:
+        return f"{config['output_dir']}/01_checkv_output/quality_summary.tsv"
+    # Otherwise use final CheckV (runs on provided sequences)
+    else:
+        return f"{config['output_dir']}/03_checkv_final/quality_summary.tsv"
+
 # Rule to collect CheckV statistics
 rule collect_checkv_stats:
     input:
-        checkv_results = f"{config['output_dir']}/01_checkv_output/quality_summary.tsv"
+        checkv_results = get_checkv_results
     output:
         summary = f"{SUMMARY_DIR}/checkv_stats.json"
     log:
