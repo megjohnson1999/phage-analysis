@@ -1,5 +1,11 @@
 # Example Config: Prediction Only
-# This runs only phage prediction - no clustering or analysis
+#
+# USE THIS WHEN YOU:
+#   • Just want to identify phage contigs
+#   • Will do custom downstream analysis
+#   • Want fastest runtime
+#
+# OUTPUTS: Filtered assembly + phage predictions (geNomad)
 
 # Directory configuration
 output_dir: "/path/to/your/project/outputs"

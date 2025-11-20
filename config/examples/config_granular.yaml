@@ -1,5 +1,11 @@
 # Example Config: Granular Module Control
-# This shows fine-grained control over individual modules
+#
+# USE THIS WHEN YOU:
+#   • Need custom combination of modules
+#   • Presets don't match your needs
+#   • Want fine-grained control
+#
+# EXAMPLE: Clustering + analysis, but skip summaries and abundance
 
 # Directory configuration
 output_dir: "/path/to/your/project/outputs"
@@ -9,14 +15,14 @@ assembly_file: "/path/to/assembly.fasta"
 reads_dir: "/path/to/reads"
 
 # Module configuration - GRANULAR CONTROL
-# Comment out or remove 'analysis_type' to use granular control
+# IMPORTANT: Comment out or remove 'analysis_type' to use granular control
 # analysis_type: "standard"
 
 modules:
-  clustering: true      # Cluster predicted phages into vOTUs
-  analysis: true        # Run taxonomic/lifestyle/host prediction
-  summaries: false      # Skip summary report generation
-  abundance: false      # Skip abundance calculation
+  clustering: true      # Group similar phages into vOTUs?
+  analysis: true        # Get taxonomy, hosts, lifestyle?
+  summaries: false      # Generate HTML reports? (NO - skipping)
+  abundance: false      # Count phages per sample? (NO - skipping)
 
 # Other settings...
 run_consensus: true

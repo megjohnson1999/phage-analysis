@@ -26,30 +26,42 @@ reads_dir: "/path/to/reads"  # Directory containing sequencing reads
 #
 # Choose which pipeline modules to run using ONE of these methods:
 #
-# METHOD 1: Quick Presets (recommended for most users)
-# ------------------------------------------------------
-# Use 'analysis_type' to select a predefined workflow:
+# ===== METHOD 1: Quick Presets (RECOMMENDED) =====
 #
-#   "prediction_only": Just phage prediction (no clustering or analysis)
-#   "standard": Prediction + Clustering + Analysis + Summaries (no abundance)
-#   "comprehensive": Everything including abundance calculation
+# Which preset should I use?
 #
-# Uncomment ONE of the following lines:
+# "prediction_only" - When you:
+#   • Just want to identify phage contigs
+#   • Will do custom downstream analysis
+#   • Want fastest runtime
+#
+# "standard" - When you:
+#   • Want complete phage characterization
+#   • Need host prediction, taxonomy, lifestyle
+#   • Don't need per-sample abundance
+#   • DEFAULT - good for most users
+#
+# "comprehensive" - When you:
+#   • Need everything including abundance matrices
+#   • Have multiple samples to compare
+#   • Willing to wait longer (abundance is slow)
+#
+# Uncomment ONE of these:
 analysis_type: "standard"
 # analysis_type: "prediction_only"
 # analysis_type: "comprehensive"
 #
-# METHOD 2: Granular Control (advanced users)
-# --------------------------------------------
-# Or, comment out 'analysis_type' above and use 'modules' for fine-grained control:
+# ===== METHOD 2: Granular Control (ADVANCED) =====
+# To use granular control: Comment out 'analysis_type' above and uncomment below:
 #
 # modules:
-#   clustering: true      # Cluster predicted phages into vOTUs
-#   analysis: true        # Run taxonomic/lifestyle/host prediction
-#   summaries: true       # Generate summary reports
-#   abundance: false      # Calculate per-sample abundance (requires clustering)
+#   clustering: true      # Group similar phages into vOTUs?
+#   analysis: true        # Get taxonomy, hosts, lifestyle?
+#   summaries: true       # Generate HTML reports?
+#   abundance: false      # Count phages per sample? (slow)
 #
-# Note: prediction module always runs (required)
+# Note: The 'prediction' module always runs (required)
+# Note: 'abundance' requires 'clustering' to be enabled
 #
 # ================================================================================
 

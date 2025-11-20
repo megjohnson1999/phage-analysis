@@ -1,5 +1,11 @@
 # Example Config: Comprehensive Analysis
-# This runs the complete pipeline including abundance calculation
+#
+# USE THIS WHEN YOU:
+#   • Need everything including abundance matrices
+#   • Have multiple samples to compare
+#   • Willing to wait longer (abundance is slow)
+#
+# OUTPUTS: Complete analysis + per-sample abundance matrices
 
 # Directory configuration
 output_dir: "/path/to/your/project/outputs"
