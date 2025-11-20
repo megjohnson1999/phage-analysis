@@ -515,22 +515,74 @@ rule generate_summary_report:
         """
 
 # Rule to run all summary collection (helper rule)
-rule collect_all_summaries:
-    input:
-        f"{SUMMARY_DIR}/input_stats.json",
-        f"{SUMMARY_DIR}/reneo_stats.json",
-        f"{SUMMARY_DIR}/filtering_stats.json",
-        f"{SUMMARY_DIR}/jaeger_stats.json",
-        f"{SUMMARY_DIR}/genomad_stats.json",
-        f"{SUMMARY_DIR}/phold_stats.json",
+def get_summary_inputs():
+    """
+    Return list of summary stat files based on which steps were actually run.
+    This prevents requesting stats from skipped steps based on entry point.
+    """
+    start_from = config.get("start_from", "assembly")
+    summaries = []
+
+    # Always include these (run for all entry points)
+    summaries.extend([
         f"{SUMMARY_DIR}/checkv_stats.json",
-        f"{SUMMARY_DIR}/integration_stats.json",
         f"{SUMMARY_DIR}/iphop_stats.json",
         f"{SUMMARY_DIR}/lifestyle_stats.json",
-        f"{SUMMARY_DIR}/consensus_taxonomy.json",
-        f"{SUMMARY_DIR}/clustering_stats.json",
         f"{SUMMARY_DIR}/final_summary.json",
         f"{SUMMARY_DIR}/final_phages.json"
+    ])
+
+    # Conditionally include based on entry point
+    if start_from == "assembly":
+        # Full pipeline - include all stats
+        summaries.extend([
+            f"{SUMMARY_DIR}/input_stats.json",
+            f"{SUMMARY_DIR}/reneo_stats.json",
+            f"{SUMMARY_DIR}/filtering_stats.json",
+            f"{SUMMARY_DIR}/jaeger_stats.json",
+            f"{SUMMARY_DIR}/genomad_stats.json",
+            f"{SUMMARY_DIR}/phold_stats.json",
+            f"{SUMMARY_DIR}/integration_stats.json",
+        ])
+    elif start_from == "reneo_output":
+        # Skip Reneo binning, but include filtering and prediction
+        summaries.extend([
+            f"{SUMMARY_DIR}/reneo_stats.json",  # Stats on user-provided file
+            f"{SUMMARY_DIR}/filtering_stats.json",
+            f"{SUMMARY_DIR}/jaeger_stats.json",
+            f"{SUMMARY_DIR}/genomad_stats.json",
+            f"{SUMMARY_DIR}/phold_stats.json",
+            f"{SUMMARY_DIR}/integration_stats.json",
+        ])
+    elif start_from == "viral_contigs":
+        # Skip filtering, but include prediction
+        summaries.extend([
+            f"{SUMMARY_DIR}/jaeger_stats.json",
+            f"{SUMMARY_DIR}/genomad_stats.json",
+            f"{SUMMARY_DIR}/phold_stats.json",
+            f"{SUMMARY_DIR}/integration_stats.json",
+        ])
+    elif start_from == "predicted_phages":
+        # Skip all prediction steps
+        summaries.extend([
+            f"{SUMMARY_DIR}/phold_stats.json",  # Phold runs on predicted phages
+        ])
+    # elif start_from == "clustered_sequences":
+    #     # Only analysis stats (already included above)
+
+    # Add clustering stats if clustering is enabled
+    if config.get("do_clustering", True) and start_from in ["assembly", "reneo_output", "viral_contigs", "predicted_phages"]:
+        summaries.append(f"{SUMMARY_DIR}/clustering_stats.json")
+
+    # Add consensus taxonomy if enabled
+    if config.get("run_consensus", True):
+        summaries.append(f"{SUMMARY_DIR}/consensus_taxonomy.json")
+
+    return summaries
+
+rule collect_all_summaries:
+    input:
+        get_summary_inputs()
     output:
         flag = f"{SUMMARY_DIR}/.all_summaries_collected"
     shell:
