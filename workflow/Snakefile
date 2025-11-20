@@ -24,11 +24,24 @@ else:
         "  2. Workflow directory: cd workflow && snakemake"
     )
 
-# Import rules
-include: "rules/01_prediction.smk"
+# Import rules - conditionally based on entry point
+# Note: start_from is defined below during config validation
+
+# Prediction module - only include if we're actually doing prediction
+# Skip if starting from predicted_phages or clustered_sequences
+if config.get("start_from", "assembly") in ["assembly", "reneo_output", "viral_contigs"]:
+    include: "rules/01_prediction.smk"
+
+# Clustering module - always include (needed for vOTU creation or analysis)
 include: "rules/02_clustering.smk"
+
+# Analysis module - always include
 include: "rules/03_analysis.smk"
+
+# Summaries module - always include
 include: "rules/04_summaries.smk"
+
+# Abundance module - always include
 include: "rules/05_abundance.smk"
 
 # Helper function to check if a path is a placeholder
