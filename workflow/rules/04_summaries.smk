@@ -521,6 +521,7 @@ def get_summary_inputs():
     This prevents requesting stats from skipped steps based on entry point.
     """
     start_from = config.get("start_from", "assembly")
+    print(f"DEBUG: get_summary_inputs called with start_from={start_from}")
     summaries = []
 
     # Always include these (run for all entry points)
@@ -577,6 +578,10 @@ def get_summary_inputs():
     # Add consensus taxonomy if enabled
     if config.get("run_consensus", True):
         summaries.append(f"{SUMMARY_DIR}/consensus_taxonomy.json")
+
+    print(f"DEBUG: get_summary_inputs returning {len(summaries)} summaries:")
+    for s in summaries:
+        print(f"  - {s}")
 
     return summaries
 
