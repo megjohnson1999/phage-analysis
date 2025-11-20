@@ -1,0 +1,61 @@
+# Example Config: Starting from Viral Contigs
+#
+# USE THIS WHEN:
+#   - You already have viral contigs (e.g., from MMseqs2 viral filtering)
+#   - You want to run phage prediction tools on known viral sequences
+#   - You want to skip the initial assembly filtering step
+#
+# SKIPS: Assembly filtering, MMseqs2 viral detection
+# RUNS: Prediction (geNomad, Jaeger, PHOLD) → Clustering → Analysis
+
+# Directory configuration
+output_dir: "/path/to/your/project/outputs"
+
+# Input files
+reads_dir: "/path/to/reads"  # Required for abundance calculation
+
+# Entry point configuration
+start_from: "viral_contigs"
+viral_contigs_file: "/path/to/your/viral_contigs.fasta"  # FASTA with viral contigs (min 1000bp)
+
+# Pipeline flags
+do_clustering: true  # Cluster predicted phages into vOTUs
+generate_summaries: true
+calculate_abundance: false
+run_consensus: true
+run_crassus: false
+cleanup_temp_dirs: true
+abundance_coverage_threshold: 0.75
+
+# Database paths (example - update with your paths)
+databases:
+  genomad:
+    db: "/ref/sahlab/data/viral_analysis_DBs/genomad_DBs/genomad_db"
+  checkv:
+    db: "/ref/sahlab/data/viral_analysis_DBs/checkV_DB/checkv-db-v1.5"
+  iphop:
+    db: "/ref/sahlab/data/viral_analysis_DBs/iphop_DBs/Aug_2023_pub_rw"
+  phabox:
+    db: "/ref/sahlab/data/viral_analysis_DBs/phabox_db_v2"
+  vcontact3:
+    db: "/ref/sahlab/data/viral_analysis_DBs/vcontact3_DB223"
+  mmseqs2:
+    db: "/ref/sahlab/data/nr/nr_mmseqs15_DB"
+  phold:
+    db: "/ref/sahlab/data/protein_Structure_DBs/phold"
+
+# Conda environments (using default paths)
+conda_envs:
+  genomad: "../envs/genomad.yaml"
+  jaeger: "../envs/jaeger.yaml"
+  phold: "../envs/phold.yaml"
+  checkv: "../envs/checkv.yaml"
+  vclust: "../envs/vclust.yaml"
+  iphop: "../envs/iphop.yaml"
+  bacphlip: "../envs/bacphlip.yaml"
+  phabox2: "../envs/phabox2.yaml"
+  vcontact3: "../envs/vcontact3.yaml"
+  mmseqs2: "../envs/mmseqs2.yaml"
+  seqkit: "../envs/seqkit.yaml"
+  python: "../envs/python.yaml"
+  r: "../envs/r.yaml"
