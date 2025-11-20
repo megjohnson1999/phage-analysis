@@ -151,9 +151,10 @@ elif start_from == "viral_contigs":
             f"The specified viral_contigs_file '{config.get('viral_contigs_file')}' does not exist."
         )
 
-    # Create symlink to expected pipeline location (after MMseqs filtering)
-    os.makedirs(f"{config['output_dir']}/01_filtered_assembly", exist_ok=True)
-    expected_location = f"{config['output_dir']}/01_filtered_assembly/filtered_assembly_1KB.fasta"
+    # Create symlink to expected pipeline location
+    # Prediction rules expect: 01_filtered_mmseqs/passing_Viralcontigs.fasta
+    os.makedirs(f"{config['output_dir']}/01_filtered_mmseqs", exist_ok=True)
+    expected_location = f"{config['output_dir']}/01_filtered_mmseqs/passing_Viralcontigs.fasta"
 
     if os.path.exists(expected_location) or os.path.islink(expected_location):
         if os.path.islink(expected_location):
@@ -184,11 +185,10 @@ elif start_from == "predicted_phages":
             f"The specified predicted_phages_file '{config.get('predicted_phages_file')}' does not exist."
         )
 
-    # Create symlink to expected pipeline location (after geNomad/prediction)
-    # This would typically go after the prediction step - exact location depends on your pipeline structure
-    # For now, placing it in a predicted_phages directory
-    os.makedirs(f"{config['output_dir']}/01_predicted_phages", exist_ok=True)
-    expected_location = f"{config['output_dir']}/01_predicted_phages/predicted_phages.fasta"
+    # Create symlink to expected pipeline location
+    # The clustering rule expects: 01_phage_predictions/phageContigs.fasta
+    os.makedirs(f"{config['output_dir']}/01_phage_predictions", exist_ok=True)
+    expected_location = f"{config['output_dir']}/01_phage_predictions/phageContigs.fasta"
 
     if os.path.exists(expected_location) or os.path.islink(expected_location):
         if os.path.islink(expected_location):
