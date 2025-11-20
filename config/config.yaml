@@ -5,6 +5,13 @@
 # 1. Change conda_base_path to your conda installation (or set to "" for Snakemake handling)
 # 2. Update database paths to your local copies
 # 3. Adjust output_dir and input file paths
+#
+# RUNNING THE PIPELINE:
+# The pipeline can be run from either location:
+#   1. From parent directory (recommended):
+#      snakemake --snakefile workflow/Snakefile --cores 8
+#   2. From workflow directory (backward compatible):
+#      cd workflow && snakemake --cores 8
 
 # Directory configuration
 output_dir: "/path/to/your/project/outputs"  # Change to your actual output directory

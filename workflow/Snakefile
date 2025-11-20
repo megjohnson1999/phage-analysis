@@ -10,7 +10,19 @@ from snakemake.utils import min_version
 # Ensure minimum Snakemake version
 min_version("8.0")
 
-configfile: "../config/config.yaml"
+# Smart config path detection - works from both parent and workflow directories
+if os.path.exists("config/config.yaml"):
+    # Running from parent directory (standard approach)
+    configfile: "config/config.yaml"
+elif os.path.exists("../config/config.yaml"):
+    # Running from workflow directory (backward compatibility)
+    configfile: "../config/config.yaml"
+else:
+    raise FileNotFoundError(
+        "Cannot find config/config.yaml. Please run from either:\n"
+        "  1. Parent directory: snakemake --snakefile workflow/Snakefile\n"
+        "  2. Workflow directory: cd workflow && snakemake"
+    )
 
 # Import rules
 include: "rules/01_prediction.smk"
@@ -18,9 +30,6 @@ include: "rules/02_clustering.smk"
 include: "rules/03_analysis.smk"
 include: "rules/04_summaries.smk"
 include: "rules/05_abundance.smk"
-
-# Import needed for file existence checks
-import os
 
 # Helper function to check if a path is a placeholder
 def is_placeholder_path(path):
