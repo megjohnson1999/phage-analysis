@@ -455,20 +455,8 @@ print(f'Annotation coverage - Taxonomy: {{has_taxonomy}}, Lifestyle: {{has_lifes
 # Rule to generate the final summary report
 rule generate_summary_report:
     input:
-        # Collect all available summaries
-        summaries = [
-            f"{SUMMARY_DIR}/input_stats.json",
-            f"{SUMMARY_DIR}/filtering_stats.json",
-            f"{SUMMARY_DIR}/jaeger_stats.json",
-            f"{SUMMARY_DIR}/genomad_stats.json",
-            f"{SUMMARY_DIR}/phold_stats.json",
-            f"{SUMMARY_DIR}/checkv_stats.json",
-            f"{SUMMARY_DIR}/integration_stats.json",
-            f"{SUMMARY_DIR}/iphop_stats.json",
-            f"{SUMMARY_DIR}/lifestyle_stats.json",
-            f"{SUMMARY_DIR}/final_summary.json",
-            f"{SUMMARY_DIR}/final_phages.json"
-        ],
+        # Use the same conditional logic as collect_all_summaries
+        summaries = get_summary_inputs(),
         # Optional summaries (may not exist)
         reneo_summary = f"{SUMMARY_DIR}/reneo_stats.json",
         consensus_summary = f"{SUMMARY_DIR}/consensus_taxonomy.json",
