@@ -10,17 +10,39 @@ from snakemake.utils import min_version
 # Ensure minimum Snakemake version
 min_version("8.0")
 
-configfile: "../config/config.yaml"
+# Smart config path detection - works from both parent and workflow directories
+if os.path.exists("config/config.yaml"):
+    # Running from parent directory (standard approach)
+    configfile: "config/config.yaml"
+elif os.path.exists("../config/config.yaml"):
+    # Running from workflow directory (backward compatibility)
+    configfile: "../config/config.yaml"
+else:
+    raise FileNotFoundError(
+        "Cannot find config/config.yaml. Please run from either:\n"
+        "  1. Parent directory: snakemake --snakefile workflow/Snakefile\n"
+        "  2. Workflow directory: cd workflow && snakemake"
+    )
 
-# Import rules
-include: "rules/01_prediction.smk"
+# Import rules - conditionally based on entry point
+# Note: start_from is defined below during config validation
+
+# Prediction module - only include if we're actually doing prediction
+# Skip if starting from predicted_phages or clustered_sequences
+if config.get("start_from", "assembly") in ["assembly", "reneo_output", "viral_contigs"]:
+    include: "rules/01_prediction.smk"
+
+# Clustering module - always include (needed for vOTU creation or analysis)
 include: "rules/02_clustering.smk"
-include: "rules/03_analysis.smk"
-include: "rules/04_summaries.smk"
-include: "rules/05_abundance.smk"
 
-# Import needed for file existence checks
-import os
+# Analysis module - always include
+include: "rules/03_analysis.smk"
+
+# Summaries module - always include
+include: "rules/04_summaries.smk"
+
+# Abundance module - always include
+include: "rules/05_abundance.smk"
 
 # Helper function to check if a path is a placeholder
 def is_placeholder_path(path):
@@ -36,126 +58,263 @@ if is_placeholder_path(config.get("assembly_file")):
 if is_placeholder_path(config.get("assembly_graph")):
     config["assembly_graph"] = ""
 
-# Validate required inputs - must provide exactly one
-if not config.get("assembly_file") and not config.get("assembly_graph"):
-    raise ValueError("Either 'assembly_file' or 'assembly_graph' must be provided in the config.")
+# Validate required inputs based on entry point
+start_from = config.get("start_from", "assembly")
 
-if config.get("assembly_file") and config.get("assembly_graph"):
-    raise ValueError("Please provide either 'assembly_file' OR 'assembly_graph', not both. Use 'assembly_file' for FASTA-only workflow or 'assembly_graph' for Reneo workflow.")
+# Only require assembly inputs when starting from "assembly"
+if start_from == "assembly":
+    if not config.get("assembly_file") and not config.get("assembly_graph"):
+        raise ValueError("Either 'assembly_file' or 'assembly_graph' must be provided when start_from='assembly'.")
 
-# Validate assembly_file input
-if config.get("assembly_file"):
-    # Check if assembly_file exists
-    if not os.path.exists(config.get("assembly_file", "")):
-        raise ValueError(f"The specified assembly_file '{config.get('assembly_file')}' does not exist.")
+    if config.get("assembly_file") and config.get("assembly_graph"):
+        raise ValueError("Please provide either 'assembly_file' OR 'assembly_graph', not both. Use 'assembly_file' for FASTA-only workflow or 'assembly_graph' for Reneo workflow.")
 
-# Validate assembly_graph input  
-if config.get("assembly_graph"):
-    # Check if assembly_graph file exists
-    if not os.path.exists(config.get("assembly_graph", "")):
-        raise ValueError(f"The specified assembly_graph file '{config.get('assembly_graph')}' does not exist.")
-    
-    # Ensure reads_dir is provided (required for Reneo)
-    if not config.get("reads_dir"):
-        raise ValueError("When using 'assembly_graph', 'reads_dir' must be provided for Reneo to work.")
+    # Validate assembly_file input
+    if config.get("assembly_file"):
+        # Check if assembly_file exists
+        if not os.path.exists(config.get("assembly_file", "")):
+            raise ValueError(f"The specified assembly_file '{config.get('assembly_file')}' does not exist.")
+
+    # Validate assembly_graph input
+    if config.get("assembly_graph"):
+        # Check if assembly_graph file exists
+        if not os.path.exists(config.get("assembly_graph", "")):
+            raise ValueError(f"The specified assembly_graph file '{config.get('assembly_graph')}' does not exist.")
+
+        # Ensure reads_dir is provided (required for Reneo)
+        if not config.get("reads_dir"):
+            raise ValueError("When using 'assembly_graph', 'reads_dir' must be provided for Reneo to work.")
 
 # Make sure reads_dir is provided in all cases
 if not config.get("reads_dir"):
     raise ValueError("'reads_dir' must be provided in the config.")
 
+# ================================================================================
+# Entry Point Configuration
+# ================================================================================
+#
+# The pipeline supports starting from different stages by providing pre-computed
+# intermediate files. This allows you to skip expensive upstream steps.
+#
+# Entry Points:
+#   - "assembly" (default): Start from raw assembly file
+#   - "reneo_output": Start from Reneo-binned contigs (skip Reneo step)
+#   - "viral_contigs": Start from viral contigs (skip MMseqs filtering)
+#   - "predicted_phages": Start from phage predictions (skip prediction tools)
+#   - "clustered_sequences": Start from clustered vOTUs (skip prediction/clustering)
+#
+# ================================================================================
+
+# Validate entry point configuration
+valid_entry_points = ["assembly", "reneo_output", "viral_contigs", "predicted_phages", "clustered_sequences"]
+
+if start_from not in valid_entry_points:
+    raise ValueError(
+        f"Invalid start_from value '{start_from}'. Must be one of: {valid_entry_points}"
+    )
+
+# Validate entry point inputs and create symlinks to expected locations
+if start_from == "reneo_output":
+    if not config.get("reneo_output_file"):
+        raise ValueError(
+            "When start_from='reneo_output', you must provide 'reneo_output_file' in the config.\n"
+            "This should be a FASTA file of Reneo-binned contigs (min 1000bp)."
+        )
+
+    if is_placeholder_path(config.get("reneo_output_file")):
+        raise ValueError(
+            "Please provide a valid path for 'reneo_output_file' (not a placeholder)."
+        )
+
+    if not os.path.exists(config.get("reneo_output_file")):
+        raise ValueError(
+            f"The specified reneo_output_file '{config.get('reneo_output_file')}' does not exist."
+        )
+
+    # Create symlink to expected pipeline location
+    os.makedirs(f"{config['output_dir']}/01_reneo_output", exist_ok=True)
+    expected_location = f"{config['output_dir']}/01_reneo_output/genomes_and_unresolved_edges_1KB.fasta"
+
+    if os.path.exists(expected_location) or os.path.islink(expected_location):
+        if os.path.islink(expected_location):
+            current_target = os.readlink(expected_location)
+            if os.path.abspath(current_target) != os.path.abspath(config.get("reneo_output_file")):
+                os.remove(expected_location)
+                os.symlink(os.path.abspath(config.get("reneo_output_file")), expected_location)
+        elif os.path.isfile(expected_location):
+            print(f"Warning: File already exists at {expected_location}. Using existing file.")
+    else:
+        os.symlink(os.path.abspath(config.get("reneo_output_file")), expected_location)
+        print(f"Created symlink: {expected_location} -> {config.get('reneo_output_file')}")
+
+elif start_from == "viral_contigs":
+    if not config.get("viral_contigs_file"):
+        raise ValueError(
+            "When start_from='viral_contigs', you must provide 'viral_contigs_file' in the config.\n"
+            "This should be a FASTA file of viral contigs (min 1000bp)."
+        )
+
+    if is_placeholder_path(config.get("viral_contigs_file")):
+        raise ValueError(
+            "Please provide a valid path for 'viral_contigs_file' (not a placeholder)."
+        )
+
+    if not os.path.exists(config.get("viral_contigs_file")):
+        raise ValueError(
+            f"The specified viral_contigs_file '{config.get('viral_contigs_file')}' does not exist."
+        )
+
+    # Create symlink to expected pipeline location
+    # Prediction rules expect: 01_filtered_mmseqs/passing_Viralcontigs.fasta
+    os.makedirs(f"{config['output_dir']}/01_filtered_mmseqs", exist_ok=True)
+    expected_location = f"{config['output_dir']}/01_filtered_mmseqs/passing_Viralcontigs.fasta"
+
+    if os.path.exists(expected_location) or os.path.islink(expected_location):
+        if os.path.islink(expected_location):
+            current_target = os.readlink(expected_location)
+            if os.path.abspath(current_target) != os.path.abspath(config.get("viral_contigs_file")):
+                os.remove(expected_location)
+                os.symlink(os.path.abspath(config.get("viral_contigs_file")), expected_location)
+        elif os.path.isfile(expected_location):
+            print(f"Warning: File already exists at {expected_location}. Using existing file.")
+    else:
+        os.symlink(os.path.abspath(config.get("viral_contigs_file")), expected_location)
+        print(f"Created symlink: {expected_location} -> {config.get('viral_contigs_file')}")
+
+elif start_from == "predicted_phages":
+    if not config.get("predicted_phages_file"):
+        raise ValueError(
+            "When start_from='predicted_phages', you must provide 'predicted_phages_file' in the config.\n"
+            "This should be a FASTA file of predicted phage contigs."
+        )
+
+    if is_placeholder_path(config.get("predicted_phages_file")):
+        raise ValueError(
+            "Please provide a valid path for 'predicted_phages_file' (not a placeholder)."
+        )
+
+    if not os.path.exists(config.get("predicted_phages_file")):
+        raise ValueError(
+            f"The specified predicted_phages_file '{config.get('predicted_phages_file')}' does not exist."
+        )
+
+    # Create symlink to expected pipeline location
+    # The clustering rule expects: 01_phage_predictions/phageContigs.fasta
+    os.makedirs(f"{config['output_dir']}/01_phage_predictions", exist_ok=True)
+    expected_location = f"{config['output_dir']}/01_phage_predictions/phageContigs.fasta"
+
+    if os.path.exists(expected_location) or os.path.islink(expected_location):
+        if os.path.islink(expected_location):
+            current_target = os.readlink(expected_location)
+            if os.path.abspath(current_target) != os.path.abspath(config.get("predicted_phages_file")):
+                os.remove(expected_location)
+                os.symlink(os.path.abspath(config.get("predicted_phages_file")), expected_location)
+        elif os.path.isfile(expected_location):
+            print(f"Warning: File already exists at {expected_location}. Using existing file.")
+    else:
+        os.symlink(os.path.abspath(config.get("predicted_phages_file")), expected_location)
+        print(f"Created symlink: {expected_location} -> {config.get('predicted_phages_file')}")
+
+elif start_from == "clustered_sequences":
+    if not config.get("clustered_sequences_file"):
+        raise ValueError(
+            "When start_from='clustered_sequences', you must provide 'clustered_sequences_file' in the config.\n"
+            "This should be a FASTA file of clustered vOTU representative sequences."
+        )
+
+    if is_placeholder_path(config.get("clustered_sequences_file")):
+        raise ValueError(
+            "Please provide a valid path for 'clustered_sequences_file' (not a placeholder)."
+        )
+
+    if not os.path.exists(config.get("clustered_sequences_file")):
+        raise ValueError(
+            f"The specified clustered_sequences_file '{config.get('clustered_sequences_file')}' does not exist."
+        )
+
+    # Create symlink to expected pipeline location
+    os.makedirs(f"{config['output_dir']}/02_clustering", exist_ok=True)
+    expected_location = f"{config['output_dir']}/02_clustering/vOTU_repSeqs.fasta"
+
+    if os.path.exists(expected_location) or os.path.islink(expected_location):
+        if os.path.islink(expected_location):
+            current_target = os.readlink(expected_location)
+            if os.path.abspath(current_target) != os.path.abspath(config.get("clustered_sequences_file")):
+                os.remove(expected_location)
+                os.symlink(os.path.abspath(config.get("clustered_sequences_file")), expected_location)
+        elif os.path.isfile(expected_location):
+            print(f"Warning: File already exists at {expected_location}. Using existing file.")
+    else:
+        os.symlink(os.path.abspath(config.get("clustered_sequences_file")), expected_location)
+        print(f"Created symlink: {expected_location} -> {config.get('clustered_sequences_file')}")
+
+print(f"\nPipeline entry point: {start_from}")
+
 # Will be set by 01_prediction.smk
 use_reneo = False
+
+# Helper function to get required outputs based on start_from
+def get_pipeline_outputs():
+    """
+    Return list of output files based on entry point and enabled modules.
+    This prevents requesting outputs from steps that were skipped.
+    """
+    outputs = []
+
+    # Stage 1: Prediction/filtering outputs (only if starting from "assembly")
+    if start_from == "assembly":
+        if workflow.globals.get("use_reneo", False):
+            outputs.append(f"{config['output_dir']}/01_reneo_output/genomes_and_unresolved_edges_1KB.fasta")
+        else:
+            outputs.append(f"{config['output_dir']}/01_filtered_assembly/filtered_assembly_1KB.fasta")
+
+    # Stage 2: Clustering outputs (only if do_clustering is enabled)
+    if config.get("do_clustering", True) and start_from in ["assembly", "reneo_output", "viral_contigs", "predicted_phages"]:
+        outputs.append(f"{config['output_dir']}/02_clustering/vOTU_repSeqs.fasta")
+
+    # Stage 3: Analysis outputs (always included unless starting from analyzed_phages)
+    # These are the core analysis steps that run on either individual contigs or clustered vOTUs
+    outputs.extend([
+        f"{config['output_dir']}/03_split_seqs/split_file_list.txt",
+        f"{config['output_dir']}/03_iphop_results/.splits_ready",
+        f"{config['output_dir']}/03_iphop_results/.input_files_found",
+        f"{config['output_dir']}/03_iphop_results/.all_predictions_done",
+        f"{config['output_dir']}/03_iphop_results/iphop_predictions_compiled.tsv",
+        f"{config['output_dir']}/03_genomic_info/bacphlip_lifestyle.tsv",
+        f"{config['output_dir']}/03_genomic_info/bacphlip_lifestyle_with_completeness.tsv",
+        f"{config['output_dir']}/03_genomic_info/mmseqs_taxonomy.tsv",
+        f"{config['output_dir']}/03_genomic_info/phabox_output/taxonomy.tsv",
+        f"{config['output_dir']}/03_genomic_info/phabox_output/lifestyle.tsv",
+        f"{config['output_dir']}/03_genomic_info/vc3_output",
+        f"{config['output_dir']}/03_genomic_info/lifestyle_consensus.tsv",
+        f"{config['output_dir']}/03_checkv_final/quality_summary.tsv",
+        f"{config['output_dir']}/final_contig_summary.tsv",
+    ])
+
+    # Add taxonomic consensus (if enabled)
+    if config.get("run_consensus", True):
+        outputs.append(f"{config['output_dir']}/03_genomic_info/consensus_taxonomy.tsv")
+
+    # Add summary reports (if enabled)
+    if config.get("generate_summaries", True):
+        outputs.extend([
+            f"{config['output_dir']}/pipeline_summaries/.all_summaries_collected",
+            f"{config['output_dir']}/Pipeline_Summary_Report.html"
+        ])
+
+    # Add per-sample abundance matrices (if enabled)
+    if config.get("calculate_abundance", False):
+        outputs.extend([
+            f"{config['output_dir']}/04_abundance/tpm_matrix.tsv",
+            f"{config['output_dir']}/04_abundance/count_matrix.tsv",
+            f"{config['output_dir']}/04_abundance/orf_tpm_matrix.tsv",
+            f"{config['output_dir']}/04_abundance/orf_count_matrix.tsv",
+            f"{config['output_dir']}/04_abundance/orf_annotations.tsv"
+        ])
+
+    return outputs
 
 # Default target rule
 rule all:
     input:
-        # Start with appropriate filtered assembly based on whether Reneo will run
-        [f"{config['output_dir']}/01_reneo_output/genomes_and_unresolved_edges_1KB.fasta"] 
-        if workflow.globals["use_reneo"] else 
-        [f"{config['output_dir']}/01_filtered_assembly/filtered_assembly_1KB.fasta"],
-            
-        # Explicitly include splitting steps to ensure they appear in the plan
-        f"{config['output_dir']}/03_split_seqs/split_file_list.txt",
-        
-        # Add checkpoint triggers
-        f"{config['output_dir']}/03_iphop_results/.splits_ready",
-        
-        # Add the input file checkpoints
-        f"{config['output_dir']}/03_iphop_results/.input_files_found",
-        
-        # Add helpers that run the single prediction jobs
-        f"{config['output_dir']}/03_iphop_results/.all_predictions_done",
-        
-        # Final output files depending on whether clustering is enabled
-        lambda wildcards: 
-            expand(
-                "{outdir}/03_iphop_results/iphop_predictions_compiled.tsv",
-                outdir=config["output_dir"]
-            ) +
-            # Add BACPHLIP lifestyle prediction
-            expand(
-                "{outdir}/03_genomic_info/bacphlip_lifestyle.tsv",
-                outdir=config["output_dir"]
-            ) +
-            expand(
-                "{outdir}/03_genomic_info/bacphlip_lifestyle_with_completeness.tsv",
-                outdir=config["output_dir"]
-            ) +
-            expand(
-                "{outdir}/03_genomic_info/mmseqs_taxonomy.tsv",
-                outdir=config["output_dir"]
-            ) +
-            # Add Phabox2 outputs (taxonomy and lifestyle prediction)
-            expand(
-                "{outdir}/03_genomic_info/phabox_output/taxonomy.tsv",
-                outdir=config["output_dir"]
-            ) +
-            expand(
-                "{outdir}/03_genomic_info/phabox_output/lifestyle.tsv", 
-                outdir=config["output_dir"]
-            ) +
-            # Add vContact3 output (gene-content based taxonomy)
-            expand(
-                "{outdir}/03_genomic_info/vc3_output",
-                outdir=config["output_dir"]
-            ) +
-            # Add taxonomic consensus (if enabled)
-            (["{outdir}/03_genomic_info/consensus_taxonomy.tsv".format(
-                outdir=config["output_dir"]
-             )] if config.get("run_consensus", True) else []) +
-            # Add lifestyle consensus
-            expand(
-                "{outdir}/03_genomic_info/lifestyle_consensus.tsv",
-                outdir=config["output_dir"]
-            ) +
-            # Add final CheckV assessment
-            expand(
-                "{outdir}/03_checkv_final/quality_summary.tsv",
-                outdir=config["output_dir"]
-            ) +
-            # Add final contig summary table
-            expand(
-                "{outdir}/final_contig_summary.tsv",
-                outdir=config["output_dir"]
-            ) +
-            (["{outdir}/02_clustering/vOTU_repSeqs.fasta".format(
-                outdir=config["output_dir"]
-             )] if config.get("do_clustering", True) else []) +
-            # Add summary collection and report generation if enabled (default: True)
-            (["{outdir}/pipeline_summaries/.all_summaries_collected".format(
-                outdir=config["output_dir"]
-             ), "{outdir}/Pipeline_Summary_Report.html".format(
-                outdir=config["output_dir"]
-             )] if config.get("generate_summaries", True) else []) +
-            # Add per-sample abundance matrices if enabled (default: False)
-            (["{outdir}/04_abundance/tpm_matrix.tsv".format(
-                outdir=config["output_dir"]
-             ), "{outdir}/04_abundance/count_matrix.tsv".format(
-                outdir=config["output_dir"]
-             ), "{outdir}/04_abundance/orf_tpm_matrix.tsv".format(
-                outdir=config["output_dir"]
-             ), "{outdir}/04_abundance/orf_count_matrix.tsv".format(
-                outdir=config["output_dir"]
-             ), "{outdir}/04_abundance/orf_annotations.tsv".format(
-                outdir=config["output_dir"]
-             )] if config.get("calculate_abundance", False) else [])
+        get_pipeline_outputs()

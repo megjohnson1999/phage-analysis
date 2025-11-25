@@ -8,12 +8,14 @@ When calculate_abundance is enabled, this module generates:
 - Contig-level abundance (TPM and count matrices)
 - ORF-level abundance (TPM and count matrices)
 - ORF annotations linking ORFs to contigs and functions
+
+Note: Uses get_phage_input() function defined in 02_clustering.smk
 """
 
 # Rule to calculate per-sample abundance using CoverM
 rule calculate_abundance:
     input:
-        phage_seqs = f"{config['output_dir']}/01_phage_predictions/phageContigs.fasta",
+        phage_seqs = get_phage_input,  # Use helper function instead of hardcoded path
         reads_dir = config["reads_dir"]
     output:
         abundance = f"{config['output_dir']}/04_abundance/coverm_results.tsv"

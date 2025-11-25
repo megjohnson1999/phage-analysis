@@ -8,6 +8,76 @@ import os
 # Summary directory
 SUMMARY_DIR = f"{config['output_dir']}/pipeline_summaries"
 
+# ================================================================================
+# Helper function for conditional summary inputs
+# ================================================================================
+
+def get_summary_inputs():
+    """
+    Return list of summary stat files based on which steps were actually run.
+    This prevents requesting stats from skipped steps based on entry point.
+    """
+    start_from = config.get("start_from", "assembly")
+    summaries = []
+
+    # Always include these (run for all entry points)
+    summaries.extend([
+        f"{SUMMARY_DIR}/checkv_stats.json",
+        f"{SUMMARY_DIR}/iphop_stats.json",
+        f"{SUMMARY_DIR}/lifestyle_stats.json",
+        f"{SUMMARY_DIR}/final_summary.json",
+        f"{SUMMARY_DIR}/final_phages.json"
+    ])
+
+    # Conditionally include based on entry point
+    if start_from == "assembly":
+        # Full pipeline - include all stats
+        summaries.extend([
+            f"{SUMMARY_DIR}/input_stats.json",
+            f"{SUMMARY_DIR}/reneo_stats.json",
+            f"{SUMMARY_DIR}/filtering_stats.json",
+            f"{SUMMARY_DIR}/jaeger_stats.json",
+            f"{SUMMARY_DIR}/genomad_stats.json",
+            f"{SUMMARY_DIR}/phold_stats.json",
+            f"{SUMMARY_DIR}/integration_stats.json",
+        ])
+    elif start_from == "reneo_output":
+        # Skip Reneo binning, but include filtering and prediction
+        summaries.extend([
+            f"{SUMMARY_DIR}/reneo_stats.json",  # Stats on user-provided file
+            f"{SUMMARY_DIR}/filtering_stats.json",
+            f"{SUMMARY_DIR}/jaeger_stats.json",
+            f"{SUMMARY_DIR}/genomad_stats.json",
+            f"{SUMMARY_DIR}/phold_stats.json",
+            f"{SUMMARY_DIR}/integration_stats.json",
+        ])
+    elif start_from == "viral_contigs":
+        # Skip filtering, but include prediction
+        summaries.extend([
+            f"{SUMMARY_DIR}/jaeger_stats.json",
+            f"{SUMMARY_DIR}/genomad_stats.json",
+            f"{SUMMARY_DIR}/phold_stats.json",
+            f"{SUMMARY_DIR}/integration_stats.json",
+        ])
+    # elif start_from == "predicted_phages":
+    #     # Skip all prediction/filtering steps - only clustering and analysis
+    # elif start_from == "clustered_sequences":
+    #     # Only analysis stats (already included above)
+
+    # Add clustering stats if clustering is enabled
+    if config.get("do_clustering", True) and start_from in ["assembly", "reneo_output", "viral_contigs", "predicted_phages"]:
+        summaries.append(f"{SUMMARY_DIR}/clustering_stats.json")
+
+    # Add consensus taxonomy if enabled
+    if config.get("run_consensus", True):
+        summaries.append(f"{SUMMARY_DIR}/consensus_taxonomy.json")
+
+    return summaries
+
+# ================================================================================
+# Summary Collection Rules
+# ================================================================================
+
 # Rule to collect input statistics
 rule collect_input_stats:
     output:
@@ -150,10 +220,21 @@ rule collect_phold_stats:
             > {log} 2>&1
         """
 
+# Helper function to get correct CheckV results based on entry point
+def get_checkv_results(wildcards):
+    """Return the appropriate CheckV results file based on what actually ran."""
+    start_from = config.get("start_from", "assembly")
+    # If we ran prediction, use prediction-stage CheckV
+    if start_from in ["assembly", "reneo_output", "viral_contigs"]:
+        return f"{config['output_dir']}/01_checkv_output/quality_summary.tsv"
+    # Otherwise use final CheckV (runs on provided sequences)
+    else:
+        return f"{config['output_dir']}/03_checkv_final/quality_summary.tsv"
+
 # Rule to collect CheckV statistics
 rule collect_checkv_stats:
     input:
-        checkv_results = f"{config['output_dir']}/01_checkv_output/quality_summary.tsv"
+        checkv_results = get_checkv_results
     output:
         summary = f"{SUMMARY_DIR}/checkv_stats.json"
     log:
@@ -364,8 +445,8 @@ except Exception as e:
 # Rule to collect final statistics
 rule collect_final_stats:
     input:
-        # Use clustering output if available, otherwise use phage predictions
-        final_seqs = f"{config['output_dir']}/02_clustering/vOTU_repSeqs.fasta" if config.get("do_clustering", True) else f"{config['output_dir']}/01_phage_predictions/phageContigs.fasta"
+        # Use get_phage_input() helper to get correct input based on entry point and clustering
+        final_seqs = get_phage_input
     output:
         summary = f"{SUMMARY_DIR}/final_phages.json"
     log:
@@ -455,20 +536,8 @@ print(f'Annotation coverage - Taxonomy: {{has_taxonomy}}, Lifestyle: {{has_lifes
 # Rule to generate the final summary report
 rule generate_summary_report:
     input:
-        # Collect all available summaries
-        summaries = [
-            f"{SUMMARY_DIR}/input_stats.json",
-            f"{SUMMARY_DIR}/filtering_stats.json",
-            f"{SUMMARY_DIR}/jaeger_stats.json",
-            f"{SUMMARY_DIR}/genomad_stats.json",
-            f"{SUMMARY_DIR}/phold_stats.json",
-            f"{SUMMARY_DIR}/checkv_stats.json",
-            f"{SUMMARY_DIR}/integration_stats.json",
-            f"{SUMMARY_DIR}/iphop_stats.json",
-            f"{SUMMARY_DIR}/lifestyle_stats.json",
-            f"{SUMMARY_DIR}/final_summary.json",
-            f"{SUMMARY_DIR}/final_phages.json"
-        ],
+        # Use the same conditional logic as collect_all_summaries
+        summaries = get_summary_inputs(),
         # Optional summaries (may not exist)
         reneo_summary = f"{SUMMARY_DIR}/reneo_stats.json",
         consensus_summary = f"{SUMMARY_DIR}/consensus_taxonomy.json",
@@ -517,20 +586,7 @@ rule generate_summary_report:
 # Rule to run all summary collection (helper rule)
 rule collect_all_summaries:
     input:
-        f"{SUMMARY_DIR}/input_stats.json",
-        f"{SUMMARY_DIR}/reneo_stats.json",
-        f"{SUMMARY_DIR}/filtering_stats.json",
-        f"{SUMMARY_DIR}/jaeger_stats.json",
-        f"{SUMMARY_DIR}/genomad_stats.json",
-        f"{SUMMARY_DIR}/phold_stats.json",
-        f"{SUMMARY_DIR}/checkv_stats.json",
-        f"{SUMMARY_DIR}/integration_stats.json",
-        f"{SUMMARY_DIR}/iphop_stats.json",
-        f"{SUMMARY_DIR}/lifestyle_stats.json",
-        f"{SUMMARY_DIR}/consensus_taxonomy.json",
-        f"{SUMMARY_DIR}/clustering_stats.json",
-        f"{SUMMARY_DIR}/final_summary.json",
-        f"{SUMMARY_DIR}/final_phages.json"
+        get_summary_inputs()
     output:
         flag = f"{SUMMARY_DIR}/.all_summaries_collected"
     shell:

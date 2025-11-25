@@ -1,0 +1,46 @@
+# Example Config: Starting from Predicted Phages
+#
+# USE THIS WHEN:
+#   - You already have phage predictions from geNomad or similar tools
+#   - You want to skip prediction steps and go straight to clustering
+#   - You want to cluster your phages into vOTUs and analyze them
+#
+# SKIPS: Assembly filtering, phage prediction
+# RUNS: Clustering → Analysis → Summaries
+
+# Directory configuration
+output_dir: "/path/to/your/project/outputs"
+
+# Input files
+reads_dir: "/path/to/reads"  # Needed for abundance calculation (if enabled)
+
+# Entry point configuration
+start_from: "predicted_phages"
+predicted_phages_file: "/path/to/your/predicted_phages.fasta"  # FASTA with predicted phage contigs
+
+# Pipeline flags
+do_clustering: true  # Cluster into vOTUs
+generate_summaries: true
+calculate_abundance: false  # Set to true if you want per-sample abundance
+run_consensus: true
+run_crassus: false
+cleanup_temp_dirs: true
+
+# Database paths (example - update with your paths)
+databases:
+  checkv:
+    db: "/ref/sahlab/data/viral_analysis_DBs/checkV_DB/checkv-db-v1.5"
+  iphop:
+    db: "/ref/sahlab/data/viral_analysis_DBs/iphop_DBs/Aug_2023_pub_rw"
+  phabox:
+    db: "/ref/sahlab/data/viral_analysis_DBs/phabox_db_v2"
+  vcontact3:
+    db: "/ref/sahlab/data/viral_analysis_DBs/vcontact3_DB223"
+  mmseqs2:
+    db: "/ref/sahlab/data/nr/nr_mmseqs15_DB"
+
+params:
+  vclust:
+    min_length: 10000
+    identity: 0.95
+    coverage: 0.85
