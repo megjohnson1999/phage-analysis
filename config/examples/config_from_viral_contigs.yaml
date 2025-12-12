@@ -30,35 +30,25 @@ abundance_coverage_threshold: 0.75
 # Database Configuration
 # UPDATE THESE PATHS WITH YOUR LOCAL DATABASE LOCATIONS!
 #
-# Option 1 (Manual): Download databases yourself and set auto_download: false
-# Option 2 (Auto): Set auto_download: true to let pipeline download missing databases
-#
-# Manual download commands:
+# Download commands:
 #   genomad download-database /your/path/to/genomad_db
 #   checkv download-database /your/path/to/checkv_db
 #   iphop download --out_dir /your/path/to/iphop_db
 databases:
   genomad:
     db: "/your/path/to/genomad_db"  # UPDATE THIS PATH!
-    auto_download: false  # Set to true for automatic download (~6GB, 30 min)
   checkv:
     db: "/your/path/to/checkv_db"  # UPDATE THIS PATH!
-    auto_download: false  # Set to true for automatic download (~3GB, 15 min)
   iphop:
     db: "/your/path/to/iphop_db"  # UPDATE THIS PATH!
-    auto_download: false  # Set to true for automatic download (~120GB, 3-6 hours)
   phabox:
     db: "/your/path/to/phabox_db"  # UPDATE THIS PATH!
-    auto_download: false  # Set to true for automatic download (~2GB, 10 min)
   vcontact3:
     db: "/your/path/to/vcontact3_db"  # UPDATE THIS PATH!
-    auto_download: false  # Set to true for automatic download (~15GB, 1 hour)
   mmseqs2:
     db: "/your/path/to/mmseqs_nr_db"  # UPDATE THIS PATH!
-    auto_download: false  # Large database, typically pre-installed
   phold:
     db: "/your/path/to/phold_db"  # UPDATE THIS PATH!
-    auto_download: false  # PHOLD database (optional tool)
 
 # Conda environments (using default paths)
 conda_envs:

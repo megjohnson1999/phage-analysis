@@ -109,32 +109,22 @@ def validate_database_path(db_name, db_config, required=True):
         if required:
             raise ValueError(
                 f"Database '{db_name}' path appears to be a placeholder: {db_path}\n"
-                f"Please update with actual database path or enable auto_download in config:\n"
+                f"Please update with actual database path in config:\n"
                 f"databases:\n"
                 f"  {db_name}:\n"
                 f"    db: \"/actual/path/to/{db_name}_db\"\n"
-                f"    auto_download: true  # Optional: enable automatic download"
+                f"See README.md 'Database Setup' section for download instructions"
             )
         return
 
-    # Check if auto_download is enabled - if so, database will be downloaded if missing
-    auto_download = db_config.get("auto_download", False)
-
     # Check if database path exists
     if not os.path.exists(db_path):
-        if auto_download:
-            print(f"Database '{db_name}' not found at {db_path}, but auto_download is enabled. Will download if needed.")
-        else:
-            raise ValueError(
-                f"Database '{db_name}' not found at: {db_path}\n"
-                f"Please either:\n"
-                f"1. Download manually: see README.md 'Database Setup' section\n"
-                f"2. Enable auto-download in config:\n"
-                f"   databases:\n"
-                f"     {db_name}:\n"
-                f"       auto_download: true\n"
-                f"3. Update path to existing database location"
-            )
+        raise ValueError(
+            f"Database '{db_name}' not found at: {db_path}\n"
+            f"Please either:\n"
+            f"1. Download manually: see README.md 'Database Setup' section\n"
+            f"2. Update path to existing database location"
+        )
 
 # Validate databases based on entry point
 databases_config = config.get("databases", {})

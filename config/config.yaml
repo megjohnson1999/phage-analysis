@@ -85,50 +85,40 @@ abundance_coverage_threshold: 0.75  # Minimum fraction of contig covered to coun
 cleanup_temp_dirs: true  # Set to false to keep intermediate temporary files (Reneo temp/work, iPhop tmp)
 
 # Database Configuration
-# Each database can be configured with auto_download to enable automatic downloading if missing.
-# For HPC/shared systems, set auto_download: false and use centrally managed databases.
-# For personal systems, set auto_download: true for convenience.
+# Update these paths to point to your local database installations.
+# See README.md 'Database Setup' section for download instructions.
 #
-# Download commands (if manual setup preferred):
+# Download commands:
 # genomad download-database /path/to/genomad_db
 # checkv download-database /path/to/checkv_db
 # iphop download --out_dir /path/to/iphop_db
 databases:
   iphop:
     db: "/ref/sahlab/data/viral_analysis_DBs/iphop_DBs/Aug_2023_pub_rw"
-    auto_download: false  # Set to true to enable automatic download (~120GB, 3-6 hours)
 
   phabox:
     db: "/ref/sahlab/data/viral_analysis_DBs/phabox_db_v2"
-    auto_download: false  # Set to true to enable automatic download (~2GB, 10 min)
 
   vcontact3:
     db: "/ref/sahlab/data/viral_analysis_DBs/vcontact3_DB223"
-    auto_download: false  # Set to true to enable automatic download (~15GB, 1 hour)
 
   mmseqs2:
     db: "/ref/sahlab/data/nr/nr_mmseqs15_DB"
-    auto_download: false  # MMseqs2 nr database (large, typically pre-installed)
 
   genomad:
     db: "/ref/sahlab/data/viral_analysis_DBs/genomad_DBs/genomad_db"
-    auto_download: false  # Set to true to enable automatic download (~6GB, 30 min)
 
   checkv:
     db: "/ref/sahlab/data/viral_analysis_DBs/checkV_DB/checkv-db-v1.5"
-    auto_download: false  # Set to true to enable automatic download (~3GB, 15 min)
 
   phold:
     db: "/ref/sahlab/data/protein_Structure_DBs/phold"
-    auto_download: false  # PHOLD database (optional tool)
 
   crassus:
     db: "/ref/sahlab/software/CrassUS"  # Path to CrassUS installation directory
-    auto_download: false  # CrassUS is a software installation, not a downloadable database
 
   taxonomizr:
     db: "/ref/sahlab/data/accessionTaxa.sql"  # Path to taxonomizr SQLite database file
-    auto_download: false  # Taxonomizr database setup requires special configuration
     
 params:    
   vclust:

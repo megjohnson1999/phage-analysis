@@ -345,34 +345,12 @@ rule genomad_prediction:
     threads: 24
     shell:
         """
-        # Check if genomad database exists, download if auto_download enabled
-        DB_PATH="{config[databases][genomad][db]}"
-        AUTO_DOWNLOAD="{config[databases][genomad][auto_download]}"
-
-        if [ ! -d "$DB_PATH" ]; then
-            if [ "$AUTO_DOWNLOAD" = "True" ]; then
-                echo "GeNomad database not found at $DB_PATH. Auto-download enabled, downloading..." >> {log}
-                genomad download-database "$DB_PATH" >> {log} 2>&1
-                if [ $? -ne 0 ]; then
-                    echo "ERROR: Failed to download GeNomad database. Check internet connection and disk space." >> {log}
-                    exit 1
-                fi
-            else
-                echo "ERROR: GeNomad database not found at $DB_PATH" >> {log}
-                echo "Please either:" >> {log}
-                echo "1. Download manually: genomad download-database $DB_PATH" >> {log}
-                echo "2. Enable auto_download in config: databases.genomad.auto_download: true" >> {log}
-                echo "3. Update path to existing database location" >> {log}
-                exit 1
-            fi
-        fi
-
         genomad end-to-end --min-score 0.6 \
             --cleanup \
             --threads {threads} \
             {input.assembly} \
             {output.results} \
-            "$DB_PATH" > {log} 2>&1
+            {config[databases][genomad][db]} > {log} 2>&1
         """
 
 # 6a. Split viral contigs for parallel PHOLD processing
