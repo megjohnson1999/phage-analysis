@@ -45,9 +45,7 @@ pip install snakemake-executor-plugin-slurm
 
 # 4. Database Setup
 
-The pipeline requires several databases for phage prediction and analysis. You have two options:
-
-## Option A: Manual Database Download (Recommended for HPC/Lab Systems)
+The pipeline requires several databases for phage prediction and analysis.
 
 Download databases to a central location and configure paths in your config file:
 
@@ -76,29 +74,10 @@ Then update your config file with the correct paths:
 databases:
   genomad:
     db: "/path/to/your/databases/genomad_db"
-    auto_download: false  # Manual management
   checkv:
     db: "/path/to/your/databases/checkv_db"
-    auto_download: false
   # ... etc
 ```
-
-## Option B: Automatic Download (Convenient for Personal Systems)
-
-Enable auto-download in your config file to let the pipeline download missing databases:
-
-```yaml
-databases:
-  genomad:
-    db: "/path/where/you/want/genomad_db"
-    auto_download: true  # Pipeline will download if missing
-  checkv:
-    db: "/path/where/you/want/checkv_db"
-    auto_download: true
-  # ... etc
-```
-
-**Note**: Auto-download requires internet access during pipeline execution and may take several hours for large databases.
 
 ## Database Validation
 
