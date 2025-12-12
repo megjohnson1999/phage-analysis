@@ -27,22 +27,28 @@ run_crassus: false
 cleanup_temp_dirs: true
 abundance_coverage_threshold: 0.75
 
-# Database paths (example - update with your paths)
+# Database Configuration
+# UPDATE THESE PATHS WITH YOUR LOCAL DATABASE LOCATIONS!
+#
+# Download commands:
+#   genomad download-database /your/path/to/genomad_db
+#   checkv download-database /your/path/to/checkv_db
+#   iphop download --out_dir /your/path/to/iphop_db
 databases:
   genomad:
-    db: "/ref/sahlab/data/viral_analysis_DBs/genomad_DBs/genomad_db"
+    db: "/your/path/to/genomad_db"  # UPDATE THIS PATH!
   checkv:
-    db: "/ref/sahlab/data/viral_analysis_DBs/checkV_DB/checkv-db-v1.5"
+    db: "/your/path/to/checkv_db"  # UPDATE THIS PATH!
   iphop:
-    db: "/ref/sahlab/data/viral_analysis_DBs/iphop_DBs/Aug_2023_pub_rw"
+    db: "/your/path/to/iphop_db"  # UPDATE THIS PATH!
   phabox:
-    db: "/ref/sahlab/data/viral_analysis_DBs/phabox_db_v2"
+    db: "/your/path/to/phabox_db"  # UPDATE THIS PATH!
   vcontact3:
-    db: "/ref/sahlab/data/viral_analysis_DBs/vcontact3_DB223"
+    db: "/your/path/to/vcontact3_db"  # UPDATE THIS PATH!
   mmseqs2:
-    db: "/ref/sahlab/data/nr/nr_mmseqs15_DB"
+    db: "/your/path/to/mmseqs_nr_db"  # UPDATE THIS PATH!
   phold:
-    db: "/ref/sahlab/data/protein_Structure_DBs/phold"
+    db: "/your/path/to/phold_db"  # UPDATE THIS PATH!
 
 # Conda environments (using default paths)
 conda_envs:

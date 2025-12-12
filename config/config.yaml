@@ -84,31 +84,39 @@ calculate_abundance: false  # Set to true to calculate per-sample abundance usin
 abundance_coverage_threshold: 0.75  # Minimum fraction of contig covered to count abundance (0.0-1.0)
 cleanup_temp_dirs: true  # Set to false to keep intermediate temporary files (Reneo temp/work, iPhop tmp)
 
+# Database Configuration
+# Update these paths to point to your local database installations.
+# See README.md 'Database Setup' section for download instructions.
+#
+# Download commands:
+# genomad download-database /path/to/genomad_db
+# checkv download-database /path/to/checkv_db
+# iphop download --out_dir /path/to/iphop_db
 databases:
   iphop:
     db: "/ref/sahlab/data/viral_analysis_DBs/iphop_DBs/Aug_2023_pub_rw"
-  
+
   phabox:
     db: "/ref/sahlab/data/viral_analysis_DBs/phabox_db_v2"
-    
+
   vcontact3:
     db: "/ref/sahlab/data/viral_analysis_DBs/vcontact3_DB223"
-  
+
   mmseqs2:
     db: "/ref/sahlab/data/nr/nr_mmseqs15_DB"
-  
+
   genomad:
     db: "/ref/sahlab/data/viral_analysis_DBs/genomad_DBs/genomad_db"
-  
+
   checkv:
     db: "/ref/sahlab/data/viral_analysis_DBs/checkV_DB/checkv-db-v1.5"
-  
+
   phold:
     db: "/ref/sahlab/data/protein_Structure_DBs/phold"
-    
+
   crassus:
     db: "/ref/sahlab/software/CrassUS"  # Path to CrassUS installation directory
-  
+
   taxonomizr:
     db: "/ref/sahlab/data/accessionTaxa.sql"  # Path to taxonomizr SQLite database file
     
