@@ -43,8 +43,81 @@ conda activate phage-pipeline
 conda install -c conda-forge -c bioconda snakemake=8 mamba
 pip install snakemake-executor-plugin-slurm
 
-# 4. Download required databases (CheckV, geNomad, PHOLD, etc.)
-# See tool documentation or use existing institutional databases
+# 4. Database Setup
+
+The pipeline requires several databases for phage prediction and analysis. You have two options:
+
+## Option A: Manual Database Download (Recommended for HPC/Lab Systems)
+
+Download databases to a central location and configure paths in your config file:
+
+```bash
+# Create database directory
+mkdir -p /path/to/your/databases
+
+# GeNomad database (~6GB, ~30 min download)
+genomad download-database /path/to/your/databases/genomad_db
+
+# CheckV database (~3GB, ~15 min download)
+checkv download-database /path/to/your/databases/checkv_db
+
+# iPhop database (~120GB, ~3-6 hours download)
+iphop download --out_dir /path/to/your/databases/iphop_db
+
+# Phabox2 database (~2GB, ~10 min download)
+# Follow instructions at: https://github.com/KennthShang/PhaBox2
+
+# vContact3 database (~15GB, ~1 hour download)
+# Follow instructions at: https://github.com/vcontact/vcontact3
+```
+
+Then update your config file with the correct paths:
+```yaml
+databases:
+  genomad:
+    db: "/path/to/your/databases/genomad_db"
+    auto_download: false  # Manual management
+  checkv:
+    db: "/path/to/your/databases/checkv_db"
+    auto_download: false
+  # ... etc
+```
+
+## Option B: Automatic Download (Convenient for Personal Systems)
+
+Enable auto-download in your config file to let the pipeline download missing databases:
+
+```yaml
+databases:
+  genomad:
+    db: "/path/where/you/want/genomad_db"
+    auto_download: true  # Pipeline will download if missing
+  checkv:
+    db: "/path/where/you/want/checkv_db"
+    auto_download: true
+  # ... etc
+```
+
+**Note**: Auto-download requires internet access during pipeline execution and may take several hours for large databases.
+
+## Database Validation
+
+Before running the pipeline, validate your database setup:
+
+```bash
+# Check if databases exist and are accessible
+ls -la /path/to/your/databases/
+
+# Test genomad database specifically
+genomad --help  # Should show available commands
+```
+
+## Troubleshooting Database Issues
+
+- **"Path does not exist" errors**: Check database paths in your config file
+- **Permission denied**: Ensure read access to database directories
+- **Download failures**: Check internet connection and disk space (total: ~150GB)
+- **For HPC systems**: Ask your administrator about existing institutional databases
 ```
 
 ## Quick Start

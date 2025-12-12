@@ -27,22 +27,38 @@ run_crassus: false
 cleanup_temp_dirs: true
 abundance_coverage_threshold: 0.75
 
-# Database paths (example - update with your paths)
+# Database Configuration
+# UPDATE THESE PATHS WITH YOUR LOCAL DATABASE LOCATIONS!
+#
+# Option 1 (Manual): Download databases yourself and set auto_download: false
+# Option 2 (Auto): Set auto_download: true to let pipeline download missing databases
+#
+# Manual download commands:
+#   genomad download-database /your/path/to/genomad_db
+#   checkv download-database /your/path/to/checkv_db
+#   iphop download --out_dir /your/path/to/iphop_db
 databases:
   genomad:
-    db: "/ref/sahlab/data/viral_analysis_DBs/genomad_DBs/genomad_db"
+    db: "/your/path/to/genomad_db"  # UPDATE THIS PATH!
+    auto_download: false  # Set to true for automatic download (~6GB, 30 min)
   checkv:
-    db: "/ref/sahlab/data/viral_analysis_DBs/checkV_DB/checkv-db-v1.5"
+    db: "/your/path/to/checkv_db"  # UPDATE THIS PATH!
+    auto_download: false  # Set to true for automatic download (~3GB, 15 min)
   iphop:
-    db: "/ref/sahlab/data/viral_analysis_DBs/iphop_DBs/Aug_2023_pub_rw"
+    db: "/your/path/to/iphop_db"  # UPDATE THIS PATH!
+    auto_download: false  # Set to true for automatic download (~120GB, 3-6 hours)
   phabox:
-    db: "/ref/sahlab/data/viral_analysis_DBs/phabox_db_v2"
+    db: "/your/path/to/phabox_db"  # UPDATE THIS PATH!
+    auto_download: false  # Set to true for automatic download (~2GB, 10 min)
   vcontact3:
-    db: "/ref/sahlab/data/viral_analysis_DBs/vcontact3_DB223"
+    db: "/your/path/to/vcontact3_db"  # UPDATE THIS PATH!
+    auto_download: false  # Set to true for automatic download (~15GB, 1 hour)
   mmseqs2:
-    db: "/ref/sahlab/data/nr/nr_mmseqs15_DB"
+    db: "/your/path/to/mmseqs_nr_db"  # UPDATE THIS PATH!
+    auto_download: false  # Large database, typically pre-installed
   phold:
-    db: "/ref/sahlab/data/protein_Structure_DBs/phold"
+    db: "/your/path/to/phold_db"  # UPDATE THIS PATH!
+    auto_download: false  # PHOLD database (optional tool)
 
 # Conda environments (using default paths)
 conda_envs:
