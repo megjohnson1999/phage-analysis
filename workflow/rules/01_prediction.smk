@@ -345,8 +345,6 @@ rule genomad_prediction:
     threads: 24
     shell:
         """
-        #genomad download-database {config[databases][genomad][db]}
-
         genomad end-to-end --min-score 0.6 \
             --cleanup \
             --threads {threads} \

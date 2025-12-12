@@ -90,6 +90,68 @@ if not config.get("reads_dir"):
     raise ValueError("'reads_dir' must be provided in the config.")
 
 # ================================================================================
+# Database Validation
+# ================================================================================
+# Validate that required databases exist before starting pipeline execution
+# Only check databases needed for the current entry point to avoid unnecessary errors
+
+def validate_database_path(db_name, db_config, required=True):
+    """Validate that a database path exists and is accessible."""
+    if not db_config or not isinstance(db_config, dict):
+        if required:
+            raise ValueError(f"Database '{db_name}' configuration is missing or invalid.")
+        return
+
+    db_path = db_config.get("db", "")
+
+    # Skip validation for placeholder paths
+    if is_placeholder_path(db_path):
+        if required:
+            raise ValueError(
+                f"Database '{db_name}' path appears to be a placeholder: {db_path}\n"
+                f"Please update with actual database path in config:\n"
+                f"databases:\n"
+                f"  {db_name}:\n"
+                f"    db: \"/actual/path/to/{db_name}_db\"\n"
+                f"See README.md 'Database Setup' section for download instructions"
+            )
+        return
+
+    # Check if database path exists
+    if not os.path.exists(db_path):
+        raise ValueError(
+            f"Database '{db_name}' not found at: {db_path}\n"
+            f"Please either:\n"
+            f"1. Download manually: see README.md 'Database Setup' section\n"
+            f"2. Update path to existing database location"
+        )
+
+# Validate databases based on entry point
+databases_config = config.get("databases", {})
+
+# Databases needed for prediction phase (assembly, reneo_output, viral_contigs entry points)
+if start_from in ["assembly", "reneo_output", "viral_contigs"]:
+    validate_database_path("genomad", databases_config.get("genomad"))
+    validate_database_path("checkv", databases_config.get("checkv"))
+    # PHOLD is optional - only validate if configured
+    if databases_config.get("phold"):
+        validate_database_path("phold", databases_config.get("phold"), required=False)
+
+# Databases needed for analysis phase (all entry points except clustered_sequences)
+if start_from != "clustered_sequences":
+    # iPhop for host prediction - validate if host prediction is enabled
+    if config.get("run_iphop", True):
+        validate_database_path("iphop", databases_config.get("iphop"))
+
+    # Phabox for lifestyle prediction - validate if consensus is enabled
+    if config.get("run_consensus", True):
+        validate_database_path("phabox", databases_config.get("phabox"))
+
+    # vContact3 for taxonomic analysis - validate if consensus is enabled
+    if config.get("run_consensus", True):
+        validate_database_path("vcontact3", databases_config.get("vcontact3"))
+
+# ================================================================================
 # Entry Point Configuration
 # ================================================================================
 #
