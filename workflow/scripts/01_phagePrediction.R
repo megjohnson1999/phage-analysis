@@ -60,8 +60,19 @@ process_phage_predictions <- function(phold_file, jager_file, genomad_file, chec
       group_by(contig_id, category) %>%
       dplyr::count(contig_id, category) %>%
       dcast(contig_id ~ category, value.var = "n")
-    
+
     phrogsPerContig[is.na(phrogsPerContig)] <- 0
+
+    # Ensure all expected columns exist, add missing ones with 0 values
+    expected_cols <- c("Connector", "Head_Packaging", "Integration_Excision", "Lysis", "Tail")
+    for (col in expected_cols) {
+      if (!col %in% colnames(phrogsPerContig)) {
+        phrogsPerContig[[col]] <- 0
+      }
+    }
+
+    # Reorder columns to match expected format
+    phrogsPerContig <- phrogsPerContig[, c("contig_id", expected_cols)]
     colnames(phrogsPerContig) <- c("contig_id", "Connector", "Head_Packaging", "Integration_Excision", "Lysis", "Tail")
   }
   
