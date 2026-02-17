@@ -247,6 +247,7 @@ The pipeline generates organized results in your specified `output_dir`:
 
 **Detailed Results:**
 - `01_phage_predictions/phageContigs.fasta` - Predicted phage sequences
+- `01_phage_predictions/viral_contigs_summary.tsv` - All viral contigs with pass/fail status and prediction details
 - `02_clustering/vOTU_repSeqs.fasta` - Representative sequences per vOTU (if clustering enabled)
 - `03_checkv_final/quality_summary.tsv` - Quality metrics
 - `03_genomic_info/consensus_taxonomy.tsv` - Integrated taxonomy from multiple tools
