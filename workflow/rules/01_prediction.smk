@@ -600,16 +600,27 @@ rule checkv_assessment:
             -t {threads} > {log} 2>&1
         """
 
+# Helper function to get mmseqs_lca input if it exists (depends on entry point)
+def get_mmseqs_lca_input(wildcards):
+    """Return mmseqs_lca file only if MMseqs filtering was run (not skipped by entry point)."""
+    start_from = config.get("start_from", "assembly")
+    # MMseqs LCA is only available for assembly and reneo_output entry points
+    if start_from in ["assembly", "reneo_output"]:
+        return f"{config['output_dir']}/01_filtered_mmseqs/filtered_lca.tsv"
+    return []
+
 # 8. Integrate phage prediction results
 rule integrate_phage_predictions:
     input:
         phold = f"{config['output_dir']}/01_phold_output/phold_per_cds_predictions.tsv",
         jaeger = f"{config['output_dir']}/01_jaeger_output/passing_Viralcontigs_default_jaeger.tsv",
         genomad = f"{config['output_dir']}/01_genomad_output/passing_Viralcontigs_summary/passing_Viralcontigs_virus_summary.tsv",
-        checkv = f"{config['output_dir']}/01_checkv_output/quality_summary.tsv"
+        checkv = f"{config['output_dir']}/01_checkv_output/quality_summary.tsv",
+        mmseqs_lca = get_mmseqs_lca_input
     output:
         predictions = f"{config['output_dir']}/01_phage_predictions/phagePredictedContigs.tsv",
-        contig_ids = f"{config['output_dir']}/01_phage_predictions/contig_ids.txt"
+        contig_ids = f"{config['output_dir']}/01_phage_predictions/contig_ids.txt",
+        viral_summary = f"{config['output_dir']}/01_phage_predictions/viral_contigs_summary.tsv"
     log:
         f"{config['output_dir']}/logs/integrate_phage_predictions.log"
     conda:
